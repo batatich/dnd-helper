@@ -1,9 +1,23 @@
-import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useCharacterStore } from '../stores/characterStore';
 import { getModifier } from '../types/characters';
-import { sampleCharacters } from '../data/sample-characters';
 
 export function CharacterSheet() {
-  const [character] = useState(sampleCharacters[0]);
+  const { id } = useParams();  // получаем ID из URL
+  const { characters } = useCharacterStore();
+  
+  // Ищем персонажа по ID
+  const character = characters.find(c => c.id === id);
+
+  // Если персонаж не найден
+  if (!character) {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-2xl font-bold text-white">Персонаж не найден</h1>
+        <p className="text-gray-400 mt-2">Возможно, он был удалён</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

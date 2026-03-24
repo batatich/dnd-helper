@@ -6,7 +6,7 @@ export function Navigation() {
 
   const navItems = [
     { path: '/', label: 'Главная', icon: Home },
-    { path: '/character', label: 'Персонажи', icon: Sword },
+    { path: '/characters', label: 'Персонажи', icon: Sword },
     { path: '/world', label: 'Конструктор мира', icon: Map },
     { path: '/notes', label: 'Заметки мастера', icon: BookOpen },
   ];
