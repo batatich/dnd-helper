@@ -1,46 +1,98 @@
-import { useState } from 'react';
-import { useCharacterStore } from '../stores/characterStore';
-import type { Character } from '../types/characters';
+import { useState } from 'react'
+import { useCharacterStore } from '../stores/characterStore'
+import type { Character, Stats } from '../types/characters'
 
 interface CharacterFormProps {
-  character?: Character | null;
-  onClose: () => void;
+  character?: Character | null
+  onClose: () => void
+}
+
+type CharacterFormData = {
+  id: string
+  name: string
+  level: number
+  class: string
+  race: string
+  baseStats: Stats
+}
+
+const defaultBaseStats: Stats = {
+  strength: 10,
+  dexterity: 10,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 10,
+}
+
+const defaultEquippedItems = {
+  mainHand: null,
+  offHand: null,
+  head: null,
+  body: null,
+  ring1: null,
+  ring2: null,
+  amulet: null,
+  boots: null,
 }
 
 export function CharacterForm({ character, onClose }: CharacterFormProps) {
-  const { addCharacter, updateCharacter } = useCharacterStore();
-  const [formData, setFormData] = useState({
+  const { addCharacter, updateCharacter } = useCharacterStore()
+
+  const [formData, setFormData] = useState<CharacterFormData>({
     id: character?.id || crypto.randomUUID(),
     name: character?.name || '',
     level: character?.level || 1,
     class: character?.class || 'Воин',
     race: character?.race || 'Человек',
-    attributes: character?.attributes || {
-      strength: 10,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 10
-    }
-  });
+    baseStats: character?.baseStats || defaultBaseStats,
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (character) {
-      updateCharacter(character.id, formData);
-    } else {
-      addCharacter(formData as Character);
-    }
-    onClose();
-  };
+    e.preventDefault()
 
-  const updateAttribute = (attr: string, value: number) => {
+    if (character) {
+      updateCharacter(character.id, {
+        name: formData.name,
+        level: formData.level,
+        class: formData.class,
+        race: formData.race,
+        baseStats: formData.baseStats,
+      })
+    } else {
+      const newCharacter: Character = {
+        id: formData.id,
+        name: formData.name,
+        level: formData.level,
+        class: formData.class,
+        race: formData.race,
+        baseStats: formData.baseStats,
+        derivedStats: {
+          maxHp: 10,
+          armorClass: 10,
+          initiative: 0,
+        },
+        inventory: [],
+        equippedItems: defaultEquippedItems,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      addCharacter(newCharacter)
+    }
+
+    onClose()
+  }
+
+  const updateStat = (stat: keyof Stats, value: number) => {
     setFormData({
       ...formData,
-      attributes: { ...formData.attributes, [attr]: value }
-    });
-  };
+      baseStats: {
+        ...formData.baseStats,
+        [stat]: value,
+      },
+    })
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -55,17 +107,24 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
             required
           />
         </div>
+
         <div>
           <label className="block text-gray-400 text-sm mb-1">Уровень</label>
           <input
             type="number"
             value={formData.level}
-            onChange={(e) => setFormData({ ...formData, level: parseInt(e.target.value) })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                level: Number(e.target.value),
+              })
+            }
             className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
             min="1"
             max="20"
           />
         </div>
+
         <div>
           <label className="block text-gray-400 text-sm mb-1">Класс</label>
           <select
@@ -81,6 +140,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
             <option>Паладин</option>
           </select>
         </div>
+
         <div>
           <label className="block text-gray-400 text-sm mb-1">Раса</label>
           <select
@@ -101,25 +161,34 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
       <div>
         <h3 className="text-white font-semibold mb-3">Характеристики</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {Object.entries(formData.attributes).map(([key, value]) => {
-            const labels: Record<string, string> = {
-              strength: '💪 Сила', dexterity: '🏃 Ловкость', constitution: '🛡️ Телосложение',
-              intelligence: '📚 Интеллект', wisdom: '🕯️ Мудрость', charisma: '🗣️ Харизма'
-            };
-            return (
-              <div key={key} className="bg-gray-800 rounded-lg p-2">
-                <label className="text-gray-400 text-sm block mb-1">{labels[key]}</label>
-                <input
-                  type="number"
-                  value={value}
-                  onChange={(e) => updateAttribute(key, parseInt(e.target.value))}
-                  className="w-full bg-gray-700 text-white rounded p-1 text-center"
-                  min="1"
-                  max="20"
-                />
-              </div>
-            );
-          })}
+          {(Object.entries(formData.baseStats) as [keyof Stats, number][]).map(
+            ([key, value]) => {
+              const labels: Record<keyof Stats, string> = {
+                strength: '💪 Сила',
+                dexterity: '🏃 Ловкость',
+                constitution: '🛡️ Телосложение',
+                intelligence: '📚 Интеллект',
+                wisdom: '🕯️ Мудрость',
+                charisma: '🗣️ Харизма',
+              }
+
+              return (
+                <div key={key} className="bg-gray-800 rounded-lg p-2">
+                  <label className="text-gray-400 text-sm block mb-1">
+                    {labels[key]}
+                  </label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) => updateStat(key, Number(e.target.value))}
+                    className="w-full bg-gray-700 text-white rounded p-1 text-center"
+                    min="1"
+                    max="20"
+                  />
+                </div>
+              )
+            }
+          )}
         </div>
       </div>
 
@@ -130,6 +199,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         >
           {character ? 'Сохранить изменения' : 'Создать персонажа'}
         </button>
+
         <button
           type="button"
           onClick={onClose}
@@ -139,5 +209,5 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         </button>
       </div>
     </form>
-  );
+  )
 }

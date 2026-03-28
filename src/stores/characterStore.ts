@@ -1,62 +1,103 @@
-import { create } from 'zustand';
-import type { Character } from '../types/characters';
-import { sampleCharacters } from '../data/sample-characters';
+import { create } from 'zustand'
+import type { Character } from '../types/characters'
+import { initialCharacters } from '../data/characters'
 
-// Ключ для localStorage
-const STORAGE_KEY = 'dnd-characters';
+const STORAGE_KEY = 'dnd-characters'
 
-// Функция загрузки из localStorage
 const loadCharacters = (): Character[] => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    return JSON.parse(saved);
-  }
-  return sampleCharacters; // если ничего нет — используем примеры
-};
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
 
-// Функция сохранения в localStorage
+    if (!saved) {
+      return initialCharacters
+    }
+
+    const parsed = JSON.parse(saved)
+
+    if (!Array.isArray(parsed)) {
+      return initialCharacters
+    }
+
+    return parsed
+  } catch (error) {
+    console.error('Failed to load characters from localStorage:', error)
+    return initialCharacters
+  }
+}
+
 const saveCharacters = (characters: Character[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
-};
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
+  } catch (error) {
+    console.error('Failed to save characters to localStorage:', error)
+  }
+}
 
 interface CharacterStore {
-  characters: Character[];
-  currentCharacter: Character | null;
-  setCharacters: (characters: Character[]) => void;
-  addCharacter: (character: Character) => void;
-  updateCharacter: (id: string, updated: Partial<Character>) => void;
-  deleteCharacter: (id: string) => void;
-  setCurrentCharacter: (character: Character | null) => void;
+  characters: Character[]
+  currentCharacter: Character | null
+  addCharacter: (character: Character) => void
+  updateCharacter: (id: string, updated: Partial<Character>) => void
+  deleteCharacter: (id: string) => void
+  setCurrentCharacter: (character: Character | null) => void
+  clearCurrentCharacter: () => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
-  characters: loadCharacters(), // загружаем при старте
+  characters: loadCharacters(),
   currentCharacter: null,
-  
-  setCharacters: (characters) => {
-    saveCharacters(characters);
-    set({ characters });
-  },
-  
-  addCharacter: (character) => set((state) => {
-    const newCharacters = [...state.characters, character];
-    saveCharacters(newCharacters);
-    return { characters: newCharacters };
-  }),
-  
-  updateCharacter: (id, updated) => set((state) => {
-    const newCharacters = state.characters.map(char => 
-      char.id === id ? { ...char, ...updated } : char
-    );
-    saveCharacters(newCharacters);
-    return { characters: newCharacters };
-  }),
-  
-  deleteCharacter: (id) => set((state) => {
-    const newCharacters = state.characters.filter(char => char.id !== id);
-    saveCharacters(newCharacters);
-    return { characters: newCharacters };
-  }),
-  
-  setCurrentCharacter: (character) => set({ currentCharacter: character })
-}));
+
+  addCharacter: (character) =>
+    set((state) => {
+      const newCharacters = [...state.characters, character]
+      saveCharacters(newCharacters)
+      return { characters: newCharacters }
+    }),
+
+  updateCharacter: (id, updated) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === id
+          ? {
+              ...char,
+              ...updated,
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === id
+          ? {
+              ...state.currentCharacter,
+              ...updated,
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  deleteCharacter: (id) =>
+    set((state) => {
+      const newCharacters = state.characters.filter((char) => char.id !== id)
+      saveCharacters(newCharacters)
+
+      return {
+        characters: newCharacters,
+        currentCharacter:
+          state.currentCharacter?.id === id ? null : state.currentCharacter,
+      }
+    }),
+
+  setCurrentCharacter: (character) => set({ currentCharacter: character }),
+
+  clearCurrentCharacter: () => set({ currentCharacter: null }),
+}))

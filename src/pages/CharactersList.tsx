@@ -2,18 +2,22 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCharacterStore } from '../stores/characterStore';
 import { CharacterForm } from '../components/CharacterForm';
+import type { Character } from "../types/characters";
 
 export function CharactersList() {
   const { characters, deleteCharacter, setCurrentCharacter } = useCharacterStore();
-  const [showForm, setShowForm] = useState(false);
-  const [editingCharacter, setEditingCharacter] = useState(null);
 
-  const handleEdit = (character) => {
+  console.log('characters from store:', characters);
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+
+  const handleEdit = (character: Character) => {
     setEditingCharacter(character);
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: string) => {
     if (confirm('Удалить персонажа?')) {
       deleteCharacter(id);
     }
@@ -64,15 +68,15 @@ export function CharactersList() {
                 <div className="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
                   <div className="bg-gray-700 rounded p-1">
                     <div className="text-gray-400">Сила</div>
-                    <div className="text-white font-bold">{char.attributes.strength}</div>
+                    <div className="text-white font-bold">{char.baseStats.strength}</div>
                   </div>
                   <div className="bg-gray-700 rounded p-1">
                     <div className="text-gray-400">Ловк</div>
-                    <div className="text-white font-bold">{char.attributes.dexterity}</div>
+                    <div className="text-white font-bold">{char.baseStats.dexterity}</div>
                   </div>
                   <div className="bg-gray-700 rounded p-1">
                     <div className="text-gray-400">Тело</div>
-                    <div className="text-white font-bold">{char.attributes.constitution}</div>
+                    <div className="text-white font-bold">{char.baseStats.constitution}</div>
                   </div>
                 </div>
 
