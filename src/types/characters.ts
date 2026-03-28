@@ -29,9 +29,6 @@ export type Character = {
   createdAt: string
   updatedAt: string
 }
-export function getModifier(stat: number): number {
-  return Math.floor((stat - 10) / 2)
-}
 
 export const standardSkills: Skill[] = [
   // Сила

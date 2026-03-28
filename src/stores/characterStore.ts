@@ -41,6 +41,8 @@ interface CharacterStore {
   deleteCharacter: (id: string) => void
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
+  equipItem: (characterId: string, itemId: string, slot: string) => void
+  unequipItem: (characterId: string, slot: string) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -100,4 +102,76 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
   setCurrentCharacter: (character) => set({ currentCharacter: character }),
 
   clearCurrentCharacter: () => set({ currentCharacter: null }),
+    equipItem: (characterId, itemId, slot) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              equippedItems: {
+                ...char.equippedItems,
+                [slot]: itemId,
+              },
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              equippedItems: {
+                ...state.currentCharacter.equippedItems,
+                [slot]: itemId,
+              },
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+      unequipItem: (characterId, slot) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              equippedItems: {
+                ...char.equippedItems,
+                [slot]: null,
+              },
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              equippedItems: {
+                ...state.currentCharacter.equippedItems,
+                [slot]: null,
+              },
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
 }))

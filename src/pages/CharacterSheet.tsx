@@ -1,11 +1,14 @@
 import { useParams } from 'react-router-dom'
 import { useCharacterStore } from '../stores/characterStore'
-import { getModifier } from '../types/characters'
+import { getModifier } from '../utils/stats'
+import { calculateCharacter } from '../utils/calculateCharacter'
+import { items } from '../data/items'
 import type { Stats } from '../types/characters'
+import { formatItemEffect } from '../utils/itemEffects'
 
 export function CharacterSheet() {
   const { id } = useParams()
-  const { characters } = useCharacterStore()
+  const { characters, equipItem, unequipItem } = useCharacterStore()
 
   const character = characters.find((c) => c.id === id)
 
@@ -17,46 +20,204 @@ export function CharacterSheet() {
       </div>
     )
   }
+  const { finalStats, finalDerivedStats } = calculateCharacter(
+  character,
+  items
+  )
+  const inventoryItems = items.filter((item) =>
+  character.inventory.includes(item.id)
+  )
 
+const equippedEntries = Object.entries(character.equippedItems).map(
+  ([slot, itemId]) => {
+    const item = items.find((i) => i.id === itemId) || null
+
+    return {
+      slot,
+      item,
+    }
+  }
+  ) 
+  const slotLabels: Record<string, string> = {
+  mainHand: 'Основная рука',
+  offHand: 'Вторая рука',
+  head: 'Голова',
+  body: 'Тело',
+  ring1: 'Кольцо 1',
+  ring2: 'Кольцо 2',
+  amulet: 'Амулет',
+  boots: 'Обувь',
+  }
+  const handleEquipItem = (itemId: string, slot: string) => {
+  // если предмет уже где-то надет — сначала снимаем
+  const currentSlot = Object.entries(character.equippedItems).find(
+    ([, id]) => id === itemId
+  )?.[0]
+
+  if (currentSlot) {
+    unequipItem(character.id, currentSlot)
+  }
+
+  equipItem(character.id, itemId, slot)
+}
+  const handleUnequipItem = (slot: string) => {
+  unequipItem(character.id, slot)
+  }
+  const isItemEquipped = (itemId: string) => {
+  return Object.values(character.equippedItems).includes(itemId)
+  }
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="bg-gray-800 rounded-lg p-6 mb-6">
-        <h1 className="text-3xl font-bold text-white">{character.name}</h1>
-        <div className="text-gray-300 mt-2">
-          {character.race} • {character.class} уровень {character.level}
+  <div className="p-6 max-w-6xl mx-auto">
+    <div className="bg-gray-800 rounded-lg p-6 mb-6">
+      <h1 className="text-3xl font-bold text-white">{character.name}</h1>
+      <div className="text-gray-300 mt-2">
+        {character.race} • {character.class} уровень {character.level}
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {(Object.entries(finalStats) as [keyof Stats, number][]).map(
+        ([key, value]) => {
+          const labels: Record<keyof Stats, string> = {
+            strength: 'СИЛА',
+            dexterity: 'ЛОВКОСТЬ',
+            constitution: 'ТЕЛОСЛОЖЕНИЕ',
+            intelligence: 'ИНТЕЛЛЕКТ',
+            wisdom: 'МУДРОСТЬ',
+            charisma: 'ХАРИЗМА',
+          }
+
+          const mod = getModifier(value)
+
+          return (
+            <div key={key} className="bg-gray-800 rounded-lg p-4 text-center">
+              <div className="text-gray-400 text-sm">{labels[key]}</div>
+              <div className="text-3xl font-bold text-white">{value}</div>
+              <div
+                className={`text-lg ${
+                  mod >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {mod >= 0 ? `+${mod}` : mod}
+              </div>
+            </div>
+          )
+        }
+      )}
+    </div>
+
+    <h2 className="text-white text-xl font-bold mt-8 mb-4">
+      Производные характеристики
+    </h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-gray-800 p-4 rounded text-center">
+        <div className="text-gray-400 text-sm">HP</div>
+        <div className="text-white text-xl font-bold">
+          {finalDerivedStats.maxHp}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {(Object.entries(character.baseStats) as [keyof Stats, number][]).map(
-          ([key, value]) => {
-            const labels: Record<keyof Stats, string> = {
-              strength: 'СИЛА',
-              dexterity: 'ЛОВКОСТЬ',
-              constitution: 'ТЕЛОСЛОЖЕНИЕ',
-              intelligence: 'ИНТЕЛЛЕКТ',
-              wisdom: 'МУДРОСТЬ',
-              charisma: 'ХАРИЗМА',
-            }
+      <div className="bg-gray-800 p-4 rounded text-center">
+        <div className="text-gray-400 text-sm">Класс брони</div>
+        <div className="text-white text-xl font-bold">
+          {finalDerivedStats.armorClass}
+        </div>
+      </div>
 
-            const mod = getModifier(value)
-
-            return (
-              <div key={key} className="bg-gray-800 rounded-lg p-4 text-center">
-                <div className="text-gray-400 text-sm">{labels[key]}</div>
-                <div className="text-3xl font-bold text-white">{value}</div>
-                <div
-                  className={`text-lg ${
-                    mod >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {mod >= 0 ? `+${mod}` : mod}
-                </div>
-              </div>
-            )
-          }
-        )}
+      <div className="bg-gray-800 p-4 rounded text-center">
+        <div className="text-gray-400 text-sm">Инициатива</div>
+        <div className="text-white text-xl font-bold">
+          {finalDerivedStats.initiative}
+        </div>
       </div>
     </div>
-  )
+
+    <h2 className="text-white text-xl font-bold mt-8 mb-4">Экипировка</h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {equippedEntries.map(({ slot, item }) => (
+        <div
+          key={slot}
+          className="bg-gray-800 rounded-lg p-4 flex justify-between items-center gap-4"
+        >
+          <div>
+            <div className="text-gray-400 text-sm">{slotLabels[slot] || slot}</div>
+
+            <div className="text-white font-semibold">
+              {item ? item.name : 'Пусто'}
+            </div>
+
+            {item && (
+              <div className="mt-1 flex flex-col gap-1">
+                {item.effects.map((effect, index) => (
+                  <div key={index} className="text-green-400 text-sm">
+                    {formatItemEffect(effect)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {item && (
+            <button
+              onClick={() => handleUnequipItem(slot)}
+              className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+            >
+              Снять
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+
+    <h2 className="text-white text-xl font-bold mt-8 mb-4">Инвентарь</h2>
+
+    {inventoryItems.length === 0 ? (
+      <div className="bg-gray-800 rounded-lg p-4 text-gray-400">
+        Инвентарь пуст
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {inventoryItems.map((item) => (
+          <div key={item.id} className="bg-gray-800 rounded-lg p-4 min-w-0">
+            <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
+              {item.name}
+              {isItemEquipped(item.id) && (
+                <span className="text-green-400 text-xs">(надет)</span>
+              )}
+            </div>
+
+            <div className="text-gray-400 text-sm mt-1">Тип: {item.type}</div>
+
+            <div className="mt-2 flex flex-col gap-1">
+              {item.effects.map((effect, index) => (
+                <div key={index} className="text-green-400 text-sm">
+                  {formatItemEffect(effect)}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.allowedSlots.map((slot) => (
+                <button
+                  key={slot}
+                  onClick={() => handleEquipItem(item.id, slot)}
+                  disabled={isItemEquipped(item.id)}
+                  className={`px-3 py-1 rounded text-sm transition ${
+                    isItemEquipped(item.id)
+                      ? 'bg-gray-600 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  Надеть в {slotLabels[slot] || slot}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)
 }

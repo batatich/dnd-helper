@@ -23,7 +23,7 @@ export function calculateCharacter(
 
   for (const item of equippedItems) {
     for (const effect of item.effects) {
-      if (effect.stat && effect.value) {
+      if (effect.stat && effect.value !== undefined) {
         finalStats[effect.stat] += effect.value
       }
 
