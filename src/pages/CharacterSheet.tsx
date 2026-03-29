@@ -5,6 +5,7 @@ import { calculateCharacter } from '../utils/calculateCharacter'
 import { items } from '../data/items'
 import type { Stats } from '../types/characters'
 import { formatItemEffect } from '../utils/itemEffects'
+import type { EquipmentSlot } from '../types/items'
 
 export function CharacterSheet() {
   const { id } = useParams()
@@ -28,16 +29,16 @@ export function CharacterSheet() {
   character.inventory.includes(item.id)
   )
 
-const equippedEntries = Object.entries(character.equippedItems).map(
-  ([slot, itemId]) => {
-    const item = items.find((i) => i.id === itemId) || null
+const equippedEntries = (
+  Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
+).map(([slot, itemId]) => {
+  const item = items.find((i) => i.id === itemId) || null
 
-    return {
-      slot,
-      item,
-    }
+  return {
+    slot,
+    item,
   }
-  ) 
+})
   const slotLabels: Record<string, string> = {
   mainHand: 'Основная рука',
   offHand: 'Вторая рука',
@@ -48,11 +49,11 @@ const equippedEntries = Object.entries(character.equippedItems).map(
   amulet: 'Амулет',
   boots: 'Обувь',
   }
-  const handleEquipItem = (itemId: string, slot: string) => {
+  const handleEquipItem = (itemId: string, slot: EquipmentSlot) => {
   // если предмет уже где-то надет — сначала снимаем
   const currentSlot = Object.entries(character.equippedItems).find(
     ([, id]) => id === itemId
-  )?.[0]
+  )?.[0] as EquipmentSlot | undefined
 
   if (currentSlot) {
     unequipItem(character.id, currentSlot)
@@ -60,12 +61,19 @@ const equippedEntries = Object.entries(character.equippedItems).map(
 
   equipItem(character.id, itemId, slot)
 }
-  const handleUnequipItem = (slot: string) => {
+  const handleUnequipItem = (slot: EquipmentSlot) => {
   unequipItem(character.id, slot)
   }
   const isItemEquipped = (itemId: string) => {
   return Object.values(character.equippedItems).includes(itemId)
   }
+  const getEquippedSlot = (itemId: string): EquipmentSlot | null => {
+  const entry = (
+    Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
+  ).find(([, equippedItemId]) => equippedItemId === itemId)
+
+  return entry ? entry[0] : null
+}
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -98,7 +106,7 @@ const equippedEntries = Object.entries(character.equippedItems).map(
             <div
               className={`text-lg ${
                 mod >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}
+            }`}
           >
             {mod >= 0 ? `+${mod}` : mod}
           </div>
@@ -191,8 +199,10 @@ const equippedEntries = Object.entries(character.equippedItems).map(
           <div key={item.id} className="bg-gray-800 rounded-lg p-4 min-w-0">
             <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
               {item.name}
-              {isItemEquipped(item.id) && (
-                <span className="text-green-400 text-xs">(надет)</span>
+              {isItemEquipped(item.id) && getEquippedSlot(item.id) && (
+                <span className="text-green-400 text-xs">
+                  ({slotLabels[getEquippedSlot(item.id)!]})
+                </span>
               )}
             </div>
 

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { Character } from '../types/characters'
 import { initialCharacters } from '../data/characters'
+import { items } from '../data/items'
+import type { EquipmentSlot } from '../types/items'
 
 const STORAGE_KEY = 'dnd-characters'
 
@@ -41,8 +43,8 @@ interface CharacterStore {
   deleteCharacter: (id: string) => void
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
-  equipItem: (characterId: string, itemId: string, slot: string) => void
-  unequipItem: (characterId: string, slot: string) => void
+  equipItem: (characterId: string, itemId: string, slot: EquipmentSlot) => void
+  unequipItem: (characterId: string, slot: EquipmentSlot) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -102,42 +104,56 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
   setCurrentCharacter: (character) => set({ currentCharacter: character }),
 
   clearCurrentCharacter: () => set({ currentCharacter: null }),
-    equipItem: (characterId, itemId, slot) =>
-    set((state) => {
-      const updatedAt = new Date().toISOString()
+    equipItem: (characterId: string, itemId: string, slot: EquipmentSlot) =>
+  set((state) => {
+    const item = items.find((i) => i.id === itemId)
 
-      const newCharacters = state.characters.map((char) =>
-        char.id === characterId
-          ? {
-              ...char,
-              equippedItems: {
-                ...char.equippedItems,
-                [slot]: itemId,
-              },
-              updatedAt,
-            }
-          : char
-      )
+    // ❌ если предмет не найден — ничего не делаем
+    if (!item) {
+      console.warn('Item not found:', itemId)
+      return state
+    }
 
-      saveCharacters(newCharacters)
+    // ❌ если слот не подходит — ничего не делаем
+    if (!item.allowedSlots.includes(slot)) {
+      console.warn('Invalid slot for item:', slot)
+      return state
+    }
 
-      const updatedCurrentCharacter =
-        state.currentCharacter?.id === characterId
-          ? {
-              ...state.currentCharacter,
-              equippedItems: {
-                ...state.currentCharacter.equippedItems,
-                [slot]: itemId,
-              },
-              updatedAt,
-            }
-          : state.currentCharacter
+    const updatedAt = new Date().toISOString()
 
-      return {
-        characters: newCharacters,
-        currentCharacter: updatedCurrentCharacter,
-      }
-    }),
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            equippedItems: {
+              ...char.equippedItems,
+              [slot]: itemId,
+            },
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            equippedItems: {
+              ...state.currentCharacter.equippedItems,
+              [slot]: itemId,
+            },
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
       unequipItem: (characterId, slot) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
