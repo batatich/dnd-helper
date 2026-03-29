@@ -23,7 +23,20 @@ export const initialCharacters: Character[] = [
       initiative: 2,
     },
 
-    inventory: ["sword-1", "ring-1", "helmet-1"],
+    inventory: ["sword-1",
+  "sword-2",
+  "dagger-1",
+  "ring-1",
+  "ring-2",
+  "ring-3",
+  "helmet-1",
+  "helmet-2",
+  "armor-1",
+  "armor-2",
+  "amulet-1",
+  "amulet-2",
+  "boots-1",
+  "boots-2",],
 
     equippedItems: {
       mainHand: null,

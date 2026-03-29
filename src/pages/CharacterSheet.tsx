@@ -50,7 +50,18 @@ const equippedEntries = (
   boots: 'Обувь',
   }
   const handleEquipItem = (itemId: string, slot: EquipmentSlot) => {
-  // если предмет уже где-то надет — сначала снимаем
+  const currentItemId = character.equippedItems[slot]
+
+  // если слот занят другим предметом
+  if (currentItemId && currentItemId !== itemId) {
+    const confirmReplace = confirm(
+      'В этом слоте уже есть предмет. Заменить его?'
+    )
+
+    if (!confirmReplace) return
+  }
+
+  // если предмет уже где-то надет — снимаем
   const currentSlot = Object.entries(character.equippedItems).find(
     ([, id]) => id === itemId
   )?.[0] as EquipmentSlot | undefined
@@ -100,7 +111,14 @@ const equippedEntries = (
           const bonus = value - baseValue
 
           return (
-            <div key={key} className="bg-gray-800 rounded-lg p-4 text-center">
+            <div
+            key={key}
+            className={`rounded-lg p-4 text-center transition ${
+            bonus !== 0
+            ? 'bg-gray-800 ring-2 ring-yellow-400 shadow-lg'
+            : 'bg-gray-800'
+            }`}
+>
             <div className="text-gray-400 text-sm">{labels[key]}</div>
             <div className="text-3xl font-bold text-white">{value}</div>
             <div
