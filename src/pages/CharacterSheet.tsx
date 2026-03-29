@@ -2,15 +2,16 @@ import { useParams } from 'react-router-dom'
 import { useCharacterStore } from '../stores/characterStore'
 import { getModifier } from '../utils/stats'
 import { calculateCharacter } from '../utils/calculateCharacter'
-import { items } from '../data/items'
+import { useItemsStore } from '../stores/itemsStore'
 import type { Stats } from '../types/characters'
 import { formatItemEffect } from '../utils/itemEffects'
 import type { EquipmentSlot } from '../types/items'
+import { Link } from 'react-router-dom'
 
 export function CharacterSheet() {
   const { id } = useParams()
   const { characters, equipItem, unequipItem } = useCharacterStore()
-
+  const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
 
   if (!character) {
@@ -49,11 +50,10 @@ const equippedEntries = (
   amulet: 'Амулет',
   boots: 'Обувь',
   }
-  const handleEquipItem = (itemId: string, slot: EquipmentSlot) => {
+  const handleEquipItem = (item: typeof items[number], slot: EquipmentSlot) => {
   const currentItemId = character.equippedItems[slot]
 
-  // если слот занят другим предметом
-  if (currentItemId && currentItemId !== itemId) {
+  if (currentItemId && currentItemId !== item.id) {
     const confirmReplace = confirm(
       'В этом слоте уже есть предмет. Заменить его?'
     )
@@ -61,16 +61,15 @@ const equippedEntries = (
     if (!confirmReplace) return
   }
 
-  // если предмет уже где-то надет — снимаем
   const currentSlot = Object.entries(character.equippedItems).find(
-    ([, id]) => id === itemId
+    ([, id]) => id === item.id
   )?.[0] as EquipmentSlot | undefined
 
   if (currentSlot) {
     unequipItem(character.id, currentSlot)
   }
 
-  equipItem(character.id, itemId, slot)
+  equipItem(character.id, item, slot)
 }
   const handleUnequipItem = (slot: EquipmentSlot) => {
   unequipItem(character.id, slot)
@@ -205,7 +204,16 @@ const equippedEntries = (
       ))}
     </div>
 
-    <h2 className="text-white text-xl font-bold mt-8 mb-4">Инвентарь</h2>
+    <div className="flex justify-between items-center mt-8 mb-4">
+  <h2 className="text-white text-xl font-bold">Инвентарь</h2>
+
+  <Link
+    to={`/items/create?characterId=${character.id}`}
+    className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition"
+  >
+    + Создать предмет
+  </Link>
+</div>
 
     {inventoryItems.length === 0 ? (
       <div className="bg-gray-800 rounded-lg p-4 text-gray-400">
@@ -238,7 +246,7 @@ const equippedEntries = (
               {item.allowedSlots.map((slot) => (
                 <button
                   key={slot}
-                  onClick={() => handleEquipItem(item.id, slot)}
+                  onClick={() => handleEquipItem(item, slot)}
                   disabled={isItemEquipped(item.id)}
                   className={`px-3 py-1 rounded text-sm transition ${
                     isItemEquipped(item.id)

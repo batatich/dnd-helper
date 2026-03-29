@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 import type { Character } from '../types/characters'
 import { initialCharacters } from '../data/characters'
-import { items } from '../data/items'
-import type { EquipmentSlot } from '../types/items'
+import type { Item, EquipmentSlot } from '../types/items'
 
 const STORAGE_KEY = 'dnd-characters'
 
@@ -43,7 +42,7 @@ interface CharacterStore {
   deleteCharacter: (id: string) => void
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
-  equipItem: (characterId: string, itemId: string, slot: EquipmentSlot) => void
+  equipItem: (characterId: string, item: Item, slot: EquipmentSlot) => void
   unequipItem: (characterId: string, slot: EquipmentSlot) => void
 }
 
@@ -104,17 +103,8 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
   setCurrentCharacter: (character) => set({ currentCharacter: character }),
 
   clearCurrentCharacter: () => set({ currentCharacter: null }),
-    equipItem: (characterId: string, itemId: string, slot: EquipmentSlot) =>
+    equipItem: (characterId: string, item: Item, slot: EquipmentSlot) =>
   set((state) => {
-    const item = items.find((i) => i.id === itemId)
-
-    // ❌ если предмет не найден — ничего не делаем
-    if (!item) {
-      console.warn('Item not found:', itemId)
-      return state
-    }
-
-    // ❌ если слот не подходит — ничего не делаем
     if (!item.allowedSlots.includes(slot)) {
       console.warn('Invalid slot for item:', slot)
       return state
@@ -128,7 +118,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             ...char,
             equippedItems: {
               ...char.equippedItems,
-              [slot]: itemId,
+              [slot]: item.id,
             },
             updatedAt,
           }
@@ -143,7 +133,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             ...state.currentCharacter,
             equippedItems: {
               ...state.currentCharacter.equippedItems,
-              [slot]: itemId,
+              [slot]: item.id,
             },
             updatedAt,
           }

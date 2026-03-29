@@ -9,6 +9,7 @@ import { About } from './pages/About.tsx';
 import { Authors } from './pages/Authors.tsx';
 import { Support } from './pages/Support.tsx';
 import { CharactersList } from './pages/CharactersList.tsx';
+import { CreateItem } from './pages/CreateItem'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/authors" element={<Authors />} />
             <Route path="/support" element={<Support />} />
             <Route path="/characters" element={<CharactersList />} />
+            <Route path="/items/create" element={<CreateItem />} />
           </Routes>
         </main>
         <Footer />

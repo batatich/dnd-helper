@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Sword, Map, BookOpen, Sparkles } from 'lucide-react';
+import { Home, Sword, Map, BookOpen, Sparkles, PlusSquare } from 'lucide-react';
 
 export function Navigation() {
   const location = useLocation();
@@ -9,6 +9,7 @@ export function Navigation() {
     { path: '/characters', label: 'Персонажи', icon: Sword },
     { path: '/world', label: 'Конструктор мира', icon: Map },
     { path: '/notes', label: 'Заметки мастера', icon: BookOpen },
+    { path: '/items/create', label: 'Создать предмет', icon: PlusSquare },
   ];
 
   return (
