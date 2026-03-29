@@ -88,18 +88,26 @@ const equippedEntries = Object.entries(character.equippedItems).map(
           }
 
           const mod = getModifier(value)
+          const baseValue = character.baseStats[key]
+          const bonus = value - baseValue
 
           return (
             <div key={key} className="bg-gray-800 rounded-lg p-4 text-center">
-              <div className="text-gray-400 text-sm">{labels[key]}</div>
-              <div className="text-3xl font-bold text-white">{value}</div>
-              <div
-                className={`text-lg ${
-                  mod >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}
-              >
-                {mod >= 0 ? `+${mod}` : mod}
-              </div>
+            <div className="text-gray-400 text-sm">{labels[key]}</div>
+            <div className="text-3xl font-bold text-white">{value}</div>
+            <div
+              className={`text-lg ${
+                mod >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}
+          >
+            {mod >= 0 ? `+${mod}` : mod}
+          </div>
+
+          {bonus !== 0 && (
+            <div className="text-xs text-yellow-400 mt-1">
+              {bonus > 0 ? `+${bonus}` : bonus} от экипировки
+            </div>
+          )}
             </div>
           )
         }
