@@ -21,6 +21,7 @@ export function CharacterSheet() {
   toggleSkillProficiency,
   changeCurrentHp,
   setTemporaryHp,
+  applyDamage,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -327,17 +328,17 @@ const temporaryHp = character.temporaryHp ?? 0
 
 <div className="mt-3 flex flex-wrap gap-2 justify-center">
   <button
-    onClick={() => changeCurrentHp(character.id, -1)}
+    onClick={() => applyDamage(character.id, 1)}
     className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
   >
-    -1 HP
+    -1 Урон
   </button>
 
   <button
     onClick={() => changeCurrentHp(character.id, 1)}
     className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition"
   >
-    +1 HP
+    +1 Лечение
   </button>
 </div>
 

@@ -50,6 +50,7 @@ interface CharacterStore {
   toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) => void
   changeCurrentHp: (characterId: string, amount: number) => void
   setTemporaryHp: (characterId: string, amount: number) => void
+  applyDamage: (characterId: string, damage: number) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -156,18 +157,29 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
 
     const updatedAt = new Date().toISOString()
 
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            equippedItems: {
-              ...char.equippedItems,
-              [slot]: item.id,
-            },
-            updatedAt,
-          }
-        : char
-    )
+    const items = useItemsStore.getState().items
+
+const newCharacters = state.characters.map((char) => {
+  if (char.id !== characterId) return char
+
+  const updatedCharacter = {
+    ...char,
+    equippedItems: {
+      ...char.equippedItems,
+      [slot]: item.id,
+    },
+    updatedAt,
+  }
+
+  const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
+  const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
+  const currentHp = updatedCharacter.currentHp ?? newMaxHp
+
+  return {
+    ...updatedCharacter,
+    currentHp: Math.min(currentHp, newMaxHp),
+  }
+})
 
     saveCharacters(newCharacters)
 
@@ -193,18 +205,29 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
     set((state) => {
       const updatedAt = new Date().toISOString()
 
-      const newCharacters = state.characters.map((char) =>
-        char.id === characterId
-          ? {
-              ...char,
-              equippedItems: {
-                ...char.equippedItems,
-                [slot]: null,
-              },
-              updatedAt,
-            }
-          : char
-      )
+      const items = useItemsStore.getState().items
+
+const newCharacters = state.characters.map((char) => {
+  if (char.id !== characterId) return char
+
+  const updatedCharacter = {
+    ...char,
+    equippedItems: {
+      ...char.equippedItems,
+      [slot]: null,
+    },
+    updatedAt,
+  }
+
+  const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
+  const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
+  const currentHp = updatedCharacter.currentHp ?? newMaxHp
+
+  return {
+    ...updatedCharacter,
+    currentHp: Math.min(currentHp, newMaxHp),
+  }
+})
 
       saveCharacters(newCharacters)
 
@@ -351,5 +374,64 @@ changeCurrentHp: (characterId, amount) =>
       currentCharacter: updatedCurrentCharacter,
     }
   }),
-  
+  applyDamage: (characterId, damage) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+    const items = useItemsStore.getState().items
+
+    const newCharacters = state.characters.map((char) => {
+      if (char.id !== characterId) return char
+
+      const calculatedCharacter = calculateCharacter(char, items)
+      const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+      const currentHp = char.currentHp ?? maxHp
+      const temporaryHp = char.temporaryHp ?? 0
+
+      const damageToTempHp = Math.min(temporaryHp, damage)
+      const remainingDamage = damage - damageToTempHp
+      const newTemporaryHp = temporaryHp - damageToTempHp
+      const newCurrentHp = Math.max(0, currentHp - remainingDamage)
+
+      return {
+        ...char,
+        currentHp: newCurrentHp,
+        temporaryHp: newTemporaryHp,
+        updatedAt,
+      }
+    })
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? (() => {
+            const calculatedCharacter = calculateCharacter(
+              state.currentCharacter,
+              items
+            )
+            const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+            const currentHp = state.currentCharacter.currentHp ?? maxHp
+            const temporaryHp = state.currentCharacter.temporaryHp ?? 0
+
+            const damageToTempHp = Math.min(temporaryHp, damage)
+            const remainingDamage = damage - damageToTempHp
+            const newTemporaryHp = temporaryHp - damageToTempHp
+            const newCurrentHp = Math.max(0, currentHp - remainingDamage)
+
+            return {
+              ...state.currentCharacter,
+              currentHp: newCurrentHp,
+              temporaryHp: newTemporaryHp,
+              updatedAt,
+            }
+          })()
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
 }))
