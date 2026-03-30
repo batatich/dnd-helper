@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Character } from '../types/characters'
+import type { Character, Stats } from '../types/characters'
 import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
 
@@ -45,6 +45,7 @@ interface CharacterStore {
   equipItem: (characterId: string, item: Item, slot: EquipmentSlot) => void
   unequipItem: (characterId: string, slot: EquipmentSlot) => void
   toggleSkillProficiency: (characterId: string, skillName: string) => void
+  toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -220,4 +221,49 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+    toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) => {
+      if (char.id !== characterId) {
+        return char
+      }
+
+      const currentProficiencies = char.savingThrowProficiencies ?? []
+
+      const newSavingThrowProficiencies: (keyof Stats)[] =
+        currentProficiencies.includes(stat)
+          ? currentProficiencies.filter((s): s is keyof Stats => s !== stat)
+          : [...currentProficiencies, stat]
+
+      return {
+        ...char,
+        savingThrowProficiencies: newSavingThrowProficiencies,
+        updatedAt,
+      }
+    })
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            savingThrowProficiencies: (
+              state.currentCharacter.savingThrowProficiencies ?? []
+            ).includes(stat)
+              ? (state.currentCharacter.savingThrowProficiencies ?? []).filter(
+                  (s): s is keyof Stats => s !== stat
+                )
+              : [...(state.currentCharacter.savingThrowProficiencies ?? []), stat],
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
 }))

@@ -9,6 +9,7 @@ import type { EquipmentSlot } from '../types/items'
 import { Link } from 'react-router-dom'
 import { calculateSkillBonus } from '../utils/skills'
 import { standardSkills } from '../types/characters'
+import { calculateSavingThrowBonus } from '../utils/savingThrows'
 
 export function CharacterSheet() {
   const { id } = useParams()
@@ -31,6 +32,8 @@ export function CharacterSheet() {
   const inventoryItems = items.filter((item) =>
   character.inventory.includes(item.id)
   )
+
+  
 
 const equippedEntries = (
   Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
@@ -98,6 +101,15 @@ const skillsToDisplay =
   character.skills && character.skills.length > 0
     ? character.skills
     : standardSkills
+
+const savingThrowStats: (keyof Stats)[] = [
+  'strength',
+  'dexterity',
+  'constitution',
+  'intelligence',
+  'wisdom',
+  'charisma',
+  ]
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -173,6 +185,49 @@ const skillsToDisplay =
         }
       )}
     </div>
+
+<h2 className="text-white text-xl font-bold mt-8 mb-4">Спасброски</h2>
+
+<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  {savingThrowStats.map((stat) => {
+    const bonus = calculateSavingThrowBonus(
+      stat,
+      finalStats,
+      character.level,
+      character.savingThrowProficiencies ?? []
+    )
+
+    const isProficient =
+      character.savingThrowProficiencies?.includes(stat)
+
+    return (
+      <div
+        key={stat}
+        className="bg-gray-800 rounded-lg p-4 flex justify-between items-center"
+      >
+        <div>
+          <div className="text-white font-medium">
+            {statLabels[stat]}
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div
+            className={`text-lg font-bold ${
+              bonus >= 0 ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {bonus >= 0 ? `+${bonus}` : bonus}
+          </div>
+
+          {isProficient && (
+            <div className="text-xs text-yellow-400">Владение</div>
+          )}
+        </div>
+      </div>
+    )
+  })}
+</div>
 
 <h2 className="text-white text-xl font-bold mt-8 mb-4">Навыки</h2>
 

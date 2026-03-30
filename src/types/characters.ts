@@ -28,6 +28,8 @@ export type Character = {
   baseStats: Stats
   derivedStats: DerivedStats
 
+  savingThrowProficiencies: (keyof Stats)[]
+
   inventory: string[] // список ID предметов
   equippedItems: Record<string, string | null> // слот -> предмет
 

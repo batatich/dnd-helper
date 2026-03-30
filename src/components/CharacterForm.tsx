@@ -93,6 +93,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         equippedItems: defaultEquippedItems,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        savingThrowProficiencies: [],
       }
 
       addCharacter(newCharacter)
