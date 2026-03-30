@@ -19,6 +19,11 @@ export type Character = {
   race: string
   class: string
   level: number
+  description: string
+  alignment: string
+  background: string
+  avatarUrl: string
+  skills: Skill[]
 
   baseStats: Stats
   derivedStats: DerivedStats

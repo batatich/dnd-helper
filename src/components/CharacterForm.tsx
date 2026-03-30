@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCharacterStore } from '../stores/characterStore'
 import type { Character, Stats } from '../types/characters'
 import { calculateStartingDerivedStats } from '../utils/createCharacter'
+import { standardSkills } from '../data/skills'
 
 interface CharacterFormProps {
   character?: Character | null
@@ -15,6 +16,10 @@ type CharacterFormData = {
   class: string
   race: string
   baseStats: Stats
+  description: string
+  alignment: string
+  background: string
+  avatarUrl: string
 }
 
 const defaultBaseStats: Stats = {
@@ -47,6 +52,10 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     class: character?.class || 'Воин',
     race: character?.race || 'Человек',
     baseStats: character?.baseStats || defaultBaseStats,
+    description: character?.description || '',
+    alignment: character?.alignment || '',
+    background: character?.background || '',
+    avatarUrl: character?.avatarUrl || '',
   })
 
   const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
@@ -70,6 +79,11 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         class: formData.class,
         race: formData.race,
         baseStats: formData.baseStats,
+        description: formData.description,
+        alignment: formData.alignment,
+        background: formData.background,
+        avatarUrl: formData.avatarUrl,
+        skills: standardSkills,
         derivedStats: calculateStartingDerivedStats(formData.baseStats),
         inventory: [],
         equippedItems: defaultEquippedItems,
@@ -106,6 +120,57 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
             required
           />
         </div>
+
+        <div>
+          <label className="block text-gray-400 text-sm mb-1">Биография</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
+            className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
+            rows={3}
+          />
+        </div>
+
+        <div>
+          <label className="block text-gray-400 text-sm mb-1">Мировоззрение</label>
+          <input
+            type="text"
+            value={formData.alignment}
+            onChange={(e) =>
+              setFormData({ ...formData, alignment: e.target.value })
+            }
+            className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
+            placeholder="Например: Lawful Good"
+          />
+        </div>
+
+        <div>
+          <label className="block text-gray-400 text-sm mb-1">Предыстория</label>
+          <input
+            type="text"
+            value={formData.background}
+            onChange={(e) =>
+              setFormData({ ...formData, background: e.target.value })
+            }
+            className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
+          />
+        </div>
+
+        <div>
+          <label className="block text-gray-400 text-sm mb-1">Ссылка на портрет</label>
+          <input
+            type="text"
+            value={formData.avatarUrl}
+            onChange={(e) =>
+              setFormData({ ...formData, avatarUrl: e.target.value })
+            }
+            className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
+            placeholder="https://..."
+          />
+        </div>
+
 
         <div>
           <label className="block text-gray-400 text-sm mb-1">Уровень</label>
@@ -191,7 +256,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         </div>
       </div>
       <div>
-        
+
       <h3 className="text-white font-semibold mb-3">Стартовые параметры</h3>
 
       <div className="grid grid-cols-3 gap-3">

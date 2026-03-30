@@ -88,9 +88,21 @@ const equippedEntries = (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
       <h1 className="text-3xl font-bold text-white">{character.name}</h1>
-      <div className="text-gray-300 mt-2">
-        {character.race} • {character.class} уровень {character.level}
+      <div className="text-gray-400 mt-2 text-sm">
+        {character.alignment} • {character.background}
       </div>
+
+      {character.avatarUrl && (
+        <img
+      src={character.avatarUrl}
+      alt="avatar"
+      className="mt-4 w-32 h-32 object-cover rounded-lg"
+      />
+    )}
+
+    {character.description && (
+      <p className="text-gray-300 mt-4">{character.description}</p>
+    )}
     </div>
 
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
