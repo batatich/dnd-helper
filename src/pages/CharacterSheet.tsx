@@ -110,6 +110,17 @@ const savingThrowStats: (keyof Stats)[] = [
   'wisdom',
   'charisma',
   ]
+  const perceptionSkill = skillsToDisplay.find(
+    (skill) => skill.name === 'Восприятие'
+  )
+  const passivePerception = perceptionSkill
+  ? 10 +
+    calculateSkillBonus(
+      perceptionSkill,
+      finalStats,
+      character.level
+    )
+  : 10
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -272,6 +283,15 @@ const savingThrowStats: (keyof Stats)[] = [
 </div>
     )
   })}
+</div>
+
+<div className="bg-gray-800 rounded-lg p-4 text-center">
+  <div className="text-gray-400 text-sm">
+    Пассивное восприятие
+  </div>
+  <div className="text-white text-xl font-bold">
+    {passivePerception}
+  </div>
 </div>
 
     <h2 className="text-white text-xl font-bold mt-8 mb-4">
