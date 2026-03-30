@@ -24,6 +24,8 @@ export type Character = {
   background: string
   avatarUrl: string
   skills: Skill[]
+  currentHp: number
+  temporaryHp: number
 
   baseStats: Stats
   derivedStats: DerivedStats

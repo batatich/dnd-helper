@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { Character, Stats } from '../types/characters'
 import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
+import { useItemsStore } from './itemsStore'
+import { calculateCharacter } from '../utils/calculateCharacter'
 
 const STORAGE_KEY = 'dnd-characters'
 
@@ -46,6 +48,8 @@ interface CharacterStore {
   unequipItem: (characterId: string, slot: EquipmentSlot) => void
   toggleSkillProficiency: (characterId: string, skillName: string) => void
   toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) => void
+  changeCurrentHp: (characterId: string, amount: number) => void
+  setTemporaryHp: (characterId: string, amount: number) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -266,4 +270,86 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
       currentCharacter: updatedCurrentCharacter,
     }
   }),
+changeCurrentHp: (characterId, amount) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+    const items = useItemsStore.getState().items
+
+    const newCharacters = state.characters.map((char) => {
+      if (char.id !== characterId) return char
+
+      const calculatedCharacter = calculateCharacter(char, items)
+      const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+      const currentHp = char.currentHp ?? maxHp
+      const newCurrentHp = Math.max(0, Math.min(maxHp, currentHp + amount))
+
+      return {
+        ...char,
+        currentHp: newCurrentHp,
+        updatedAt,
+      }
+    })
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? (() => {
+            const calculatedCharacter = calculateCharacter(
+              state.currentCharacter,
+              items
+            )
+            const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+            const currentHp = state.currentCharacter.currentHp ?? maxHp
+            const newCurrentHp = Math.max(
+              0,
+              Math.min(maxHp, currentHp + amount)
+            )
+
+            return {
+              ...state.currentCharacter,
+              currentHp: newCurrentHp,
+              updatedAt,
+            }
+          })()
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  setTemporaryHp: (characterId, amount) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            temporaryHp: Math.max(0, amount),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            temporaryHp: Math.max(0, amount),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  
 }))

@@ -10,12 +10,22 @@ import { Link } from 'react-router-dom'
 import { calculateSkillBonus } from '../utils/skills'
 import { standardSkills } from '../types/characters'
 import { calculateSavingThrowBonus } from '../utils/savingThrows'
+import { useState } from 'react'
 
 export function CharacterSheet() {
   const { id } = useParams()
-  const { characters, equipItem, unequipItem, toggleSkillProficiency } = useCharacterStore()
+ const {
+  characters,
+  equipItem,
+  unequipItem,
+  toggleSkillProficiency,
+  changeCurrentHp,
+  setTemporaryHp,
+} = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
+  const [tempHpInput, setTempHpInput] = useState(0)
+
 
   if (!character) {
     return (
@@ -121,6 +131,9 @@ const savingThrowStats: (keyof Stats)[] = [
       character.level
     )
   : 10
+const currentHp = character.currentHp ?? finalDerivedStats.maxHp
+const temporaryHp = character.temporaryHp ?? 0
+
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -300,11 +313,49 @@ const savingThrowStats: (keyof Stats)[] = [
 
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="bg-gray-800 p-4 rounded text-center">
-        <div className="text-gray-400 text-sm">HP</div>
-        <div className="text-white text-xl font-bold">
-          {finalDerivedStats.maxHp}
-        </div>
-      </div>
+  <div className="text-gray-400 text-sm">Хиты</div>
+  <div className="text-white text-xl font-bold">
+    {currentHp} / {finalDerivedStats.maxHp}
+  </div>
+
+  {temporaryHp > 0 && (
+    <div className="text-cyan-400 text-sm mt-1">
+      Временные хиты: {temporaryHp}
+    </div>
+  )}
+</div>
+
+<div className="mt-3 flex flex-wrap gap-2 justify-center">
+  <button
+    onClick={() => changeCurrentHp(character.id, -1)}
+    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+  >
+    -1 HP
+  </button>
+
+  <button
+    onClick={() => changeCurrentHp(character.id, 1)}
+    className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition"
+  >
+    +1 HP
+  </button>
+</div>
+
+<div className="mt-3 flex items-center gap-2 justify-center">
+  <input
+    type="number"
+    value={tempHpInput}
+    onChange={(e) => setTempHpInput(Number(e.target.value))}
+    className="w-20 bg-gray-700 text-white rounded p-1 text-center"
+    min="0"
+  />
+  <button
+    onClick={() => setTemporaryHp(character.id, tempHpInput)}
+    className="bg-cyan-600 hover:bg-cyan-700 px-3 py-1 rounded text-sm transition"
+  >
+    Временные
+  </button>
+</div>
 
       <div className="bg-gray-800 p-4 rounded text-center">
         <div className="text-gray-400 text-sm">Класс брони</div>

@@ -57,7 +57,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     background: character?.background || '',
     avatarUrl: character?.avatarUrl || '',
   })
-
+  const startingDerivedStats = calculateStartingDerivedStats(formData.baseStats)
   const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -88,7 +88,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         background: formData.background,
         avatarUrl: formData.avatarUrl,
         skills: standardSkills,
-        derivedStats: calculateStartingDerivedStats(formData.baseStats),
+        derivedStats: startingDerivedStats, 
+        currentHp: startingDerivedStats.maxHp,
+        temporaryHp: 0,
         inventory: [],
         equippedItems: defaultEquippedItems,
         createdAt: new Date().toISOString(),
