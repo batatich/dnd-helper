@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCharacterStore } from '../stores/characterStore'
 import type { Character, Stats } from '../types/characters'
+import { calculateStartingDerivedStats } from '../utils/createCharacter'
 
 interface CharacterFormProps {
   character?: Character | null
@@ -48,6 +49,8 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     baseStats: character?.baseStats || defaultBaseStats,
   })
 
+  const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -67,11 +70,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         class: formData.class,
         race: formData.race,
         baseStats: formData.baseStats,
-        derivedStats: {
-          maxHp: 10,
-          armorClass: 10,
-          initiative: 0,
-        },
+        derivedStats: calculateStartingDerivedStats(formData.baseStats),
         inventory: [],
         equippedItems: defaultEquippedItems,
         createdAt: new Date().toISOString(),
@@ -191,6 +190,33 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           )}
         </div>
       </div>
+      <div>
+        
+      <h3 className="text-white font-semibold mb-3">Стартовые параметры</h3>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-gray-800 rounded-lg p-3 text-center">
+          <div className="text-gray-400 text-sm">HP</div>
+          <div className="text-white font-bold text-lg">
+            {previewDerivedStats.maxHp}
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-3 text-center">
+          <div className="text-gray-400 text-sm">Класс брони</div>
+          <div className="text-white font-bold text-lg">
+            {previewDerivedStats.armorClass}
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-3 text-center">
+          <div className="text-gray-400 text-sm">Инициатива</div>
+          <div className="text-white font-bold text-lg">
+            {previewDerivedStats.initiative}
+          </div>
+        </div>
+      </div>
+    </div>
 
       <div className="flex gap-3 pt-4">
         <button
