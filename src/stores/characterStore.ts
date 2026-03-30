@@ -44,9 +44,48 @@ interface CharacterStore {
   clearCurrentCharacter: () => void
   equipItem: (characterId: string, item: Item, slot: EquipmentSlot) => void
   unequipItem: (characterId: string, slot: EquipmentSlot) => void
+  toggleSkillProficiency: (characterId: string, skillName: string) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
+  toggleSkillProficiency: (characterId, skillName) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            skills: (char.skills ?? []).map((skill) =>
+              skill.name === skillName
+                ? { ...skill, proficient: !skill.proficient }
+                : skill
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            skills: (state.currentCharacter.skills ?? []).map((skill) =>
+              skill.name === skillName
+                ? { ...skill, proficient: !skill.proficient }
+                : skill
+            ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
   characters: loadCharacters(),
   currentCharacter: null,
 
@@ -143,6 +182,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
       characters: newCharacters,
       currentCharacter: updatedCurrentCharacter,
     }
+    
   }),
       unequipItem: (characterId, slot) =>
     set((state) => {

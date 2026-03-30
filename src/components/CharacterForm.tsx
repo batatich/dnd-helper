@@ -70,6 +70,10 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         class: formData.class,
         race: formData.race,
         baseStats: formData.baseStats,
+        description: formData.description,
+        alignment: formData.alignment,
+        background: formData.background,
+        avatarUrl: formData.avatarUrl,
       })
     } else {
       const newCharacter: Character = {

@@ -7,10 +7,12 @@ import type { Stats } from '../types/characters'
 import { formatItemEffect } from '../utils/itemEffects'
 import type { EquipmentSlot } from '../types/items'
 import { Link } from 'react-router-dom'
+import { calculateSkillBonus } from '../utils/skills'
+import { standardSkills } from '../types/characters'
 
 export function CharacterSheet() {
   const { id } = useParams()
-  const { characters, equipItem, unequipItem } = useCharacterStore()
+  const { characters, equipItem, unequipItem, toggleSkillProficiency } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
 
@@ -84,25 +86,46 @@ const equippedEntries = (
 
   return entry ? entry[0] : null
 }
+const statLabels: Record<keyof Stats, string> = {
+  strength: 'Сила',
+  dexterity: 'Ловкость',
+  constitution: 'Телосложение',
+  intelligence: 'Интеллект',
+  wisdom: 'Мудрость',
+  charisma: 'Харизма',
+}
+const skillsToDisplay =
+  character.skills && character.skills.length > 0
+    ? character.skills
+    : standardSkills
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
       <h1 className="text-3xl font-bold text-white">{character.name}</h1>
-      <div className="text-gray-400 mt-2 text-sm">
-        {character.alignment} • {character.background}
+
+      <div className="text-gray-300 mt-2">
+        {character.race} • {character.class} уровень {character.level}
       </div>
+
+      {(character.alignment || character.background) && (
+        <div className="text-gray-400 mt-2 text-sm">
+          {[character.alignment, character.background].filter(Boolean).join(' • ')}
+        </div>
+      )}
 
       {character.avatarUrl && (
         <img
-      src={character.avatarUrl}
-      alt="avatar"
-      className="mt-4 w-32 h-32 object-cover rounded-lg"
-      />
-    )}
+          src={character.avatarUrl}
+          alt={`${character.name} avatar`}
+          className="mt-4 w-32 h-32 object-cover rounded-lg border border-gray-700"
+        />
+      )}
 
-    {character.description && (
-      <p className="text-gray-300 mt-4">{character.description}</p>
-    )}
+      {character.description && (
+        <p className="text-gray-300 mt-4 whitespace-pre-line">
+          {character.description}
+        </p>
+      )}
     </div>
 
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -150,6 +173,51 @@ const equippedEntries = (
         }
       )}
     </div>
+
+<h2 className="text-white text-xl font-bold mt-8 mb-4">Навыки</h2>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  {skillsToDisplay.map((skill) => {
+    const bonus = calculateSkillBonus(skill, finalStats, character.level)
+
+    return (
+      <div
+  key={skill.name}
+  className="bg-gray-800 rounded-lg p-4 flex justify-between items-center gap-4"
+>
+  <div>
+    <div className="text-white font-medium">{skill.name}</div>
+    <div className="text-gray-400 text-sm">
+      Характеристика: {statLabels[skill.attribute]}
+    </div>
+  </div>
+
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => toggleSkillProficiency(character.id, skill.name)}
+      className={`px-3 py-1 rounded text-sm transition ${
+        skill.proficient
+          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+          : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+      }`}
+    >
+      {skill.proficient ? 'Владение' : 'Без владения'}
+    </button>
+
+    <div className="text-right min-w-[60px]">
+      <div
+        className={`text-lg font-bold ${
+          bonus >= 0 ? 'text-green-400' : 'text-red-400'
+        }`}
+      >
+        {bonus >= 0 ? `+${bonus}` : bonus}
+      </div>
+    </div>
+  </div>
+</div>
+    )
+  })}
+</div>
 
     <h2 className="text-white text-xl font-bold mt-8 mb-4">
       Производные характеристики
