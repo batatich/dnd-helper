@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { Character, Stats } from '../types/characters'
+import type { Character, Stats, Attack } from '../types/characters'
 import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
 import { useItemsStore } from './itemsStore'
 import { calculateCharacter } from '../utils/calculateCharacter'
+
 
 const STORAGE_KEY = 'dnd-characters'
 
@@ -59,6 +60,13 @@ interface CharacterStore {
   toggleInspiration: (characterId: string) => void
   setSpeed: (characterId: string, speed: number) => void
   setHitDiceUsed: (characterId: string, used: number) => void
+  addAttack: (characterId: string, attack: Attack) => void
+updateAttack: (
+  characterId: string,
+  attackId: string,
+  updated: Partial<Attack>
+) => void
+deleteAttack: (characterId: string, attackId: string) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -617,6 +625,110 @@ setHitDiceUsed: (characterId, used) =>
                 Math.min(state.currentCharacter.hitDice?.total ?? 0, used)
               ),
             },
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  addAttack: (characterId, attack) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            attacks: [...(char.attacks ?? []), attack],
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            attacks: [...(state.currentCharacter.attacks ?? []), attack],
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+updateAttack: (characterId, attackId, updated) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            attacks: (char.attacks ?? []).map((attack) =>
+              attack.id === attackId
+                ? { ...attack, ...updated }
+                : attack
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            attacks: (state.currentCharacter.attacks ?? []).map((attack) =>
+              attack.id === attackId
+                ? { ...attack, ...updated }
+                : attack
+            ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+deleteAttack: (characterId, attackId) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            attacks: (char.attacks ?? []).filter(
+              (attack) => attack.id !== attackId
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            attacks: (state.currentCharacter.attacks ?? []).filter(
+              (attack) => attack.id !== attackId
+            ),
             updatedAt,
           }
         : state.currentCharacter

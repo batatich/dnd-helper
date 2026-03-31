@@ -100,6 +100,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         successes: 0,
         failures: 0,
         },
+        attacks: [],
         inspiration: false,
         speed: 30,
         hitDice: {
@@ -107,6 +108,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           used: 0,
           dice: '1d8',
         },
+
       }
 
       addCharacter(newCharacter)

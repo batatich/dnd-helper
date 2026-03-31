@@ -35,6 +35,8 @@ export type Character = {
   dice: string
 }
 
+  attacks: Attack[]
+
   baseStats: Stats
   derivedStats: DerivedStats
 
@@ -80,4 +82,15 @@ export type Skill = {
   name: string
   attribute: keyof Stats
   proficient: boolean
+}
+export type Attack = {
+  id: string
+  name: string
+  attackType: 'melee' | 'ranged' | 'spell'
+  ability: keyof Stats
+  proficient: boolean
+  damageDice: string
+  damageBonus: number
+  damageType: string
+  notes: string
 }
