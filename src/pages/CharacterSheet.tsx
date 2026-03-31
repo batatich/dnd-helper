@@ -11,6 +11,8 @@ import { calculateSkillBonus } from '../utils/skills'
 import { standardSkills } from '../types/characters'
 import { calculateSavingThrowBonus } from '../utils/savingThrows'
 import { useState } from 'react'
+import { getProficiencyBonus } from '../utils/skills'
+
 
 export function CharacterSheet() {
   const { id } = useParams()
@@ -22,6 +24,9 @@ export function CharacterSheet() {
   changeCurrentHp,
   setTemporaryHp,
   applyDamage,
+  setDeathSaves,
+  resetDeathSaves,
+  toggleInspiration,  
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -155,8 +160,47 @@ const savingThrowStats: (keyof Stats)[] = [
       character.level
     )
   : 10
-const currentHp = character.currentHp ?? finalDerivedStats.maxHp
-const temporaryHp = character.temporaryHp ?? 0
+    const currentHp = character.currentHp ?? finalDerivedStats.maxHp
+    const temporaryHp = character.temporaryHp ?? 0
+    const deathSaves = character.deathSaves ?? { successes: 0, failures: 0 }
+    const proficiencyBonus = getProficiencyBonus(character.level)
+    const inspiration =character.inspiration ?? false
+    const speed = character.speed ?? 30
+    const hitDice = character.hitDice ?? {
+      total: 1,
+      used: 0,
+      dice: '1d8',
+    }
+    
+  const renderDeathSaveDots = (
+    type: 'successes' | 'failures',
+    value: number
+  ) => {
+    return (
+      <div className="flex gap-2">
+        {[1, 2, 3].map((dot) => (
+          <button
+            key={dot}
+            type="button"
+            onClick={() =>
+              setDeathSaves(character.id, {
+                ...deathSaves,
+                [type]: dot,
+              })
+            }
+            className={`w-4 h-4 rounded-full border transition ${
+              value >= dot
+                ? type === 'successes'
+                  ? 'bg-green-500 border-green-500'
+                  : 'bg-red-500 border-red-500'
+                : 'bg-transparent border-gray-400'
+            }`}
+          />
+        ))}
+      </div>
+    )
+  }
+  
 
   return (
   <div className="p-6 max-w-6xl mx-auto">
@@ -187,6 +231,45 @@ const temporaryHp = character.temporaryHp ?? 0
         </p>
       )}
     </div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+    <div className="bg-gray-800 p-4 rounded text-center">
+  <div className="text-gray-400 text-sm">Бонус мастерства</div>
+  <div className="text-white text-xl font-bold">
+    +{proficiencyBonus}
+  </div>
+</div>
+
+<div className="bg-gray-800 p-4 rounded text-center">
+  <div className="text-gray-400 text-sm">Вдохновение</div>
+  <div className="text-white text-xl font-bold">
+    {inspiration ? 'Есть' : 'Нет'}
+  </div>
+  <button
+    onClick={() => toggleInspiration(character.id)}
+    className="mt-3 bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm transition"
+  >
+    {inspiration ? 'Снять' : 'Выдать'}
+  </button>
+</div>
+
+<div className="bg-gray-800 p-4 rounded text-center">
+  <div className="text-gray-400 text-sm">Скорость</div>
+  <div className="text-white text-xl font-bold">
+    {speed} фт.
+  </div>
+</div>
+
+<div className="bg-gray-800 p-4 rounded text-center">
+  <div className="text-gray-400 text-sm">Кости хитов</div>
+  <div className="text-white text-xl font-bold">
+    {hitDice.dice}
+  </div>
+  <div className="text-gray-300 text-sm mt-1">
+    Использовано: {hitDice.used} / {hitDice.total}
+  </div>
+</div>
+</div>
 
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {(Object.entries(finalStats) as [keyof Stats, number][]).map(
@@ -335,7 +418,7 @@ const temporaryHp = character.temporaryHp ?? 0
       Производные характеристики
     </h2>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="bg-gray-800 p-4 rounded text-center">
   <div className="text-gray-400 text-sm">Хиты</div>
   <div className="text-white text-xl font-bold">
@@ -380,6 +463,30 @@ const temporaryHp = character.temporaryHp ?? 0
   >
     Временные
   </button>
+</div>
+
+<div className="bg-gray-800 p-4 rounded text-center">
+  <div className="text-gray-400 text-sm mb-3">Спасброски от смерти</div>
+
+  <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs text-green-400">Успехи</span>
+      {renderDeathSaveDots('successes', deathSaves.successes)}
+    </div>
+
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs text-red-400">Провалы</span>
+      {renderDeathSaveDots('failures', deathSaves.failures)}
+    </div>
+
+    <button
+      type="button"
+      onClick={() => resetDeathSaves(character.id)}
+      className="mt-2 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm transition"
+    >
+      Сбросить
+    </button>
+  </div>
 </div>
 
       <div className="bg-gray-800 p-4 rounded text-center">

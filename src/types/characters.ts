@@ -27,10 +27,22 @@ export type Character = {
   currentHp: number
   temporaryHp: number
 
+  inspiration: boolean
+  speed: number
+  hitDice: {
+  total: number
+  used: number
+  dice: string
+}
+
   baseStats: Stats
   derivedStats: DerivedStats
 
   savingThrowProficiencies: (keyof Stats)[]
+  deathSaves: {
+  successes: number;
+  failures: number;
+  };
 
   inventory: string[] // список ID предметов
   equippedItems: Record<string, string | null> // слот -> предмет

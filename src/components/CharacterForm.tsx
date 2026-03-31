@@ -96,6 +96,17 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         savingThrowProficiencies: [],
+        deathSaves: {
+        successes: 0,
+        failures: 0,
+        },
+        inspiration: false,
+        speed: 30,
+        hitDice: {
+          total: 1,
+          used: 0,
+          dice: '1d8',
+        },
       }
 
       addCharacter(newCharacter)

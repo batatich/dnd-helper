@@ -51,6 +51,14 @@ interface CharacterStore {
   changeCurrentHp: (characterId: string, amount: number) => void
   setTemporaryHp: (characterId: string, amount: number) => void
   applyDamage: (characterId: string, damage: number) => void
+  setDeathSaves: (
+  characterId: string,
+  deathSaves: { successes: number; failures: number }
+  ) => void
+  resetDeathSaves: (characterId: string) => void
+  toggleInspiration: (characterId: string) => void
+  setSpeed: (characterId: string, speed: number) => void
+  setHitDiceUsed: (characterId: string, used: number) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -310,6 +318,10 @@ changeCurrentHp: (characterId, amount) =>
       return {
         ...char,
         currentHp: newCurrentHp,
+        deathSaves:
+          newCurrentHp > 0
+          ? { successes: 0, failures: 0 }
+          : char.deathSaves,
         updatedAt,
       }
     })
@@ -334,6 +346,10 @@ changeCurrentHp: (characterId, amount) =>
             return {
               ...state.currentCharacter,
               currentHp: newCurrentHp,
+              deathSaves:
+                newCurrentHp > 0
+                  ? { successes: 0, failures: 0 }
+                  : state.currentCharacter.deathSaves,
               updatedAt,
             }
           })()
@@ -427,6 +443,182 @@ changeCurrentHp: (characterId, amount) =>
               updatedAt,
             }
           })()
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  setDeathSaves: (characterId, deathSaves) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            deathSaves: {
+              successes: Math.max(0, Math.min(3, deathSaves.successes)),
+              failures: Math.max(0, Math.min(3, deathSaves.failures)),
+            },
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            deathSaves: {
+              successes: Math.max(0, Math.min(3, deathSaves.successes)),
+              failures: Math.max(0, Math.min(3, deathSaves.failures)),
+            },
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+resetDeathSaves: (characterId) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            deathSaves: {
+              successes: 0,
+              failures: 0,
+            },
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            deathSaves: {
+              successes: 0,
+              failures: 0,
+            },
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  toggleInspiration: (characterId) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            inspiration: !char.inspiration,
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            inspiration: !state.currentCharacter.inspiration,
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+setSpeed: (characterId, speed) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            speed: Math.max(0, speed),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            speed: Math.max(0, speed),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+setHitDiceUsed: (characterId, used) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) => {
+      if (char.id !== characterId) return char
+
+      const total = char.hitDice?.total ?? 0
+
+      return {
+        ...char,
+        hitDice: {
+          ...char.hitDice,
+          used: Math.max(0, Math.min(total, used)),
+        },
+        updatedAt,
+      }
+    })
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            hitDice: {
+              ...state.currentCharacter.hitDice,
+              used: Math.max(
+                0,
+                Math.min(state.currentCharacter.hitDice?.total ?? 0, used)
+              ),
+            },
+            updatedAt,
+          }
         : state.currentCharacter
 
     return {
