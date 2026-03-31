@@ -26,6 +26,29 @@ export function CharacterSheet() {
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
   const [tempHpInput, setTempHpInput] = useState(0)
+  const [hpChangeInput, setHpChangeInput] = useState('')
+
+  const handleHpChange = () => {
+  const rawValue = hpChangeInput.trim()
+
+  if (!rawValue) return
+
+  if (rawValue.startsWith('+')) {
+    const healValue = Number(rawValue.slice(1))
+
+    if (!Number.isNaN(healValue) && healValue > 0) {
+      changeCurrentHp(character!.id, healValue)
+    }
+  } else {
+    const damageValue = Math.abs(Number(rawValue))
+
+    if (!Number.isNaN(damageValue) && damageValue > 0) {
+      applyDamage(character!.id, damageValue)
+    }
+  }
+
+  setHpChangeInput('')
+}
 
 
   if (!character) {
@@ -325,22 +348,23 @@ const temporaryHp = character.temporaryHp ?? 0
     </div>
   )}
 </div>
+<div className="mt-3 flex items-center gap-2 justify-center">
+  <input
+  type="text"
+  value={hpChangeInput}
+  onChange={(e) => setHpChangeInput(e.target.value)}
+  placeholder="+5 лечение / 5 урон"
+  className="w-24 bg-gray-700 text-white rounded p-1 text-center"
+/>
 
-<div className="mt-3 flex flex-wrap gap-2 justify-center">
-  <button
-    onClick={() => applyDamage(character.id, 1)}
-    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
-  >
-    -1 Урон
-  </button>
-
-  <button
-    onClick={() => changeCurrentHp(character.id, 1)}
-    className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition"
-  >
-    +1 Лечение
-  </button>
+<button
+  onClick={handleHpChange}
+  className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm transition"
+>
+  Применить
+</button>
 </div>
+
 
 <div className="mt-3 flex items-center gap-2 justify-center">
   <input
