@@ -36,6 +36,7 @@ export type Character = {
 }
   spells: Spell[]
   spellcastingAbility?: keyof Stats
+  spellSlots: SpellSlot[]
 
   attacks: Attack[]
 
@@ -110,4 +111,9 @@ export type Spell = {
   concentration: boolean
   ritual: boolean
   description: string
+}
+export type SpellSlot = {
+  level: number
+  total: number
+  used: number
 }

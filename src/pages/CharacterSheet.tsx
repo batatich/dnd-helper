@@ -34,6 +34,8 @@ export function CharacterSheet() {
   deleteSpell,
   updateSpell,
   setSpellcastingAbility,
+  setSpellSlotsTotal,
+  changeSpellSlot,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -234,40 +236,47 @@ const savingThrowStats: (keyof Stats)[] = [
     const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
     const spellAttackBonus = spellcastingModifier + proficiencyBonus
     const spellSaveDc = 8 + spellcastingModifier + proficiencyBonus
+    const spellSlots =
+      character.spellSlots ??
+      Array.from({ length: 9 }, (_, i) => ({
+        level: i + 1,
+        total: 0,
+        used: 0,
+      }))
     
-  const renderDeathSaveDots = (
-    type: 'successes' | 'failures',
-    value: number
-  ) => {
-    return (
-      <div className="flex gap-2">
-        {[1, 2, 3].map((dot) => (
-          <button
-            key={dot}
-            type="button"
-            onClick={() =>
-              setDeathSaves(character.id, {
-                ...deathSaves,
-                [type]: dot,
-              })
-            }
-            className={`w-4 h-4 rounded-full border transition ${
-              value >= dot
-                ? type === 'successes'
-                  ? 'bg-green-500 border-green-500'
-                  : 'bg-red-500 border-red-500'
-                : 'bg-transparent border-gray-400'
-            }`}
-          />
-        ))}
-      </div>
-    )
+    const renderDeathSaveDots = (
+      type: 'successes' | 'failures',
+      value: number
+    ) => {
+      return (
+        <div className="flex gap-2">
+          {[1, 2, 3].map((dot) => (
+            <button
+              key={dot}
+              type="button"
+              onClick={() =>
+                setDeathSaves(character.id, {
+                  ...deathSaves,
+                  [type]: dot,
+                })
+              }
+              className={`w-4 h-4 rounded-full border transition ${
+                value >= dot
+                  ? type === 'successes'
+                    ? 'bg-green-500 border-green-500'
+                    : 'bg-red-500 border-red-500'
+                  : 'bg-transparent border-gray-400'
+              }`}
+            />
+          ))}
+        </div>
+      )
+    }
+    
+    const getAttackBonus = (attack: Attack) => {
+    const abilityModifier = getModifier(finalStats[attack.ability])
+    return abilityModifier + (attack.proficient ? proficiencyBonus : 0)
   }
-  
-  const getAttackBonus = (attack: Attack) => {
-  const abilityModifier = getModifier(finalStats[attack.ability])
-  return abilityModifier + (attack.proficient ? proficiencyBonus : 0)
-}
 const handleAddAttack = () => {
   if (!newAttack.name.trim()) return
 
@@ -1060,6 +1069,60 @@ const handleCancelSpellEdit = () => {
         {spellSaveDc}
       </div>
     </div>
+  </div>
+</div>
+
+<h2 className="text-white text-xl font-bold mt-8 mb-4">
+  Ячейки заклинаний
+</h2>
+
+<div className="bg-gray-800 rounded-lg p-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {spellSlots.map((slot) => (
+      <div
+        key={slot.level}
+        className="bg-gray-700 rounded p-3 flex flex-col gap-2"
+      >
+        <div className="text-white font-semibold">
+          Уровень {slot.level}
+        </div>
+
+        <input
+          type="number"
+          value={slot.total}
+          onChange={(e) =>
+            setSpellSlotsTotal(
+              character.id,
+              slot.level,
+              Number(e.target.value)
+            )
+          }
+          className="bg-gray-600 text-white rounded p-1"
+          placeholder="Всего"
+          min="0"
+        />
+
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => changeSpellSlot(character.id, slot.level, -1)}
+            className="bg-gray-600 px-2 rounded"
+          >
+            -
+          </button>
+
+          <div className="text-white">
+            {slot.used} / {slot.total}
+          </div>
+
+          <button
+            onClick={() => changeSpellSlot(character.id, slot.level, 1)}
+            className="bg-gray-600 px-2 rounded"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    ))}
   </div>
 </div>
 

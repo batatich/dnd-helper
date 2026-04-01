@@ -62,23 +62,34 @@ interface CharacterStore {
   setSpeed: (characterId: string, speed: number) => void
   setHitDiceUsed: (characterId: string, used: number) => void
   addAttack: (characterId: string, attack: Attack) => void
-updateAttack: (
-  characterId: string,
-  attackId: string,
-  updated: Partial<Attack>
-) => void
-deleteAttack: (characterId: string, attackId: string) => void
-addSpell: (characterId: string, spell: Spell) => void
-updateSpell: (
-  characterId: string,
-  spellId: string,
-  updated: Partial<Spell>
-) => void
-deleteSpell: (characterId: string, spellId: string) => void
-setSpellcastingAbility: (
-  characterId: string,
-  ability: keyof Stats
-) => void
+  updateAttack: (
+    characterId: string,
+    attackId: string,
+    updated: Partial<Attack>
+  ) => void
+  deleteAttack: (characterId: string, attackId: string) => void
+  addSpell: (characterId: string, spell: Spell) => void
+  updateSpell: (
+    characterId: string,
+    spellId: string,
+    updated: Partial<Spell>
+  ) => void
+  deleteSpell: (characterId: string, spellId: string) => void
+  setSpellcastingAbility: (
+    characterId: string,
+    ability: keyof Stats
+  ) => void
+  setSpellSlotsTotal: (
+    characterId: string,
+    level: number,
+    total: number
+  ) => void
+
+  changeSpellSlot: (
+    characterId: string,
+    level: number,
+    delta: number
+  ) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -937,6 +948,93 @@ deleteSpell: (characterId, spellId) =>
         ? {
             ...state.currentCharacter,
             spellcastingAbility: ability,
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  setSpellSlotsTotal: (characterId, level, total) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spellSlots: char.spellSlots.map((slot) =>
+              slot.level === level
+                ? { ...slot, total }
+                : slot
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spellSlots: state.currentCharacter.spellSlots.map((slot) =>
+              slot.level === level
+                ? { ...slot, total }
+                : slot
+            ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+changeSpellSlot: (characterId, level, delta) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spellSlots: char.spellSlots.map((slot) => {
+              if (slot.level !== level) return slot
+
+              const newUsed = Math.max(
+                0,
+                Math.min(slot.total, slot.used + delta)
+              )
+
+              return { ...slot, used: newUsed }
+            }),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spellSlots: state.currentCharacter.spellSlots.map((slot) => {
+              if (slot.level !== level) return slot
+
+              const newUsed = Math.max(
+                0,
+                Math.min(slot.total, slot.used + delta)
+              )
+
+              return { ...slot, used: newUsed }
+            }),
             updatedAt,
           }
         : state.currentCharacter

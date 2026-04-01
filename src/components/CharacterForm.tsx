@@ -110,6 +110,11 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         },
         spells: [],
         spellcastingAbility: 'intelligence',
+        spellSlots: Array.from({ length: 9 }, (_, i) => ({
+          level: i + 1,
+          total: 0,
+          used: 0,
+        })),
 
       }
 
