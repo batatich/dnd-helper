@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { Character, Stats, Attack, Spell } from '../types/characters'
+import type {
+  Character,
+  Stats,
+  Skill,
+  Attack,
+  Spell,
+  SpellSlot,
+} from '../types/characters'
+import { standardSkills } from '../types/characters'
 import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
 import { useItemsStore } from './itemsStore'
@@ -8,24 +16,120 @@ import { calculateCharacter } from '../utils/calculateCharacter'
 
 const STORAGE_KEY = 'dnd-characters'
 
+const defaultDeathSaves = {
+  successes: 0,
+  failures: 0,
+}
+
+const defaultHitDice = {
+  total: 1,
+  used: 0,
+  dice: '1d8',
+}
+
+const defaultSpellSlots: SpellSlot[] = Array.from({ length: 9 }, (_, i) => ({
+  level: i + 1,
+  total: 0,
+  used: 0,
+}))
+
+const defaultEquippedItems = {
+  mainHand: null,
+  offHand: null,
+  head: null,
+  body: null,
+  ring1: null,
+  ring2: null,
+  amulet: null,
+  boots: null,
+}
+
+const defaultBaseStats = {
+  strength: 10,
+  dexterity: 10,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 10,
+}
+
+const defaultDerivedStats = {
+  maxHp: 10,
+  armorClass: 10,
+  initiative: 0,
+}
+
+const defaultSkills: Skill[] = standardSkills.map((skill) => ({
+  ...skill,
+}))
+const normalizeCharacter = (character: Partial<Character>): Character => {
+  return {
+    id: character.id ?? crypto.randomUUID(),
+    name: character.name ?? '',
+    race: character.race ?? '',
+    class: character.class ?? '',
+    level: character.level ?? 1,
+    description: character.description ?? '',
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+
+    skills:
+      character.skills && character.skills.length > 0
+        ? character.skills
+        : defaultSkills,
+
+    attacks: (character.attacks ?? []) as Attack[],
+    spells: (character.spells ?? []) as Spell[],
+    spellcastingAbility: character.spellcastingAbility ?? 'intelligence',
+
+    currentHp:
+      character.currentHp ??
+      character.derivedStats?.maxHp ??
+      defaultDerivedStats.maxHp,
+    temporaryHp: character.temporaryHp ?? 0,
+
+    deathSaves: character.deathSaves ?? defaultDeathSaves,
+    inspiration: character.inspiration ?? false,
+    speed: character.speed ?? 30,
+    hitDice: character.hitDice ?? defaultHitDice,
+
+    spellSlots:
+      character.spellSlots && character.spellSlots.length > 0
+        ? character.spellSlots
+        : defaultSpellSlots,
+
+    baseStats: character.baseStats ?? defaultBaseStats,
+    derivedStats: character.derivedStats ?? defaultDerivedStats,
+
+    savingThrowProficiencies: character.savingThrowProficiencies ?? [],
+
+    inventory: character.inventory ?? [],
+    equippedItems: character.equippedItems ?? defaultEquippedItems,
+
+    createdAt: character.createdAt ?? new Date().toISOString(),
+    updatedAt: character.updatedAt ?? new Date().toISOString(),
+  }
+}
+
 const loadCharacters = (): Character[] => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
 
     if (!saved) {
-      return initialCharacters
+      return initialCharacters.map((character) => normalizeCharacter(character))
     }
 
     const parsed = JSON.parse(saved)
 
     if (!Array.isArray(parsed)) {
-      return initialCharacters
+      return initialCharacters.map((character) => normalizeCharacter(character  ))
     }
 
     return parsed
   } catch (error) {
     console.error('Failed to load characters from localStorage:', error)
-    return initialCharacters
+    return initialCharacters.map((character) => normalizeCharacter(character  ))
   }
 }
 
