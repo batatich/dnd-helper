@@ -34,6 +34,7 @@ export type Character = {
   used: number
   dice: string
 }
+  spells: Spell[]
 
   attacks: Attack[]
 
@@ -95,4 +96,17 @@ export type Attack = {
   notes: string
   source: 'manual' | 'item'
   itemId?: string
+}
+export type Spell = {
+  id: string
+  name: string
+  level: number
+  school: string
+  castingTime: string
+  range: string
+  duration: string
+  components: string
+  concentration: boolean
+  ritual: boolean
+  description: string
 }

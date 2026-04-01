@@ -3,7 +3,7 @@ import { useCharacterStore } from '../stores/characterStore'
 import { getModifier } from '../utils/stats'
 import { calculateCharacter } from '../utils/calculateCharacter'
 import { useItemsStore } from '../stores/itemsStore'
-import type { Stats, Attack } from '../types/characters'
+import type { Stats, Attack, Spell } from '../types/characters'
 import { formatItemEffect } from '../utils/itemEffects'
 import type { EquipmentSlot } from '../types/items'
 import { Link } from 'react-router-dom'
@@ -30,6 +30,8 @@ export function CharacterSheet() {
   addAttack,
   deleteAttack, 
   updateAttack,
+  addSpell,
+  deleteSpell,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -58,6 +60,18 @@ export function CharacterSheet() {
     damageType: 'slashing',
     notes: '',
     source: 'manual',
+  })
+  const [newSpell, setNewSpell] = useState<Omit<Spell, 'id'>>({
+    name: '',
+    level: 0,
+    school: '',
+    castingTime: '1 действие',
+    range: 'На себя',
+    duration: 'Мгновенно',
+    components: '',
+    concentration: false,
+    ritual: false,
+    description: '',
   })
 
   const handleHpChange = () => {
@@ -199,6 +213,7 @@ const savingThrowStats: (keyof Stats)[] = [
       dice: '1d8',
     }
     const attacks = character.attacks ?? []
+    const spells = character.spells ?? []
     
   const renderDeathSaveDots = (
     type: 'successes' | 'failures',
@@ -279,6 +294,27 @@ const handleStartEditAttack = (attack: Attack) => {
 }
 const handleCancelAttackEdit = () => {
   setEditingAttackId(null)
+}
+const handleAddSpell = () => {
+  if (!newSpell.name.trim()) return
+
+  addSpell(character.id, {
+    id: crypto.randomUUID(),
+    ...newSpell,
+  })
+
+  setNewSpell({
+    name: '',
+    level: 0,
+    school: '',
+    castingTime: '1 действие',
+    range: 'На себя',
+    duration: 'Мгновенно',
+    components: '',
+    concentration: false,
+    ritual: false,
+    description: '',
+  })
 }
 
 
@@ -927,6 +963,198 @@ const handleCancelAttackEdit = () => {
         </div>
       )
     })}
+  </div>
+)}
+
+<h2 className="text-white text-xl font-bold mt-8 mb-4">Заклинания</h2>
+<div className="bg-gray-800 rounded-lg p-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+    <input
+      type="text"
+      value={newSpell.name}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, name: e.target.value })
+      }
+      placeholder="Название заклинания"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <input
+      type="number"
+      value={newSpell.level}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, level: Number(e.target.value) })
+      }
+      placeholder="Уровень"
+      className="bg-gray-700 text-white rounded p-2"
+      min="0"
+    />
+
+    <input
+      type="text"
+      value={newSpell.school}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, school: e.target.value })
+      }
+      placeholder="Школа"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <input
+      type="text"
+      value={newSpell.castingTime}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, castingTime: e.target.value })
+      }
+      placeholder="Время накладывания"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <input
+      type="text"
+      value={newSpell.range}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, range: e.target.value })
+      }
+      placeholder="Дистанция"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <input
+      type="text"
+      value={newSpell.duration}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, duration: e.target.value })
+      }
+      placeholder="Длительность"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <input
+      type="text"
+      value={newSpell.components}
+      onChange={(e) =>
+        setNewSpell({ ...newSpell, components: e.target.value })
+      }
+      placeholder="Компоненты"
+      className="bg-gray-700 text-white rounded p-2"
+    />
+
+    <label className="flex items-center gap-2 text-white">
+      <input
+        type="checkbox"
+        checked={newSpell.concentration}
+        onChange={(e) =>
+          setNewSpell({
+            ...newSpell,
+            concentration: e.target.checked,
+          })
+        }
+      />
+      Концентрация
+    </label>
+
+    <label className="flex items-center gap-2 text-white">
+      <input
+        type="checkbox"
+        checked={newSpell.ritual}
+        onChange={(e) =>
+          setNewSpell({
+            ...newSpell,
+            ritual: e.target.checked,
+          })
+        }
+      />
+      Ритуал
+    </label>
+  </div>
+
+  <textarea
+    value={newSpell.description}
+    onChange={(e) =>
+      setNewSpell({ ...newSpell, description: e.target.value })
+    }
+    placeholder="Описание заклинания"
+    className="mt-3 w-full bg-gray-700 text-white rounded p-2"
+    rows={3}
+  />
+
+  <button
+    type="button"
+    onClick={handleAddSpell}
+    className="mt-3 bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition"
+  >
+    Добавить заклинание
+  </button>
+</div>
+{spells.length === 0 ? (
+  <div className="bg-gray-800 rounded-lg p-4 text-gray-400">
+    Заклинаний пока нет
+  </div>
+) : (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    {spells.map((spell) => (
+      <div
+        key={spell.id}
+        className="bg-gray-800 rounded-lg p-4 flex justify-between gap-4"
+      >
+        <div>
+          <div className="text-white font-semibold text-lg">
+            {spell.name}
+          </div>
+
+          <div className="text-gray-400 text-sm mt-1">
+            Уровень: {spell.level} {spell.school && `• ${spell.school}`}
+          </div>
+
+          <div className="text-gray-300 mt-2">
+            Накладывание: {spell.castingTime}
+          </div>
+
+          <div className="text-gray-300">
+            Дистанция: {spell.range}
+          </div>
+
+          <div className="text-gray-300">
+            Длительность: {spell.duration}
+          </div>
+
+          {spell.components && (
+            <div className="text-gray-400 text-sm mt-1">
+              Компоненты: {spell.components}
+            </div>
+          )}
+
+          {spell.concentration && (
+            <div className="text-yellow-400 text-sm mt-1">
+              Концентрация
+            </div>
+          )}
+
+          {spell.ritual && (
+            <div className="text-cyan-400 text-sm mt-1">
+              Ритуал
+            </div>
+          )}
+
+          {spell.description && (
+            <div className="text-gray-400 text-sm mt-2 whitespace-pre-line">
+              {spell.description}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => deleteSpell(character.id, spell.id)}
+            className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+          >
+            Удалить
+          </button>
+        </div>
+      </div>
+    ))}
   </div>
 )}
 

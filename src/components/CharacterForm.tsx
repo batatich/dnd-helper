@@ -108,6 +108,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           used: 0,
           dice: '1d8',
         },
+        spells: [],
 
       }
 
