@@ -52,6 +52,7 @@ interface CharacterStore {
   changeCurrentHp: (characterId: string, amount: number) => void
   setTemporaryHp: (characterId: string, amount: number) => void
   applyDamage: (characterId: string, damage: number) => void
+  
   setDeathSaves: (
   characterId: string,
   deathSaves: { successes: number; failures: number }
@@ -74,6 +75,10 @@ updateSpell: (
   updated: Partial<Spell>
 ) => void
 deleteSpell: (characterId: string, spellId: string) => void
+setSpellcastingAbility: (
+  characterId: string,
+  ability: keyof Stats
+) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -902,6 +907,36 @@ deleteSpell: (characterId, spellId) =>
             spells: (state.currentCharacter.spells ?? []).filter(
               (spell) => spell.id !== spellId
             ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  setSpellcastingAbility: (characterId, ability) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spellcastingAbility: ability,
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spellcastingAbility: ability,
             updatedAt,
           }
         : state.currentCharacter

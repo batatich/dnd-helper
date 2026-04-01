@@ -35,6 +35,7 @@ export type Character = {
   dice: string
 }
   spells: Spell[]
+  spellcastingAbility?: keyof Stats
 
   attacks: Attack[]
 

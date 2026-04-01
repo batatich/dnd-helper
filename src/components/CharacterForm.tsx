@@ -109,6 +109,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           dice: '1d8',
         },
         spells: [],
+        spellcastingAbility: 'intelligence',
 
       }
 

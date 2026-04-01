@@ -33,6 +33,7 @@ export function CharacterSheet() {
   addSpell,
   deleteSpell,
   updateSpell,
+  setSpellcastingAbility,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -229,6 +230,10 @@ const savingThrowStats: (keyof Stats)[] = [
     }
     const attacks = character.attacks ?? []
     const spells = character.spells ?? []
+    const spellcastingAbility = character.spellcastingAbility ?? 'intelligence'
+    const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
+    const spellAttackBonus = spellcastingModifier + proficiencyBonus
+    const spellSaveDc = 8 + spellcastingModifier + proficiencyBonus
     
   const renderDeathSaveDots = (
     type: 'successes' | 'failures',
@@ -1006,6 +1011,57 @@ const handleCancelSpellEdit = () => {
     })}
   </div>
 )}
+
+<h2 className="text-white text-xl font-bold mt-8 mb-4">
+  Магические характеристики
+</h2>
+
+<div className="bg-gray-800 rounded-lg p-4 mb-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+    <div>
+      <label className="block text-gray-400 text-sm mb-2">
+        Характеристика заклинателя
+      </label>
+      <select
+        value={spellcastingAbility}
+        onChange={(e) =>
+          setSpellcastingAbility(character.id, e.target.value as keyof Stats)
+        }
+        className="w-full bg-gray-700 text-white rounded p-2"
+      >
+        <option value="strength">Сила</option>
+        <option value="dexterity">Ловкость</option>
+        <option value="constitution">Телосложение</option>
+        <option value="intelligence">Интеллект</option>
+        <option value="wisdom">Мудрость</option>
+        <option value="charisma">Харизма</option>
+      </select>
+    </div>
+
+    <div className="bg-gray-700 rounded p-3 text-center">
+      <div className="text-gray-400 text-sm">Модификатор</div>
+      <div className="text-white text-xl font-bold">
+        {spellcastingModifier >= 0
+          ? `+${spellcastingModifier}`
+          : spellcastingModifier}
+      </div>
+    </div>
+
+    <div className="bg-gray-700 rounded p-3 text-center">
+      <div className="text-gray-400 text-sm">Spell Attack</div>
+      <div className="text-white text-xl font-bold">
+        {spellAttackBonus >= 0 ? `+${spellAttackBonus}` : spellAttackBonus}
+      </div>
+    </div>
+
+    <div className="bg-gray-700 rounded p-3 text-center">
+      <div className="text-gray-400 text-sm">Spell Save DC</div>
+      <div className="text-white text-xl font-bold">
+        {spellSaveDc}
+      </div>
+    </div>
+  </div>
+</div>
 
 <h2 className="text-white text-xl font-bold mt-8 mb-4">Заклинания</h2>
 <div className="bg-gray-800 rounded-lg p-4 mb-4">
