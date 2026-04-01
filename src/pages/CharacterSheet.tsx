@@ -18,6 +18,7 @@ export function CharacterSheet() {
   const { id } = useParams()
  const {
   characters,
+  updateCharacter,
   equipItem,
   unequipItem,
   toggleSkillProficiency,
@@ -91,6 +92,26 @@ export function CharacterSheet() {
     ritual: false,
     description: '',
   })
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+  name: '',
+  race: '',
+  class: '',
+  level: 1,
+  alignment: '',
+  background: '',
+  description: '',
+  avatarUrl: '',
+  baseStats: {
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    intelligence: 10,
+    wisdom: 10,
+    charisma: 10,
+  },
+})
 
   const handleHpChange = () => {
   const rawValue = hpChangeInput.trim()
@@ -371,23 +392,211 @@ const handleSaveSpellEdit = () => {
 const handleCancelSpellEdit = () => {
   setEditingSpellId(null)
 }
+const handleStartEditProfile = () => {
+  setProfileForm({
+    name: character.name,
+    race: character.race,
+    class: character.class,
+    level: character.level,
+    alignment: character.alignment,
+    background: character.background,
+    description: character.description,
+    avatarUrl: character.avatarUrl,
+    baseStats: { ...character.baseStats },
+  })
+
+  setIsEditingProfile(true)
+}
+const handleSaveProfile = () => {
+  updateCharacter(character.id,{
+    name: character.name,
+    race: character.race,
+    class: character.class,
+    level: character.level,
+    alignment: character.alignment,
+    background: character.background,
+    description: character.description,
+    avatarUrl: character.avatarUrl,
+    baseStats: { ...character.baseStats },
+  })
+
+  setIsEditingProfile(true)
+}
+const handleCancelProfileEdit = () => {
+  setIsEditingProfile(false)
+}
 
 
 
   return (
   <div className="p-6 max-w-6xl mx-auto">
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
-      <h1 className="text-3xl font-bold text-white">{character.name}</h1>
+  {isEditingProfile ? (
+    <div className="space-y-4">
+      <input
+        type="text"
+        value={profileForm.name}
+        onChange={(e) =>
+          setProfileForm({ ...profileForm, name: e.target.value })
+        }
+        placeholder="Имя персонажа"
+        className="w-full bg-gray-700 text-white rounded p-2"
+      />
 
-      <div className="text-gray-300 mt-2">
-        {character.race} • {character.class} уровень {character.level}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <input
+          type="text"
+          value={profileForm.race}
+          onChange={(e) =>
+            setProfileForm({ ...profileForm, race: e.target.value })
+          }
+          placeholder="Раса"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="text"
+          value={profileForm.class}
+          onChange={(e) =>
+            setProfileForm({ ...profileForm, class: e.target.value })
+          }
+          placeholder="Класс"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="number"
+          value={profileForm.level}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+              level: Math.max(1, Number(e.target.value)),
+            })
+          }
+          placeholder="Уровень"
+          className="bg-gray-700 text-white rounded p-2"
+          min="1"
+        />
+
+        <input
+          type="text"
+          value={profileForm.alignment}
+          onChange={(e) =>
+            setProfileForm({ ...profileForm, alignment: e.target.value })
+          }
+          placeholder="Мировоззрение"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="text"
+          value={profileForm.background}
+          onChange={(e) =>
+            setProfileForm({ ...profileForm, background: e.target.value })
+          }
+          placeholder="Предыстория"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="text"
+          value={profileForm.avatarUrl}
+          onChange={(e) =>
+            setProfileForm({ ...profileForm, avatarUrl: e.target.value })
+          }
+          placeholder="Ссылка на аватар"
+          className="bg-gray-700 text-white rounded p-2"
+        />
       </div>
 
-      {(character.alignment || character.background) && (
-        <div className="text-gray-400 mt-2 text-sm">
-          {[character.alignment, character.background].filter(Boolean).join(' • ')}
+      <textarea
+        value={profileForm.description}
+        onChange={(e) =>
+          setProfileForm({ ...profileForm, description: e.target.value })
+        }
+        placeholder="Описание персонажа"
+        className="w-full bg-gray-700 text-white rounded p-2"
+        rows={4}
+      />
+
+      <div>
+        <div className="text-white font-semibold mb-2">
+          Базовые характеристики
         </div>
-      )}
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {(Object.entries(profileForm.baseStats) as [keyof Stats, number][]).map(
+            ([key, value]) => (
+              <div key={key}>
+                <label className="block text-gray-400 text-sm mb-1">
+                  {statLabels[key]}
+                </label>
+
+                <input
+                  type="number"
+                  value={value}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      baseStats: {
+                        ...profileForm.baseStats,
+                        [key]: Number(e.target.value),
+                      },
+                    })
+                  }
+                  className="w-full bg-gray-700 text-white rounded p-2"
+                />
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleSaveProfile}
+          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+        >
+          Сохранить
+        </button>
+
+        <button
+          type="button"
+          onClick={handleCancelProfileEdit}
+          className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div>
+      <div className="flex justify-between items-start gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            {character.name || 'Новый персонаж'}
+          </h1>
+
+          <div className="text-gray-300 mt-2">
+            {character.race || 'Без расы'} • {character.class || 'Без класса'} уровень {character.level}
+          </div>
+
+          {(character.alignment || character.background) && (
+            <div className="text-gray-400 mt-2 text-sm">
+              {[character.alignment, character.background].filter(Boolean).join(' • ')}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleStartEditProfile}
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm transition"
+        >
+          Редактировать
+        </button>
+      </div>
 
       {character.avatarUrl && (
         <img
@@ -403,6 +612,8 @@ const handleCancelSpellEdit = () => {
         </p>
       )}
     </div>
+  )}
+</div>
 
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
     <div className="bg-gray-800 p-4 rounded text-center">

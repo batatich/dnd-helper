@@ -3,10 +3,21 @@ import { Link } from 'react-router-dom';
 import { useCharacterStore } from '../stores/characterStore';
 import { CharacterForm } from '../components/CharacterForm';
 import type { Character } from "../types/characters";
+import { useNavigate } from 'react-router-dom'
+import { createEmptyCharacter } from '../utils/createEmptyCharacter'
+
 
 export function CharactersList() {
-  const { characters, deleteCharacter, setCurrentCharacter } = useCharacterStore();
 
+
+  const { characters, deleteCharacter, setCurrentCharacter, addCharacter } = useCharacterStore();
+  const navigate = useNavigate()
+  const handleCreateCharacter = () => {
+    const newCharacter = createEmptyCharacter()
+      addCharacter(newCharacter)
+      navigate(`/character/${newCharacter.id}`)
+  }
+  
   console.log('characters from store:', characters);
 
   const [showForm, setShowForm] = useState(false);
@@ -35,7 +46,7 @@ export function CharactersList() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-white">📜 Мои персонажи</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={handleCreateCharacter}
           className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2"
         >
           <span>+</span> Создать персонажа
