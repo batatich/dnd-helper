@@ -32,4 +32,13 @@ export type Item = {
   type: ItemType
   allowedSlots: EquipmentSlot[]
   effects: ItemEffect[]
+  
+  weaponConfig?: {
+    attackType: 'melee' | 'ranged'
+    ability: keyof Stats
+    damageDice: string
+    damageBonus: number
+    damageType: string
+    notes: string
+  }
 }

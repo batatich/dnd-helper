@@ -93,4 +93,6 @@ export type Attack = {
   damageBonus: number
   damageType: string
   notes: string
+  source: 'manual' | 'item'
+  itemId?: string
 }

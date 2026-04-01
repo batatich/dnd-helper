@@ -43,6 +43,7 @@ export function CharacterSheet() {
     damageBonus: 0,
     damageType: 'slashing',
     notes: '',
+    source: 'manual',
   })
 
   const handleHpChange = () => {
@@ -235,6 +236,7 @@ const handleAddAttack = () => {
     damageBonus: 0,
     damageType: 'slashing',
     notes: '',
+    source: 'manual',
   })
 }
 
@@ -619,7 +621,6 @@ const handleAddAttack = () => {
       placeholder="Тип урона"
       className="bg-gray-700 text-white rounded p-2"
     />
-
     <label className="flex items-center gap-2 text-white">
       <input
         type="checkbox"
@@ -713,15 +714,25 @@ const handleAddAttack = () => {
             )}
           </div>
 
-          <div>
-            <button
-              type="button"
-              onClick={() => deleteAttack(character.id, attack.id)}
-              className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
-            >
-              Удалить
-            </button>
-          </div>
+          {attack.source === 'item' && (
+      <div className="text-cyan-400 text-sm mt-1">
+        От оружия
+      </div>
+    )}
+
+          {attack.source === 'manual' ? (
+  <button
+    type="button"
+    onClick={() => deleteAttack(character.id, attack.id)}
+    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+  >
+    Удалить
+  </button>
+) : (
+  <div className="text-xs text-gray-400">
+    Снимите оружие
+  </div>
+)}
         </div>
       )
     })}

@@ -61,6 +61,13 @@ export function CreateItem() {
   const [selectedStat, setSelectedStat] = useState<keyof Stats>('strength')
   const [effectValue, setEffectValue] = useState(1)
 
+  const [weaponAttackType, setWeaponAttackType] = useState<'melee' | 'ranged'>('melee')
+  const [weaponAbility, setWeaponAbility] = useState<keyof Stats>('strength')
+  const [weaponDamageDice, setWeaponDamageDice] = useState('1d6')
+  const [weaponDamageBonus, setWeaponDamageBonus] = useState(0)
+  const [weaponDamageType, setWeaponDamageType] = useState('slashing')
+  const [weaponNotes, setWeaponNotes] = useState('')
+
   const toggleSlot = (slot: EquipmentSlot) => {
     setAllowedSlots((prev) =>
       prev.includes(slot)
@@ -83,12 +90,23 @@ export function CreateItem() {
     }
 
     const newItem: Item = {
-      id: crypto.randomUUID(),
-      name,
-      type,
-      allowedSlots,
-      effects: [],
-    }
+  id: crypto.randomUUID(),
+  name,
+  type,
+  allowedSlots,
+  effects: [],
+  weaponConfig:
+    type === 'weapon'
+      ? {
+          attackType: weaponAttackType,
+          ability: weaponAbility,
+          damageDice: weaponDamageDice,
+          damageBonus: weaponDamageBonus,
+          damageType: weaponDamageType,
+          notes: weaponNotes,
+        }
+      : undefined,
+}
 
     if (effectType === 'stat') {
       newItem.effects.push({
@@ -164,6 +182,80 @@ navigate('/characters')
               ))}
             </select>
           </div>
+
+          {type === 'weapon' && (
+  <div className="space-y-4">
+    <div>
+      <label className="block text-gray-300 mb-2">Тип атаки</label>
+      <select
+        value={weaponAttackType}
+        onChange={(e) => setWeaponAttackType(e.target.value as 'melee' | 'ranged')}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+      >
+        <option value="melee">Ближняя</option>
+        <option value="ranged">Дальняя</option>
+      </select>
+    </div>
+
+    <div>
+      <label className="block text-gray-300 mb-2">Характеристика</label>
+      <select
+        value={weaponAbility}
+        onChange={(e) => setWeaponAbility(e.target.value as keyof Stats)}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+      >
+        {Object.entries(statLabels).map(([key, label]) => (
+          <option key={key} value={key}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div>
+      <label className="block text-gray-300 mb-2">Кубик урона</label>
+      <input
+        type="text"
+        value={weaponDamageDice}
+        onChange={(e) => setWeaponDamageDice(e.target.value)}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+        placeholder="Например: 1d8"
+      />
+    </div>
+
+    <div>
+      <label className="block text-gray-300 mb-2">Бонус урона</label>
+      <input
+        type="number"
+        value={weaponDamageBonus}
+        onChange={(e) => setWeaponDamageBonus(Number(e.target.value))}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+      />
+    </div>
+
+    <div>
+      <label className="block text-gray-300 mb-2">Тип урона</label>
+      <input
+        type="text"
+        value={weaponDamageType}
+        onChange={(e) => setWeaponDamageType(e.target.value)}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+        placeholder="Например: slashing"
+      />
+    </div>
+
+    <div>
+      <label className="block text-gray-300 mb-2">Заметки к атаке</label>
+      <textarea
+        value={weaponNotes}
+        onChange={(e) => setWeaponNotes(e.target.value)}
+        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+        rows={3}
+        placeholder="Например: versatile, thrown, finesse"
+      />
+    </div>
+  </div>
+)}
 
           <div>
             <label className="block text-gray-300 mb-2">Доступные слоты</label>

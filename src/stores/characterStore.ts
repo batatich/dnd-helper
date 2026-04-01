@@ -178,14 +178,38 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
 const newCharacters = state.characters.map((char) => {
   if (char.id !== characterId) return char
 
-  const updatedCharacter = {
-    ...char,
-    equippedItems: {
-      ...char.equippedItems,
-      [slot]: item.id,
-    },
-    updatedAt,
-  }
+  const attacksWithoutThisItem = (char.attacks ?? []).filter(
+  (attack) => attack.itemId !== item.id
+)
+
+const generatedAttack =
+  item.type === 'weapon' && item.weaponConfig
+    ? [
+        {
+          id: crypto.randomUUID(),
+          name: item.name,
+          attackType: item.weaponConfig.attackType,
+          ability: item.weaponConfig.ability,
+          proficient: true,
+          damageDice: item.weaponConfig.damageDice,
+          damageBonus: item.weaponConfig.damageBonus,
+          damageType: item.weaponConfig.damageType,
+          notes: item.weaponConfig.notes,
+          source: 'item' as const,
+          itemId: item.id,
+        },
+      ]
+    : []
+
+const updatedCharacter = {
+  ...char,
+  equippedItems: {
+    ...char.equippedItems,
+    [slot]: item.id,
+  },
+  attacks: [...attacksWithoutThisItem, ...generatedAttack],
+  updatedAt,
+}
 
   const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
   const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
@@ -200,16 +224,42 @@ const newCharacters = state.characters.map((char) => {
     saveCharacters(newCharacters)
 
     const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            equippedItems: {
-              ...state.currentCharacter.equippedItems,
-              [slot]: item.id,
-            },
-            updatedAt,
-          }
-        : state.currentCharacter
+  state.currentCharacter?.id === characterId
+    ? (() => {
+        const currentAttacksWithoutThisItem = (
+          state.currentCharacter.attacks ?? []
+        ).filter((attack) => attack.itemId !== item.id)
+
+        const generatedAttack =
+          item.type === 'weapon' && item.weaponConfig
+            ? [
+                {
+                  id: crypto.randomUUID(),
+                  name: item.name,
+                  attackType: item.weaponConfig.attackType,
+                  ability: item.weaponConfig.ability,
+                  proficient: true,
+                  damageDice: item.weaponConfig.damageDice,
+                  damageBonus: item.weaponConfig.damageBonus,
+                  damageType: item.weaponConfig.damageType,
+                  notes: item.weaponConfig.notes,
+                  source: 'item' as const,
+                  itemId: item.id,
+                },
+              ]
+            : []
+
+        return {
+          ...state.currentCharacter,
+          equippedItems: {
+            ...state.currentCharacter.equippedItems,
+            [slot]: item.id,
+          },
+          attacks: [...currentAttacksWithoutThisItem, ...generatedAttack],
+          updatedAt,
+        }
+      })()
+    : state.currentCharacter
 
     return {
       characters: newCharacters,
@@ -226,14 +276,19 @@ const newCharacters = state.characters.map((char) => {
 const newCharacters = state.characters.map((char) => {
   if (char.id !== characterId) return char
 
-  const updatedCharacter = {
-    ...char,
-    equippedItems: {
-      ...char.equippedItems,
-      [slot]: null,
-    },
-    updatedAt,
-  }
+  const removedItemId = char.equippedItems[slot]
+
+const updatedCharacter = {
+  ...char,
+  equippedItems: {
+    ...char.equippedItems,
+    [slot]: null,
+  },
+  attacks: (char.attacks ?? []).filter(
+    (attack) => attack.itemId !== removedItemId
+  ),
+  updatedAt,
+}
 
   const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
   const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
@@ -248,16 +303,23 @@ const newCharacters = state.characters.map((char) => {
       saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
-        state.currentCharacter?.id === characterId
-          ? {
-              ...state.currentCharacter,
-              equippedItems: {
-                ...state.currentCharacter.equippedItems,
-                [slot]: null,
-              },
-              updatedAt,
-            }
-          : state.currentCharacter
+  state.currentCharacter?.id === characterId
+    ? (() => {
+        const removedItemId = state.currentCharacter.equippedItems[slot]
+
+        return {
+          ...state.currentCharacter,
+          equippedItems: {
+            ...state.currentCharacter.equippedItems,
+            [slot]: null,
+          },
+          attacks: (state.currentCharacter.attacks ?? []).filter(
+            (attack) => attack.itemId !== removedItemId
+          ),
+          updatedAt,
+        }
+      })()
+    : state.currentCharacter
 
       return {
         characters: newCharacters,
