@@ -32,6 +32,7 @@ export function CharacterSheet() {
   updateAttack,
   addSpell,
   deleteSpell,
+  updateSpell,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
@@ -68,6 +69,20 @@ export function CharacterSheet() {
     castingTime: '1 действие',
     range: 'На себя',
     duration: 'Мгновенно',
+    components: '',
+    concentration: false,
+    ritual: false,
+    description: '',
+  })
+  const [editingSpellId, setEditingSpellId] = useState<string | null>(null)
+
+  const [editingSpell, setEditingSpell] = useState<Omit<Spell, 'id'>>({
+    name: '',
+    level: 0,
+    school: '',
+    castingTime: '',
+    range: '',
+    duration: '',
     components: '',
     concentration: false,
     ritual: false,
@@ -315,6 +330,32 @@ const handleAddSpell = () => {
     ritual: false,
     description: '',
   })
+}
+  const handleStartEditSpell = (spell: Spell) => {
+  setEditingSpellId(spell.id)
+
+  setEditingSpell({
+    name: spell.name,
+    level: spell.level,
+    school: spell.school,
+    castingTime: spell.castingTime,
+    range: spell.range,
+    duration: spell.duration,
+    components: spell.components,
+    concentration: spell.concentration,
+    ritual: spell.ritual,
+    description: spell.description,
+  })
+}
+const handleSaveSpellEdit = () => {
+  if (!editingSpellId) return
+  if (!editingSpell.name.trim()) return
+
+  updateSpell(character.id, editingSpellId, editingSpell)
+  setEditingSpellId(null)
+}
+const handleCancelSpellEdit = () => {
+  setEditingSpellId(null)
 }
 
 
@@ -1093,7 +1134,145 @@ const handleAddSpell = () => {
   </div>
 ) : (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    {spells.map((spell) => (
+{spells.map((spell) => {
+  if (editingSpellId === spell.id) {
+    return (
+      <div key={spell.id} className="bg-gray-800 rounded-lg p-4 space-y-3">
+        <input
+          type="text"
+          value={editingSpell.name}
+          onChange={(e) =>
+            setEditingSpell({ ...editingSpell, name: e.target.value })
+          }
+          placeholder="Название"
+          className="w-full bg-gray-700 text-white rounded p-2"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            type="number"
+            value={editingSpell.level}
+            onChange={(e) =>
+              setEditingSpell({ ...editingSpell, level: Number(e.target.value) })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <input
+            type="text"
+            value={editingSpell.school}
+            onChange={(e) =>
+              setEditingSpell({ ...editingSpell, school: e.target.value })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <input
+            type="text"
+            value={editingSpell.castingTime}
+            onChange={(e) =>
+              setEditingSpell({
+                ...editingSpell,
+                castingTime: e.target.value,
+              })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <input
+            type="text"
+            value={editingSpell.range}
+            onChange={(e) =>
+              setEditingSpell({ ...editingSpell, range: e.target.value })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <input
+            type="text"
+            value={editingSpell.duration}
+            onChange={(e) =>
+              setEditingSpell({ ...editingSpell, duration: e.target.value })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <input
+            type="text"
+            value={editingSpell.components}
+            onChange={(e) =>
+              setEditingSpell({
+                ...editingSpell,
+                components: e.target.value,
+              })
+            }
+            className="bg-gray-700 text-white rounded p-2"
+          />
+
+          <label className="flex items-center gap-2 text-white">
+            <input
+              type="checkbox"
+              checked={editingSpell.concentration}
+              onChange={(e) =>
+                setEditingSpell({
+                  ...editingSpell,
+                  concentration: e.target.checked,
+                })
+              }
+            />
+            Концентрация
+          </label>
+
+          <label className="flex items-center gap-2 text-white">
+            <input
+              type="checkbox"
+              checked={editingSpell.ritual}
+              onChange={(e) =>
+                setEditingSpell({
+                  ...editingSpell,
+                  ritual: e.target.checked,
+                })
+              }
+            />
+            Ритуал
+          </label>
+        </div>
+
+        <textarea
+          value={editingSpell.description}
+          onChange={(e) =>
+            setEditingSpell({
+              ...editingSpell,
+              description: e.target.value,
+            })
+          }
+          className="w-full bg-gray-700 text-white rounded p-2"
+          rows={3}
+        />
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleSaveSpellEdit}
+            className="bg-green-600 px-3 py-1 rounded"
+          >
+            Сохранить
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCancelSpellEdit}
+            className="bg-gray-600 px-3 py-1 rounded"
+          >
+            Отмена
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+
       <div
         key={spell.id}
         className="bg-gray-800 rounded-lg p-4 flex justify-between gap-4"
@@ -1143,6 +1322,12 @@ const handleAddSpell = () => {
             </div>
           )}
         </div>
+        <button
+  onClick={() => handleStartEditSpell(spell)}
+  className="bg-blue-600 px-3 py-1 rounded text-sm"
+>
+  Редактировать
+</button>
 
         <div>
           <button
@@ -1154,7 +1339,7 @@ const handleAddSpell = () => {
           </button>
         </div>
       </div>
-    ))}
+)})}
   </div>
 )}
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Character, Stats, Attack } from '../types/characters'
+import type { Character, Stats, Attack, Spell } from '../types/characters'
 import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
 import { useItemsStore } from './itemsStore'
@@ -67,6 +67,13 @@ updateAttack: (
   updated: Partial<Attack>
 ) => void
 deleteAttack: (characterId: string, attackId: string) => void
+addSpell: (characterId: string, spell: Spell) => void
+updateSpell: (
+  characterId: string,
+  spellId: string,
+  updated: Partial<Spell>
+) => void
+deleteSpell: (characterId: string, spellId: string) => void
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
@@ -790,6 +797,110 @@ deleteAttack: (characterId, attackId) =>
             ...state.currentCharacter,
             attacks: (state.currentCharacter.attacks ?? []).filter(
               (attack) => attack.id !== attackId
+            ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+  addSpell: (characterId, spell) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spells: [...(char.spells ?? []), spell],
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spells: [...(state.currentCharacter.spells ?? []), spell],
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+updateSpell: (characterId, spellId, updated) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spells: (char.spells ?? []).map((spell) =>
+              spell.id === spellId
+                ? { ...spell, ...updated }
+                : spell
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spells: (state.currentCharacter.spells ?? []).map((spell) =>
+              spell.id === spellId
+                ? { ...spell, ...updated }
+                : spell
+            ),
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
+
+deleteSpell: (characterId, spellId) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === characterId
+        ? {
+            ...char,
+            spells: (char.spells ?? []).filter(
+              (spell) => spell.id !== spellId
+            ),
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === characterId
+        ? {
+            ...state.currentCharacter,
+            spells: (state.currentCharacter.spells ?? []).filter(
+              (spell) => spell.id !== spellId
             ),
             updatedAt,
           }
