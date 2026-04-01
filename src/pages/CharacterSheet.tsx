@@ -29,12 +29,26 @@ export function CharacterSheet() {
   toggleInspiration, 
   addAttack,
   deleteAttack, 
+  updateAttack,
 } = useCharacterStore()
   const { items } = useItemsStore()
   const character = characters.find((c) => c.id === id)
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
   const [newAttack, setNewAttack] = useState<Omit<Attack, 'id'>>({
+    name: '',
+    attackType: 'melee',
+    ability: 'strength',
+    proficient: true,
+    damageDice: '1d6',
+    damageBonus: 0,
+    damageType: 'slashing',
+    notes: '',
+    source: 'manual',
+  })
+  const [editingAttackId, setEditingAttackId] = useState<string | null>(null)
+
+  const [editingAttack, setEditingAttack] = useState<Omit<Attack, 'id'>>({
     name: '',
     attackType: 'melee',
     ability: 'strength',
@@ -239,6 +253,34 @@ const handleAddAttack = () => {
     source: 'manual',
   })
 }
+const handleStartEditAttack = (attack: Attack) => {
+  if (attack.source !== 'manual') return
+
+  setEditingAttackId(attack.id)
+  setEditingAttack({
+    name: attack.name,
+    attackType: attack.attackType,
+    ability: attack.ability,
+    proficient: attack.proficient,
+    damageDice: attack.damageDice,
+    damageBonus: attack.damageBonus,
+    damageType: attack.damageType,
+    notes: attack.notes,
+    source: attack.source,
+    itemId: attack.itemId,
+  })
+  } 
+  const handleSaveAttackEdit = () => {
+  if (!editingAttackId) return
+  if (!editingAttack.name.trim()) return
+
+  updateAttack(character.id, editingAttackId, editingAttack)
+  setEditingAttackId(null)
+}
+const handleCancelAttackEdit = () => {
+  setEditingAttackId(null)
+}
+
 
 
   return (
@@ -663,6 +705,144 @@ const handleAddAttack = () => {
     {attacks.map((attack) => {
       const attackBonus = getAttackBonus(attack)
 
+      if (editingAttackId === attack.id && attack.source === 'manual') {
+  return (
+    <div
+      key={attack.id}
+      className="bg-gray-800 rounded-lg p-4 space-y-3"
+    >
+      <input
+        type="text"
+        value={editingAttack.name}
+        onChange={(e) =>
+          setEditingAttack({ ...editingAttack, name: e.target.value })
+        }
+        placeholder="Название атаки"
+        className="w-full bg-gray-700 text-white rounded p-2"
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <select
+          value={editingAttack.attackType}
+          onChange={(e) =>
+            setEditingAttack({
+              ...editingAttack,
+              attackType: e.target.value as Attack['attackType'],
+            })
+          }
+          className="bg-gray-700 text-white rounded p-2"
+        >
+          <option value="melee">Ближняя</option>
+          <option value="ranged">Дальняя</option>
+          <option value="spell">Заклинание</option>
+        </select>
+
+        <select
+          value={editingAttack.ability}
+          onChange={(e) =>
+            setEditingAttack({
+              ...editingAttack,
+              ability: e.target.value as keyof Stats,
+            })
+          }
+          className="bg-gray-700 text-white rounded p-2"
+        >
+          <option value="strength">Сила</option>
+          <option value="dexterity">Ловкость</option>
+          <option value="constitution">Телосложение</option>
+          <option value="intelligence">Интеллект</option>
+          <option value="wisdom">Мудрость</option>
+          <option value="charisma">Харизма</option>
+        </select>
+
+        <input
+          type="text"
+          value={editingAttack.damageDice}
+          onChange={(e) =>
+            setEditingAttack({
+              ...editingAttack,
+              damageDice: e.target.value,
+            })
+          }
+          placeholder="Кубик урона"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="number"
+          value={editingAttack.damageBonus}
+          onChange={(e) =>
+            setEditingAttack({
+              ...editingAttack,
+              damageBonus: Number(e.target.value),
+            })
+          }
+          placeholder="Бонус урона"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <input
+          type="text"
+          value={editingAttack.damageType}
+          onChange={(e) =>
+            setEditingAttack({
+              ...editingAttack,
+              damageType: e.target.value,
+            })
+          }
+          placeholder="Тип урона"
+          className="bg-gray-700 text-white rounded p-2"
+        />
+
+        <label className="flex items-center gap-2 text-white">
+          <input
+            type="checkbox"
+            checked={editingAttack.proficient}
+            onChange={(e) =>
+              setEditingAttack({
+                ...editingAttack,
+                proficient: e.target.checked,
+              })
+            }
+          />
+          Владение
+        </label>
+      </div>
+
+      <textarea
+        value={editingAttack.notes}
+        onChange={(e) =>
+          setEditingAttack({
+            ...editingAttack,
+            notes: e.target.value,
+          })
+        }
+        placeholder="Заметки"
+        className="w-full bg-gray-700 text-white rounded p-2"
+        rows={2}
+      />
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleSaveAttackEdit}
+          className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition"
+        >
+          Сохранить
+        </button>
+
+        <button
+          type="button"
+          onClick={handleCancelAttackEdit}
+          className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
+  )
+}
+
       return (
         <div
           key={attack.id}
@@ -719,20 +899,31 @@ const handleAddAttack = () => {
         От оружия
       </div>
     )}
+<div className="flex flex-col gap-2">
+  {attack.source === 'manual' ? (
+    <>
+      <button
+        type="button"
+        onClick={() => handleStartEditAttack(attack)}
+        className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition"
+      >
+        Редактировать
+      </button>
 
-          {attack.source === 'manual' ? (
-  <button
-    type="button"
-    onClick={() => deleteAttack(character.id, attack.id)}
-    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
-  >
-    Удалить
-  </button>
-) : (
-  <div className="text-xs text-gray-400">
-    Снимите оружие
-  </div>
-)}
+      <button
+        type="button"
+        onClick={() => deleteAttack(character.id, attack.id)}
+        className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+      >
+        Удалить
+      </button>
+    </>
+  ) : (
+    <div className="text-xs text-gray-400">
+      Снимите оружие
+    </div>
+  )}
+</div>
         </div>
       )
     })}
