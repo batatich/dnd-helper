@@ -3,7 +3,7 @@ import { useCharacterStore } from '../stores/characterStore'
 import { getModifier } from '../utils/stats'
 import { calculateCharacter } from '../utils/calculateCharacter'
 import { useItemsStore } from '../stores/itemsStore'
-import type { Stats, Attack, Spell } from '../types/characters'
+import type { Stats, Spell, NewAttack } from '../types/characters'
 import { formatItemEffect } from '../utils/itemEffects'
 import type { EquipmentSlot } from '../types/items'
 import { Link } from 'react-router-dom'
@@ -12,6 +12,8 @@ import { standardSkills } from '../types/characters'
 import { calculateSavingThrowBonus } from '../utils/savingThrows'
 import { useState } from 'react'
 import { getProficiencyBonus } from '../utils/skills'
+import { AttackSection } from '../components/AttackSection'
+
 
 
 
@@ -43,30 +45,8 @@ export function CharacterSheet() {
   const character = characters.find((c) => c.id === id)
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
-  const [newAttack, setNewAttack] = useState<Omit<Attack, 'id'>>({
-    name: '',
-    attackType: 'melee',
-    ability: 'strength',
-    proficient: true,
-    damageDice: '1d6',
-    damageBonus: 0,
-    damageType: 'slashing',
-    notes: '',
-    source: 'manual',
-  })
-  const [editingAttackId, setEditingAttackId] = useState<string | null>(null)
 
-  const [editingAttack, setEditingAttack] = useState<Omit<Attack, 'id'>>({
-    name: '',
-    attackType: 'melee',
-    ability: 'strength',
-    proficient: true,
-    damageDice: '1d6',
-    damageBonus: 0,
-    damageType: 'slashing',
-    notes: '',
-    source: 'manual',
-  })
+
   const [newSpell, setNewSpell] = useState<Omit<Spell, 'id'>>({
     name: '',
     level: 0,
@@ -252,7 +232,7 @@ const savingThrowStats: (keyof Stats)[] = [
       used: 0,
       dice: '1d8',
     }
-    const attacks = character.attacks ?? []
+
     const spells = character.spells ?? []
     const spellcastingAbility = character.spellcastingAbility ?? 'intelligence'
     const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
@@ -295,57 +275,24 @@ const savingThrowStats: (keyof Stats)[] = [
       )
     }
     
-    const getAttackBonus = (attack: Attack) => {
-    const abilityModifier = getModifier(finalStats[attack.ability])
-    return abilityModifier + (attack.proficient ? proficiencyBonus : 0)
-  }
-const handleAddAttack = () => {
-  if (!newAttack.name.trim()) return
 
-  addAttack(character.id, {
-    id: crypto.randomUUID(),
-    ...newAttack,
-  })
-
-  setNewAttack({
-    name: '',
-    attackType: 'melee',
-    ability: 'strength',
-    proficient: true,
-    damageDice: '1d6',
-    damageBonus: 0,
-    damageType: 'slashing',
-    notes: '',
-    source: 'manual',
-  })
+const handleAddAttack = (attack: NewAttack) => {
+  if (!character) return
+  addAttack(character.id, attack)
 }
-const handleStartEditAttack = (attack: Attack) => {
-  if (attack.source !== 'manual') return
 
-  setEditingAttackId(attack.id)
-  setEditingAttack({
-    name: attack.name,
-    attackType: attack.attackType,
-    ability: attack.ability,
-    proficient: attack.proficient,
-    damageDice: attack.damageDice,
-    damageBonus: attack.damageBonus,
-    damageType: attack.damageType,
-    notes: attack.notes,
-    source: attack.source,
-    itemId: attack.itemId,
-  })
-  } 
-  const handleSaveAttackEdit = () => {
-  if (!editingAttackId) return
-  if (!editingAttack.name.trim()) return
+const handleDeleteAttack = (attackId: string) => {
+  deleteAttack(character.id, attackId)
+}
 
-  updateAttack(character.id, editingAttackId, editingAttack)
-  setEditingAttackId(null)
+const handleUpdateAttack = (
+  attackId: string,
+  attack: Partial<NewAttack>
+) => {
+  updateAttack(character.id, attackId, attack)
 }
-const handleCancelAttackEdit = () => {
-  setEditingAttackId(null)
-}
+
+
 const handleAddSpell = () => {
   if (!newSpell.name.trim()) return
 
@@ -888,349 +835,16 @@ const handleCancelProfileEdit = () => {
       </div>
     </div>
 
-    <h2 className="text-white text-xl font-bold mt-8 mb-4">Атаки</h2>
-    <div className="bg-gray-800 rounded-lg p-4 mb-4">
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-    <input
-      type="text"
-      value={newAttack.name}
-      onChange={(e) =>
-        setNewAttack({ ...newAttack, name: e.target.value })
-      }
-      placeholder="Название атаки"
-      className="bg-gray-700 text-white rounded p-2"
-    />
 
-    <select
-      value={newAttack.attackType}
-      onChange={(e) =>
-        setNewAttack({
-          ...newAttack,
-          attackType: e.target.value as Attack['attackType'],
-        })
-      }
-      className="bg-gray-700 text-white rounded p-2"
-    >
-      <option value="melee">Ближняя</option>
-      <option value="ranged">Дальняя</option>
-      <option value="spell">Заклинание</option>
-    </select>
-
-    <select
-      value={newAttack.ability}
-      onChange={(e) =>
-        setNewAttack({
-          ...newAttack,
-          ability: e.target.value as keyof Stats,
-        })
-      }
-      className="bg-gray-700 text-white rounded p-2"
-    >
-      <option value="strength">Сила</option>
-      <option value="dexterity">Ловкость</option>
-      <option value="constitution">Телосложение</option>
-      <option value="intelligence">Интеллект</option>
-      <option value="wisdom">Мудрость</option>
-      <option value="charisma">Харизма</option>
-    </select>
-
-    <input
-      type="text"
-      value={newAttack.damageDice}
-      onChange={(e) =>
-        setNewAttack({ ...newAttack, damageDice: e.target.value })
-      }
-      placeholder="Урон, например 1d8"
-      className="bg-gray-700 text-white rounded p-2"
-    />
-
-    <input
-      type="number"
-      value={newAttack.damageBonus}
-      onChange={(e) =>
-        setNewAttack({
-          ...newAttack,
-          damageBonus: Number(e.target.value),
-        })
-      }
-      placeholder="Бонус урона"
-      className="bg-gray-700 text-white rounded p-2"
-    />
-
-    <input
-      type="text"
-      value={newAttack.damageType}
-      onChange={(e) =>
-        setNewAttack({ ...newAttack, damageType: e.target.value })
-      }
-      placeholder="Тип урона"
-      className="bg-gray-700 text-white rounded p-2"
-    />
-    <label className="flex items-center gap-2 text-white">
-      <input
-        type="checkbox"
-        checked={newAttack.proficient}
-        onChange={(e) =>
-          setNewAttack({
-            ...newAttack,
-            proficient: e.target.checked,
-          })
-        }
-      />
-      Владение
-    </label>
-
-    <button
-      type="button"
-      onClick={handleAddAttack}
-      className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition"
-    >
-      Добавить атаку
-    </button>
-  </div>
-
-  <textarea
-    value={newAttack.notes}
-    onChange={(e) =>
-      setNewAttack({ ...newAttack, notes: e.target.value })
-    }
-    placeholder="Заметки к атаке"
-    className="mt-3 w-full bg-gray-700 text-white rounded p-2"
-    rows={2}
+{character && (
+  <AttackSection
+    attacks={character.attacks}
+    proficiencyBonus={proficiencyBonus}
+    finalStats={finalStats}
+    onAddAttack={handleAddAttack}
+    onDeleteAttack={handleDeleteAttack}
+    onUpdateAttack={handleUpdateAttack}
   />
-</div>
-{attacks.length === 0 ? (
-  <div className="bg-gray-800 rounded-lg p-4 text-gray-400">
-    Атак пока нет
-  </div>
-) : (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    {attacks.map((attack) => {
-      const attackBonus = getAttackBonus(attack)
-
-      if (editingAttackId === attack.id && attack.source === 'manual') {
-  return (
-    <div
-      key={attack.id}
-      className="bg-gray-800 rounded-lg p-4 space-y-3"
-    >
-      <input
-        type="text"
-        value={editingAttack.name}
-        onChange={(e) =>
-          setEditingAttack({ ...editingAttack, name: e.target.value })
-        }
-        placeholder="Название атаки"
-        className="w-full bg-gray-700 text-white rounded p-2"
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <select
-          value={editingAttack.attackType}
-          onChange={(e) =>
-            setEditingAttack({
-              ...editingAttack,
-              attackType: e.target.value as Attack['attackType'],
-            })
-          }
-          className="bg-gray-700 text-white rounded p-2"
-        >
-          <option value="melee">Ближняя</option>
-          <option value="ranged">Дальняя</option>
-          <option value="spell">Заклинание</option>
-        </select>
-
-        <select
-          value={editingAttack.ability}
-          onChange={(e) =>
-            setEditingAttack({
-              ...editingAttack,
-              ability: e.target.value as keyof Stats,
-            })
-          }
-          className="bg-gray-700 text-white rounded p-2"
-        >
-          <option value="strength">Сила</option>
-          <option value="dexterity">Ловкость</option>
-          <option value="constitution">Телосложение</option>
-          <option value="intelligence">Интеллект</option>
-          <option value="wisdom">Мудрость</option>
-          <option value="charisma">Харизма</option>
-        </select>
-
-        <input
-          type="text"
-          value={editingAttack.damageDice}
-          onChange={(e) =>
-            setEditingAttack({
-              ...editingAttack,
-              damageDice: e.target.value,
-            })
-          }
-          placeholder="Кубик урона"
-          className="bg-gray-700 text-white rounded p-2"
-        />
-
-        <input
-          type="number"
-          value={editingAttack.damageBonus}
-          onChange={(e) =>
-            setEditingAttack({
-              ...editingAttack,
-              damageBonus: Number(e.target.value),
-            })
-          }
-          placeholder="Бонус урона"
-          className="bg-gray-700 text-white rounded p-2"
-        />
-
-        <input
-          type="text"
-          value={editingAttack.damageType}
-          onChange={(e) =>
-            setEditingAttack({
-              ...editingAttack,
-              damageType: e.target.value,
-            })
-          }
-          placeholder="Тип урона"
-          className="bg-gray-700 text-white rounded p-2"
-        />
-
-        <label className="flex items-center gap-2 text-white">
-          <input
-            type="checkbox"
-            checked={editingAttack.proficient}
-            onChange={(e) =>
-              setEditingAttack({
-                ...editingAttack,
-                proficient: e.target.checked,
-              })
-            }
-          />
-          Владение
-        </label>
-      </div>
-
-      <textarea
-        value={editingAttack.notes}
-        onChange={(e) =>
-          setEditingAttack({
-            ...editingAttack,
-            notes: e.target.value,
-          })
-        }
-        placeholder="Заметки"
-        className="w-full bg-gray-700 text-white rounded p-2"
-        rows={2}
-      />
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleSaveAttackEdit}
-          className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition"
-        >
-          Сохранить
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCancelAttackEdit}
-          className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition"
-        >
-          Отмена
-        </button>
-      </div>
-    </div>
-  )
-}
-
-      return (
-        <div
-          key={attack.id}
-          className="bg-gray-800 rounded-lg p-4 flex justify-between gap-4"
-        >
-          <div>
-            <div className="text-white font-semibold text-lg">
-              {attack.name}
-            </div>
-
-            <div className="text-gray-400 text-sm mt-1">
-              Тип: {attack.attackType}
-            </div>
-
-            <div className="text-gray-300 mt-2">
-              Попадание:{' '}
-              <span className="text-green-400 font-bold">
-                {attackBonus >= 0 ? `+${attackBonus}` : attackBonus}
-              </span>
-            </div>
-
-            <div className="text-gray-300">
-              Урон:{' '}
-              <span className="text-white">
-                {attack.damageDice}
-                {attack.damageBonus !== 0
-                  ? attack.damageBonus > 0
-                    ? ` + ${attack.damageBonus}`
-                    : ` - ${Math.abs(attack.damageBonus)}`
-                  : ''}
-              </span>{' '}
-              ({attack.damageType})
-            </div>
-
-            <div className="text-gray-400 text-sm">
-              Характеристика: {statLabels[attack.ability]}
-            </div>
-
-            {attack.proficient && (
-              <div className="text-yellow-400 text-sm mt-1">
-                Владение
-              </div>
-            )}
-
-            {attack.notes && (
-              <div className="text-gray-400 text-sm mt-2 whitespace-pre-line">
-                {attack.notes}
-              </div>
-            )}
-          </div>
-
-          {attack.source === 'item' && (
-      <div className="text-cyan-400 text-sm mt-1">
-        От оружия
-      </div>
-    )}
-<div className="flex flex-col gap-2">
-  {attack.source === 'manual' ? (
-    <>
-      <button
-        type="button"
-        onClick={() => handleStartEditAttack(attack)}
-        className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition"
-      >
-        Редактировать
-      </button>
-
-      <button
-        type="button"
-        onClick={() => deleteAttack(character.id, attack.id)}
-        className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
-      >
-        Удалить
-      </button>
-    </>
-  ) : (
-    <div className="text-xs text-gray-400">
-      Снимите оружие
-    </div>
-  )}
-</div>
-        </div>
-      )
-    })}
-  </div>
 )}
 
 <h2 className="text-white text-xl font-bold mt-8 mb-4">

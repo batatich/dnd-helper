@@ -6,6 +6,7 @@ import type {
   Attack,
   Spell,
   SpellSlot,
+  NewAttack,
 } from '../types/characters'
 import { standardSkills } from '../types/characters'
 import { initialCharacters } from '../data/characters'
@@ -165,7 +166,7 @@ interface CharacterStore {
   toggleInspiration: (characterId: string) => void
   setSpeed: (characterId: string, speed: number) => void
   setHitDiceUsed: (characterId: string, used: number) => void
-  addAttack: (characterId: string, attack: Attack) => void
+  addAttack: (characterId: string, attack: NewAttack) => void
   updateAttack: (
     characterId: string,
     attackId: string,
@@ -823,15 +824,20 @@ setHitDiceUsed: (characterId, used) =>
       currentCharacter: updatedCurrentCharacter,
     }
   }),
-  addAttack: (characterId, attack) =>
+addAttack: (characterId, attack) =>
   set((state) => {
     const updatedAt = new Date().toISOString()
+
+    const attackWithId = {
+      ...attack,
+      id: crypto.randomUUID(),
+    }
 
     const newCharacters = state.characters.map((char) =>
       char.id === characterId
         ? {
             ...char,
-            attacks: [...(char.attacks ?? []), attack],
+            attacks: [...(char.attacks ?? []), attackWithId],
             updatedAt,
           }
         : char
@@ -843,7 +849,7 @@ setHitDiceUsed: (characterId, used) =>
       state.currentCharacter?.id === characterId
         ? {
             ...state.currentCharacter,
-            attacks: [...(state.currentCharacter.attacks ?? []), attack],
+            attacks: [...(state.currentCharacter.attacks ?? []), attackWithId],
             updatedAt,
           }
         : state.currentCharacter

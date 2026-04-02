@@ -99,6 +99,8 @@ export type Attack = {
   source: 'manual' | 'item'
   itemId?: string
 }
+export type NewAttack = Omit<Attack, 'id'>
+export type AttackUpdate = Partial<NewAttack>
 export type Spell = {
   id: string
   name: string
