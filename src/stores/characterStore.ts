@@ -129,7 +129,7 @@ const loadCharacters = (): Character[] => {
       return initialCharacters.map((character) => normalizeCharacter(character  ))
     }
 
-    return parsed
+    return parsed.map((character) => normalizeCharacter(character))
   } catch (error) {
     console.error('Failed to load characters from localStorage:', error)
     return initialCharacters.map((character) => normalizeCharacter(character  ))

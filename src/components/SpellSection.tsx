@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { NewSpell, Spell, SpellSlot, Stats } from '../types/characters'
 
 type Props = {
-  characterId: string
   spells: Spell[]
   spellSlots: SpellSlot[]
   spellcastingAbility: keyof Stats

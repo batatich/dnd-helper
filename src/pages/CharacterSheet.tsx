@@ -246,14 +246,7 @@ const savingThrowStats: (keyof Stats)[] = [
     const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
     const spellAttackBonus = spellcastingModifier + proficiencyBonus
     const spellSaveDc = 8 + spellcastingModifier + proficiencyBonus
-    const spellSlots =
-      character.spellSlots ??
-      Array.from({ length: 9 }, (_, i) => ({
-        level: i + 1,
-        total: 0,
-        used: 0,
-      }))
-    
+    const spellSlots = character.spellSlots
     const renderDeathSaveDots = (
       type: 'successes' | 'failures',
       value: number
@@ -810,7 +803,6 @@ const handleCancelProfileEdit = () => {
 )}
 
 <SpellSection
-  characterId={character.id}
   spells={spells}
   spellSlots={spellSlots}
   spellcastingAbility={spellcastingAbility}
