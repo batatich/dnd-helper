@@ -16,8 +16,8 @@ import type { Item, EquipmentSlot } from '../types/items'
 import { useItemsStore } from './itemsStore'
 import { calculateCharacter } from '../utils/calculateCharacter'
 
-
 const STORAGE_KEY = 'dnd-characters'
+const API_URL = 'http://localhost:3000'
 
 const defaultDeathSaves = {
   successes: 0,
@@ -65,6 +65,158 @@ const defaultDerivedStats = {
 const defaultSkills: Skill[] = standardSkills.map((skill) => ({
   ...skill,
 }))
+
+type BackendCharacter = {
+  id: string
+  name: string
+  race: string
+  className: string
+  level: number
+  description?: string | null
+  alignment?: string | null
+  background?: string | null
+  avatarUrl?: string | null
+  currentHp?: number
+  temporaryHp?: number
+  speed?: number
+  inspiration?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+const mapBackendCharacterToCharacter = (
+  character: BackendCharacter
+): Partial<Character> => {
+  return {
+    id: character.id,
+    name: character.name,
+    race: character.race,
+    class: character.className,
+    level: character.level,
+    description: character.description ?? '',
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+    currentHp: character.currentHp ?? 0,
+    temporaryHp: character.temporaryHp ?? 0,
+    speed: character.speed ?? 30,
+    inspiration: character.inspiration ?? false,
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+    isSynced: true,
+  }
+}
+
+const mapCharacterToBackendPayload = (character: Partial<Character>) => {
+  return {
+    name: character.name ?? '',
+    race: character.race ?? '',
+    className: character.class ?? '',
+    level: character.level ?? 1,
+    description: character.description ?? '',
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+    currentHp: character.currentHp ?? 0,
+    temporaryHp: character.temporaryHp ?? 0,
+    speed: character.speed ?? 30,
+    inspiration: character.inspiration ?? false,
+  }
+}
+
+const mapPartialCharacterToBackendPayload = (character: Partial<Character>) => {
+  const payload: Record<string, unknown> = {}
+
+  if (character.name !== undefined && character.name.trim() !== '') {
+    payload.name = character.name
+  }
+
+  if (character.race !== undefined && character.race.trim() !== '') {
+    payload.race = character.race
+  }
+
+  if (character.class !== undefined && character.class.trim() !== '') {
+    payload.className = character.class
+  }
+
+  if (character.level !== undefined) payload.level = character.level
+
+  if (character.description !== undefined) payload.description = character.description
+  if (character.alignment !== undefined) payload.alignment = character.alignment
+  if (character.background !== undefined) payload.background = character.background
+  if (character.avatarUrl !== undefined) payload.avatarUrl = character.avatarUrl
+
+  if (character.currentHp !== undefined) payload.currentHp = character.currentHp
+  if (character.temporaryHp !== undefined) payload.temporaryHp = character.temporaryHp
+  if (character.speed !== undefined) payload.speed = character.speed
+  if (character.inspiration !== undefined) payload.inspiration = character.inspiration
+
+  return payload
+}
+
+const fetchCharactersFromApi = async (): Promise<BackendCharacter[]> => {
+  const response = await fetch(`${API_URL}/characters`)
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch characters')
+  }
+
+  return response.json()
+}
+
+const createCharacterInApi = async (
+  character: Character
+): Promise<BackendCharacter> => {
+  const response = await fetch(`${API_URL}/characters`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(mapCharacterToBackendPayload(character)),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create character')
+  }
+
+  return response.json()
+}
+
+const updateCharacterInApi = async (
+  id: string,
+  updated: Partial<Character>
+): Promise<BackendCharacter> => {
+  const payload = mapPartialCharacterToBackendPayload(updated)
+
+  console.log('PATCH payload:', payload)
+
+  const response = await fetch(`${API_URL}/characters/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('PATCH failed:', errorText)
+    throw new Error('Failed to update character')
+  }
+
+  return response.json()
+}
+
+const deleteCharacterInApi = async (id: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/characters/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok && response.status !== 204) {
+    throw new Error('Failed to delete character')
+  }
+}
+
 const normalizeCharacter = (character: Partial<Character>): Character => {
   return {
     id: character.id ?? crypto.randomUUID(),
@@ -112,6 +264,7 @@ const normalizeCharacter = (character: Partial<Character>): Character => {
 
     createdAt: character.createdAt ?? new Date().toISOString(),
     updatedAt: character.updatedAt ?? new Date().toISOString(),
+    isSynced: character.isSynced ?? false,
   }
 }
 
@@ -126,13 +279,13 @@ const loadCharacters = (): Character[] => {
     const parsed = JSON.parse(saved)
 
     if (!Array.isArray(parsed)) {
-      return initialCharacters.map((character) => normalizeCharacter(character  ))
+      return initialCharacters.map((character) => normalizeCharacter(character))
     }
 
     return parsed.map((character) => normalizeCharacter(character))
   } catch (error) {
     console.error('Failed to load characters from localStorage:', error)
-    return initialCharacters.map((character) => normalizeCharacter(character  ))
+    return initialCharacters.map((character) => normalizeCharacter(character))
   }
 }
 
@@ -159,10 +312,10 @@ interface CharacterStore {
   changeCurrentHp: (characterId: string, amount: number) => void
   setTemporaryHp: (characterId: string, amount: number) => void
   applyDamage: (characterId: string, damage: number) => void
-  
+
   setDeathSaves: (
-  characterId: string,
-  deathSaves: { successes: number; failures: number }
+    characterId: string,
+    deathSaves: { successes: number; failures: number }
   ) => void
   resetDeathSaves: (characterId: string) => void
   toggleInspiration: (characterId: string) => void
@@ -179,13 +332,10 @@ interface CharacterStore {
   updateSpell: (
     characterId: string,
     spellId: string,
-    spell: SpellUpdate,
+    spell: SpellUpdate
   ) => void
   deleteSpell: (characterId: string, spellId: string) => void
-  setSpellcastingAbility: (
-    characterId: string,
-    ability: keyof Stats
-  ) => void
+  setSpellcastingAbility: (characterId: string, ability: keyof Stats) => void
   setSpellSlotsTotal: (
     characterId: string,
     level: number,
@@ -201,62 +351,18 @@ interface CharacterStore {
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
   toggleSkillProficiency: (characterId, skillName) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            skills: (char.skills ?? []).map((skill) =>
-              skill.name === skillName
-                ? { ...skill, proficient: !skill.proficient }
-                : skill
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            skills: (state.currentCharacter.skills ?? []).map((skill) =>
-              skill.name === skillName
-                ? { ...skill, proficient: !skill.proficient }
-                : skill
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  characters: loadCharacters(),
-  currentCharacter: null,
-
-  addCharacter: (character) =>
-    set((state) => {
-      const newCharacters = [...state.characters, character]
-      saveCharacters(newCharacters)
-      return { characters: newCharacters }
-    }),
-
-  updateCharacter: (id, updated) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
 
       const newCharacters = state.characters.map((char) =>
-        char.id === id
+        char.id === characterId
           ? {
               ...char,
-              ...updated,
+              skills: (char.skills ?? []).map((skill) =>
+                skill.name === skillName
+                  ? { ...skill, proficient: !skill.proficient }
+                  : skill
+              ),
               updatedAt,
             }
           : char
@@ -265,10 +371,14 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
       saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
-        state.currentCharacter?.id === id
+        state.currentCharacter?.id === characterId
           ? {
               ...state.currentCharacter,
-              ...updated,
+              skills: (state.currentCharacter.skills ?? []).map((skill) =>
+                skill.name === skillName
+                  ? { ...skill, proficient: !skill.proficient }
+                  : skill
+              ),
               updatedAt,
             }
           : state.currentCharacter
@@ -278,11 +388,154 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+  characters: loadCharacters(),
+  currentCharacter: null,
+
+  addCharacter: (character) =>
+  set((state) => {
+    const normalizedCharacter = normalizeCharacter(character)
+    const newCharacters = [...state.characters, normalizedCharacter]
+
+    saveCharacters(newCharacters)
+
+    const canSyncToBackend =
+      normalizedCharacter.name.trim() !== '' &&
+      normalizedCharacter.race.trim() !== '' &&
+      normalizedCharacter.class.trim() !== ''
+
+    if (canSyncToBackend) {
+      void createCharacterInApi(normalizedCharacter)
+        .then((createdCharacter) => {
+          const mappedCharacter = normalizeCharacter(
+            mapBackendCharacterToCharacter(createdCharacter)
+          )
+
+          useCharacterStore.setState((currentState) => {
+            const syncedCharacters = currentState.characters.map((char) =>
+              char.id === normalizedCharacter.id
+                ? {
+                    ...char,
+                    ...mappedCharacter,
+                  }
+                : char
+            )
+
+            saveCharacters(syncedCharacters)
+
+            return {
+              characters: syncedCharacters,
+              currentCharacter:
+                currentState.currentCharacter?.id === normalizedCharacter.id
+                  ? {
+                      ...currentState.currentCharacter,
+                      ...mappedCharacter,
+                    }
+                  : currentState.currentCharacter,
+            }
+          })
+        })
+        .catch((error) => {
+          console.error('Failed to sync created character with backend:', error)
+        })
+    }
+
+    return { characters: newCharacters }
+  }),
+
+  updateCharacter: (id, updated) =>
+  set((state) => {
+    const updatedAt = new Date().toISOString()
+
+    const existingCharacter = state.characters.find((char) => char.id === id)
+
+    const newCharacters = state.characters.map((char) =>
+      char.id === id
+        ? {
+            ...char,
+            ...updated,
+            updatedAt,
+          }
+        : char
+    )
+
+    saveCharacters(newCharacters)
+
+    const updatedCurrentCharacter =
+      state.currentCharacter?.id === id
+        ? {
+            ...state.currentCharacter,
+            ...updated,
+            updatedAt,
+          }
+        : state.currentCharacter
+
+    const nextCharacter = newCharacters.find((char) => char.id === id)
+
+    if (nextCharacter) {
+      const canSyncToBackend =
+        nextCharacter.name.trim() !== '' &&
+        nextCharacter.race.trim() !== '' &&
+        nextCharacter.class.trim() !== ''
+
+      if (canSyncToBackend) {
+        if (!existingCharacter?.isSynced) {
+          void createCharacterInApi(nextCharacter)
+            .then((createdCharacter) => {
+              const mappedCharacter = normalizeCharacter(
+                mapBackendCharacterToCharacter(createdCharacter)
+              )
+
+              useCharacterStore.setState((currentState) => {
+                const syncedCharacters = currentState.characters.map((char) =>
+                  char.id === id
+                    ? {
+                        ...char,
+                        ...mappedCharacter,
+                        isSynced: true,
+                      }
+                    : char
+                )
+
+                saveCharacters(syncedCharacters)
+
+                return {
+                  characters: syncedCharacters,
+                  currentCharacter:
+                    currentState.currentCharacter?.id === id
+                      ? {
+                          ...currentState.currentCharacter,
+                          ...mappedCharacter,
+                          isSynced: true,
+                        }
+                      : currentState.currentCharacter,
+                }
+              })
+            })
+            .catch((error) => {
+              console.error('Failed to create character in backend:', error)
+            })
+        } else {
+          void updateCharacterInApi(id, updated).catch((error) => {
+            console.error('Failed to sync updated character with backend:', error)
+          })
+        }
+      }
+    }
+
+    return {
+      characters: newCharacters,
+      currentCharacter: updatedCurrentCharacter,
+    }
+  }),
 
   deleteCharacter: (id) =>
     set((state) => {
       const newCharacters = state.characters.filter((char) => char.id !== id)
       saveCharacters(newCharacters)
+
+      void deleteCharacterInApi(id).catch((error) => {
+        console.error('Failed to delete character in backend:', error)
+      })
 
       return {
         characters: newCharacters,
@@ -294,71 +547,23 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
   setCurrentCharacter: (character) => set({ currentCharacter: character }),
 
   clearCurrentCharacter: () => set({ currentCharacter: null }),
-    equipItem: (characterId: string, item: Item, slot: EquipmentSlot) =>
-  set((state) => {
-    if (!item.allowedSlots.includes(slot)) {
-      console.warn('Invalid slot for item:', slot)
-      return state
-    }
+  equipItem: (characterId: string, item: Item, slot: EquipmentSlot) =>
+    set((state) => {
+      if (!item.allowedSlots.includes(slot)) {
+        console.warn('Invalid slot for item:', slot)
+        return state
+      }
 
-    const updatedAt = new Date().toISOString()
+      const updatedAt = new Date().toISOString()
 
-    const items = useItemsStore.getState().items
+      const items = useItemsStore.getState().items
 
-const newCharacters = state.characters.map((char) => {
-  if (char.id !== characterId) return char
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) return char
 
-  const attacksWithoutThisItem = (char.attacks ?? []).filter(
-  (attack) => attack.itemId !== item.id
-)
-
-const generatedAttack =
-  item.type === 'weapon' && item.weaponConfig
-    ? [
-        {
-          id: crypto.randomUUID(),
-          name: item.name,
-          attackType: item.weaponConfig.attackType,
-          ability: item.weaponConfig.ability,
-          proficient: true,
-          damageDice: item.weaponConfig.damageDice,
-          damageBonus: item.weaponConfig.damageBonus,
-          damageType: item.weaponConfig.damageType,
-          notes: item.weaponConfig.notes,
-          source: 'item' as const,
-          itemId: item.id,
-        },
-      ]
-    : []
-
-const updatedCharacter = {
-  ...char,
-  equippedItems: {
-    ...char.equippedItems,
-    [slot]: item.id,
-  },
-  attacks: [...attacksWithoutThisItem, ...generatedAttack],
-  updatedAt,
-}
-
-  const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
-  const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
-  const currentHp = updatedCharacter.currentHp ?? newMaxHp
-
-  return {
-    ...updatedCharacter,
-    currentHp: Math.min(currentHp, newMaxHp),
-  }
-})
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-  state.currentCharacter?.id === characterId
-    ? (() => {
-        const currentAttacksWithoutThisItem = (
-          state.currentCharacter.attacks ?? []
-        ).filter((attack) => attack.itemId !== item.id)
+        const attacksWithoutThisItem = (char.attacks ?? []).filter(
+          (attack) => attack.itemId !== item.id
+        )
 
         const generatedAttack =
           item.type === 'weapon' && item.weaponConfig
@@ -379,786 +584,875 @@ const updatedCharacter = {
               ]
             : []
 
-        return {
-          ...state.currentCharacter,
+        const updatedCharacter = {
+          ...char,
           equippedItems: {
-            ...state.currentCharacter.equippedItems,
+            ...char.equippedItems,
             [slot]: item.id,
           },
-          attacks: [...currentAttacksWithoutThisItem, ...generatedAttack],
+          attacks: [...attacksWithoutThisItem, ...generatedAttack],
           updatedAt,
         }
-      })()
-    : state.currentCharacter
 
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-    
-  }),
-      unequipItem: (characterId, slot) =>
-    set((state) => {
-      const updatedAt = new Date().toISOString()
+        const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
+        const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
+        const currentHp = updatedCharacter.currentHp ?? newMaxHp
 
-      const items = useItemsStore.getState().items
-
-const newCharacters = state.characters.map((char) => {
-  if (char.id !== characterId) return char
-
-  const removedItemId = char.equippedItems[slot]
-
-const updatedCharacter = {
-  ...char,
-  equippedItems: {
-    ...char.equippedItems,
-    [slot]: null,
-  },
-  attacks: (char.attacks ?? []).filter(
-    (attack) => attack.itemId !== removedItemId
-  ),
-  updatedAt,
-}
-
-  const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
-  const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
-  const currentHp = updatedCharacter.currentHp ?? newMaxHp
-
-  return {
-    ...updatedCharacter,
-    currentHp: Math.min(currentHp, newMaxHp),
-  }
-})
+        return {
+          ...updatedCharacter,
+          currentHp: Math.min(currentHp, newMaxHp),
+        }
+      })
 
       saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
-  state.currentCharacter?.id === characterId
-    ? (() => {
-        const removedItemId = state.currentCharacter.equippedItems[slot]
+        state.currentCharacter?.id === characterId
+          ? (() => {
+              const currentAttacksWithoutThisItem = (
+                state.currentCharacter.attacks ?? []
+              ).filter((attack) => attack.itemId !== item.id)
 
-        return {
-          ...state.currentCharacter,
-          equippedItems: {
-            ...state.currentCharacter.equippedItems,
-            [slot]: null,
-          },
-          attacks: (state.currentCharacter.attacks ?? []).filter(
-            (attack) => attack.itemId !== removedItemId
-          ),
-          updatedAt,
-        }
-      })()
-    : state.currentCharacter
+              const generatedAttack =
+                item.type === 'weapon' && item.weaponConfig
+                  ? [
+                      {
+                        id: crypto.randomUUID(),
+                        name: item.name,
+                        attackType: item.weaponConfig.attackType,
+                        ability: item.weaponConfig.ability,
+                        proficient: true,
+                        damageDice: item.weaponConfig.damageDice,
+                        damageBonus: item.weaponConfig.damageBonus,
+                        damageType: item.weaponConfig.damageType,
+                        notes: item.weaponConfig.notes,
+                        source: 'item' as const,
+                        itemId: item.id,
+                      },
+                    ]
+                  : []
+
+              return {
+                ...state.currentCharacter,
+                equippedItems: {
+                  ...state.currentCharacter.equippedItems,
+                  [slot]: item.id,
+                },
+                attacks: [...currentAttacksWithoutThisItem, ...generatedAttack],
+                updatedAt,
+              }
+            })()
+          : state.currentCharacter
 
       return {
         characters: newCharacters,
         currentCharacter: updatedCurrentCharacter,
       }
     }),
-    toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
+  unequipItem: (characterId, slot) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
 
-    const newCharacters = state.characters.map((char) => {
-      if (char.id !== characterId) {
-        return char
-      }
+      const items = useItemsStore.getState().items
 
-      const currentProficiencies = char.savingThrowProficiencies ?? []
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) return char
 
-      const newSavingThrowProficiencies: (keyof Stats)[] =
-        currentProficiencies.includes(stat)
-          ? currentProficiencies.filter((s): s is keyof Stats => s !== stat)
-          : [...currentProficiencies, stat]
+        const removedItemId = char.equippedItems[slot]
 
-      return {
-        ...char,
-        savingThrowProficiencies: newSavingThrowProficiencies,
-        updatedAt,
-      }
-    })
+        const updatedCharacter = {
+          ...char,
+          equippedItems: {
+            ...char.equippedItems,
+            [slot]: null,
+          },
+          attacks: (char.attacks ?? []).filter(
+            (attack) => attack.itemId !== removedItemId
+          ),
+          updatedAt,
+        }
 
-    saveCharacters(newCharacters)
+        const recalculatedCharacter = calculateCharacter(updatedCharacter, items)
+        const newMaxHp = recalculatedCharacter.finalDerivedStats.maxHp
+        const currentHp = updatedCharacter.currentHp ?? newMaxHp
 
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            savingThrowProficiencies: (
-              state.currentCharacter.savingThrowProficiencies ?? []
-            ).includes(stat)
-              ? (state.currentCharacter.savingThrowProficiencies ?? []).filter(
-                  (s): s is keyof Stats => s !== stat
-                )
-              : [...(state.currentCharacter.savingThrowProficiencies ?? []), stat],
-            updatedAt,
-          }
-        : state.currentCharacter
+        return {
+          ...updatedCharacter,
+          currentHp: Math.min(currentHp, newMaxHp),
+        }
+      })
 
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-changeCurrentHp: (characterId, amount) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-    const items = useItemsStore.getState().items
+      saveCharacters(newCharacters)
 
-    const newCharacters = state.characters.map((char) => {
-      if (char.id !== characterId) return char
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? (() => {
+              const removedItemId = state.currentCharacter.equippedItems[slot]
 
-      const calculatedCharacter = calculateCharacter(char, items)
-      const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
-      const currentHp = char.currentHp ?? maxHp
-      const newCurrentHp = Math.max(0, Math.min(maxHp, currentHp + amount))
+              return {
+                ...state.currentCharacter,
+                equippedItems: {
+                  ...state.currentCharacter.equippedItems,
+                  [slot]: null,
+                },
+                attacks: (state.currentCharacter.attacks ?? []).filter(
+                  (attack) => attack.itemId !== removedItemId
+                ),
+                updatedAt,
+              }
+            })()
+          : state.currentCharacter
 
       return {
-        ...char,
-        currentHp: newCurrentHp,
-        deathSaves:
-          newCurrentHp > 0
-          ? { successes: 0, failures: 0 }
-          : char.deathSaves,
-        updatedAt,
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
       }
-    })
+    }),
+  toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
 
-    saveCharacters(newCharacters)
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) {
+          return char
+        }
 
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? (() => {
-            const calculatedCharacter = calculateCharacter(
-              state.currentCharacter,
-              items
-            )
-            const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+        const currentProficiencies = char.savingThrowProficiencies ?? []
 
-            const currentHp = state.currentCharacter.currentHp ?? maxHp
-            const newCurrentHp = Math.max(
-              0,
-              Math.min(maxHp, currentHp + amount)
-            )
+        const newSavingThrowProficiencies: (keyof Stats)[] =
+          currentProficiencies.includes(stat)
+            ? currentProficiencies.filter((s): s is keyof Stats => s !== stat)
+            : [...currentProficiencies, stat]
 
-            return {
+        return {
+          ...char,
+          savingThrowProficiencies: newSavingThrowProficiencies,
+          updatedAt,
+        }
+      })
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
               ...state.currentCharacter,
-              currentHp: newCurrentHp,
-              deathSaves:
-                newCurrentHp > 0
-                  ? { successes: 0, failures: 0 }
-                  : state.currentCharacter.deathSaves,
+              savingThrowProficiencies: (
+                state.currentCharacter.savingThrowProficiencies ?? []
+              ).includes(stat)
+                ? (
+                    state.currentCharacter.savingThrowProficiencies ?? []
+                  ).filter((s): s is keyof Stats => s !== stat)
+                : [...(state.currentCharacter.savingThrowProficiencies ?? []), stat],
               updatedAt,
             }
-          })()
-        : state.currentCharacter
+          : state.currentCharacter
 
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  changeCurrentHp: (characterId, amount) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+      const items = useItemsStore.getState().items
+
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) return char
+
+        const calculatedCharacter = calculateCharacter(char, items)
+        const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+        const currentHp = char.currentHp ?? maxHp
+        const newCurrentHp = Math.max(0, Math.min(maxHp, currentHp + amount))
+
+        return {
+          ...char,
+          currentHp: newCurrentHp,
+          deathSaves:
+            newCurrentHp > 0 ? { successes: 0, failures: 0 } : char.deathSaves,
+          updatedAt,
+        }
+      })
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? (() => {
+              const calculatedCharacter = calculateCharacter(
+                state.currentCharacter,
+                items
+              )
+              const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+              const currentHp = state.currentCharacter.currentHp ?? maxHp
+              const newCurrentHp = Math.max(
+                0,
+                Math.min(maxHp, currentHp + amount)
+              )
+
+              return {
+                ...state.currentCharacter,
+                currentHp: newCurrentHp,
+                deathSaves:
+                  newCurrentHp > 0
+                    ? { successes: 0, failures: 0 }
+                    : state.currentCharacter.deathSaves,
+                updatedAt,
+              }
+            })()
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
   setTemporaryHp: (characterId, amount) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
+    set((state) => {
+      const updatedAt = new Date().toISOString()
 
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            temporaryHp: Math.max(0, amount),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            temporaryHp: Math.max(0, amount),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  applyDamage: (characterId, damage) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-    const items = useItemsStore.getState().items
-
-    const newCharacters = state.characters.map((char) => {
-      if (char.id !== characterId) return char
-
-      const calculatedCharacter = calculateCharacter(char, items)
-      const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
-      const currentHp = char.currentHp ?? maxHp
-      const temporaryHp = char.temporaryHp ?? 0
-
-      const damageToTempHp = Math.min(temporaryHp, damage)
-      const remainingDamage = damage - damageToTempHp
-      const newTemporaryHp = temporaryHp - damageToTempHp
-      const newCurrentHp = Math.max(0, currentHp - remainingDamage)
-
-      return {
-        ...char,
-        currentHp: newCurrentHp,
-        temporaryHp: newTemporaryHp,
-        updatedAt,
-      }
-    })
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? (() => {
-            const calculatedCharacter = calculateCharacter(
-              state.currentCharacter,
-              items
-            )
-            const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
-            const currentHp = state.currentCharacter.currentHp ?? maxHp
-            const temporaryHp = state.currentCharacter.temporaryHp ?? 0
-
-            const damageToTempHp = Math.min(temporaryHp, damage)
-            const remainingDamage = damage - damageToTempHp
-            const newTemporaryHp = temporaryHp - damageToTempHp
-            const newCurrentHp = Math.max(0, currentHp - remainingDamage)
-
-            return {
-              ...state.currentCharacter,
-              currentHp: newCurrentHp,
-              temporaryHp: newTemporaryHp,
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              temporaryHp: Math.max(0, amount),
               updatedAt,
             }
-          })()
-        : state.currentCharacter
+          : char
+      )
 
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  setDeathSaves: (characterId, deathSaves) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
+      saveCharacters(newCharacters)
 
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            deathSaves: {
-              successes: Math.max(0, Math.min(3, deathSaves.successes)),
-              failures: Math.max(0, Math.min(3, deathSaves.failures)),
-            },
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            deathSaves: {
-              successes: Math.max(0, Math.min(3, deathSaves.successes)),
-              failures: Math.max(0, Math.min(3, deathSaves.failures)),
-            },
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-resetDeathSaves: (characterId) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            deathSaves: {
-              successes: 0,
-              failures: 0,
-            },
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            deathSaves: {
-              successes: 0,
-              failures: 0,
-            },
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  toggleInspiration: (characterId) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            inspiration: !char.inspiration,
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            inspiration: !state.currentCharacter.inspiration,
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-setSpeed: (characterId, speed) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            speed: Math.max(0, speed),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            speed: Math.max(0, speed),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-setHitDiceUsed: (characterId, used) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) => {
-      if (char.id !== characterId) return char
-
-      const total = char.hitDice?.total ?? 0
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              temporaryHp: Math.max(0, amount),
+              updatedAt,
+            }
+          : state.currentCharacter
 
       return {
-        ...char,
-        hitDice: {
-          ...char.hitDice,
-          used: Math.max(0, Math.min(total, used)),
-        },
-        updatedAt,
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  applyDamage: (characterId, damage) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+      const items = useItemsStore.getState().items
+
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) return char
+
+        const calculatedCharacter = calculateCharacter(char, items)
+        const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+        const currentHp = char.currentHp ?? maxHp
+        const temporaryHp = char.temporaryHp ?? 0
+
+        const damageToTempHp = Math.min(temporaryHp, damage)
+        const remainingDamage = damage - damageToTempHp
+        const newTemporaryHp = temporaryHp - damageToTempHp
+        const newCurrentHp = Math.max(0, currentHp - remainingDamage)
+
+        return {
+          ...char,
+          currentHp: newCurrentHp,
+          temporaryHp: newTemporaryHp,
+          updatedAt,
+        }
+      })
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? (() => {
+              const calculatedCharacter = calculateCharacter(
+                state.currentCharacter,
+                items
+              )
+              const maxHp = calculatedCharacter.finalDerivedStats.maxHp
+
+              const currentHp = state.currentCharacter.currentHp ?? maxHp
+              const temporaryHp = state.currentCharacter.temporaryHp ?? 0
+
+              const damageToTempHp = Math.min(temporaryHp, damage)
+              const remainingDamage = damage - damageToTempHp
+              const newTemporaryHp = temporaryHp - damageToTempHp
+              const newCurrentHp = Math.max(0, currentHp - remainingDamage)
+
+              return {
+                ...state.currentCharacter,
+                currentHp: newCurrentHp,
+                temporaryHp: newTemporaryHp,
+                updatedAt,
+              }
+            })()
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  setDeathSaves: (characterId, deathSaves) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              deathSaves: {
+                successes: Math.max(0, Math.min(3, deathSaves.successes)),
+                failures: Math.max(0, Math.min(3, deathSaves.failures)),
+              },
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              deathSaves: {
+                successes: Math.max(0, Math.min(3, deathSaves.successes)),
+                failures: Math.max(0, Math.min(3, deathSaves.failures)),
+              },
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  resetDeathSaves: (characterId) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              deathSaves: {
+                successes: 0,
+                failures: 0,
+              },
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              deathSaves: {
+                successes: 0,
+                failures: 0,
+              },
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  toggleInspiration: (characterId) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              inspiration: !char.inspiration,
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              inspiration: !state.currentCharacter.inspiration,
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  setSpeed: (characterId, speed) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              speed: Math.max(0, speed),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              speed: Math.max(0, speed),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  setHitDiceUsed: (characterId, used) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) => {
+        if (char.id !== characterId) return char
+
+        const total = char.hitDice?.total ?? 0
+
+        return {
+          ...char,
+          hitDice: {
+            ...char.hitDice,
+            used: Math.max(0, Math.min(total, used)),
+          },
+          updatedAt,
+        }
+      })
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              hitDice: {
+                ...state.currentCharacter.hitDice,
+                used: Math.max(
+                  0,
+                  Math.min(state.currentCharacter.hitDice?.total ?? 0, used)
+                ),
+              },
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  addAttack: (characterId, attack) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const attackWithId = {
+        ...attack,
+        id: crypto.randomUUID(),
+      }
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              attacks: [...(char.attacks ?? []), attackWithId],
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              attacks: [...(state.currentCharacter.attacks ?? []), attackWithId],
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  updateAttack: (characterId, attackId, updated) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              attacks: (char.attacks ?? []).map((attack) =>
+                attack.id === attackId ? { ...attack, ...updated } : attack
+              ),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              attacks: (state.currentCharacter.attacks ?? []).map((attack) =>
+                attack.id === attackId ? { ...attack, ...updated } : attack
+              ),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  deleteAttack: (characterId, attackId) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              attacks: (char.attacks ?? []).filter(
+                (attack) => attack.id !== attackId
+              ),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              attacks: (state.currentCharacter.attacks ?? []).filter(
+                (attack) => attack.id !== attackId
+              ),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  addSpell: (characterId, spell) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const spellWithId: Spell = {
+        ...spell,
+        id: crypto.randomUUID(),
+      }
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spells: [...(char.spells ?? []), spellWithId],
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spells: [...(state.currentCharacter.spells ?? []), spellWithId],
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  updateSpell: (characterId, spellId, updated) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spells: (char.spells ?? []).map((spell) =>
+                spell.id === spellId ? { ...spell, ...updated } : spell
+              ),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spells: (state.currentCharacter.spells ?? []).map((spell) =>
+                spell.id === spellId ? { ...spell, ...updated } : spell
+              ),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  deleteSpell: (characterId, spellId) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spells: (char.spells ?? []).filter((spell) => spell.id !== spellId),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spells: (state.currentCharacter.spells ?? []).filter(
+                (spell) => spell.id !== spellId
+              ),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  setSpellcastingAbility: (characterId, ability) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spellcastingAbility: ability,
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spellcastingAbility: ability,
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+  setSpellSlotsTotal: (characterId, level, total) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spellSlots: char.spellSlots.map((slot) =>
+                slot.level === level ? { ...slot, total } : slot
+              ),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spellSlots: state.currentCharacter.spellSlots.map((slot) =>
+                slot.level === level ? { ...slot, total } : slot
+              ),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+
+  changeSpellSlot: (characterId, level, delta) =>
+    set((state) => {
+      const updatedAt = new Date().toISOString()
+
+      const newCharacters = state.characters.map((char) =>
+        char.id === characterId
+          ? {
+              ...char,
+              spellSlots: char.spellSlots.map((slot) => {
+                if (slot.level !== level) return slot
+
+                const newUsed = Math.max(
+                  0,
+                  Math.min(slot.total, slot.used + delta)
+                )
+
+                return { ...slot, used: newUsed }
+              }),
+              updatedAt,
+            }
+          : char
+      )
+
+      saveCharacters(newCharacters)
+
+      const updatedCurrentCharacter =
+        state.currentCharacter?.id === characterId
+          ? {
+              ...state.currentCharacter,
+              spellSlots: state.currentCharacter.spellSlots.map((slot) => {
+                if (slot.level !== level) return slot
+
+                const newUsed = Math.max(
+                  0,
+                  Math.min(slot.total, slot.used + delta)
+                )
+
+                return { ...slot, used: newUsed }
+              }),
+              updatedAt,
+            }
+          : state.currentCharacter
+
+      return {
+        characters: newCharacters,
+        currentCharacter: updatedCurrentCharacter,
+      }
+    }),
+}))
+
+const hydrateCharactersFromApi = async () => {
+  try {
+    const backendCharacters = await fetchCharactersFromApi()
+
+    useCharacterStore.setState((state) => {
+      const localById = new Map(
+        state.characters.map((character) => [character.id, character])
+      )
+
+      const mergedCharacters = backendCharacters.map((backendCharacter) => {
+        const mappedCharacter = normalizeCharacter(
+          mapBackendCharacterToCharacter(backendCharacter)
+        )
+
+        const localCharacter = localById.get(mappedCharacter.id)
+
+        return normalizeCharacter(
+          localCharacter
+            ? {
+                ...localCharacter,
+                ...mappedCharacter,
+              }
+            : mappedCharacter
+        )
+      })
+
+      const localOnlyCharacters = state.characters
+        .filter(
+          (character) =>
+            !backendCharacters.some(
+              (backendCharacter) => backendCharacter.id === character.id
+            )
+        )
+        .map((character) => normalizeCharacter(character))
+
+      const nextCharacters = [...mergedCharacters, ...localOnlyCharacters].map(
+        (character) => normalizeCharacter(character)
+      )
+
+      saveCharacters(nextCharacters)
+
+      return {
+        characters: nextCharacters,
+        currentCharacter:
+          state.currentCharacter == null
+            ? null
+            : nextCharacters.find(
+                (character) => character.id === state.currentCharacter?.id
+              ) ?? state.currentCharacter,
       }
     })
+  } catch (error) {
+    console.error('Failed to hydrate characters from backend:', error)
+  }
+}
 
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            hitDice: {
-              ...state.currentCharacter.hitDice,
-              used: Math.max(
-                0,
-                Math.min(state.currentCharacter.hitDice?.total ?? 0, used)
-              ),
-            },
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-addAttack: (characterId, attack) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const attackWithId = {
-      ...attack,
-      id: crypto.randomUUID(),
-    }
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            attacks: [...(char.attacks ?? []), attackWithId],
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            attacks: [...(state.currentCharacter.attacks ?? []), attackWithId],
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-updateAttack: (characterId, attackId, updated) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            attacks: (char.attacks ?? []).map((attack) =>
-              attack.id === attackId
-                ? { ...attack, ...updated }
-                : attack
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            attacks: (state.currentCharacter.attacks ?? []).map((attack) =>
-              attack.id === attackId
-                ? { ...attack, ...updated }
-                : attack
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-deleteAttack: (characterId, attackId) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            attacks: (char.attacks ?? []).filter(
-              (attack) => attack.id !== attackId
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            attacks: (state.currentCharacter.attacks ?? []).filter(
-              (attack) => attack.id !== attackId
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  addSpell: (characterId, spell) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const spellWithId: Spell = {
-      ...spell,
-      id: crypto.randomUUID(),
-    }
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spells: [...(char.spells ?? []), spellWithId],
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spells: [...(state.currentCharacter.spells ?? []), spellWithId],
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-updateSpell: (characterId, spellId, updated) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spells: (char.spells ?? []).map((spell) =>
-              spell.id === spellId
-                ? { ...spell, ...updated }
-                : spell
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spells: (state.currentCharacter.spells ?? []).map((spell) =>
-              spell.id === spellId
-                ? { ...spell, ...updated }
-                : spell
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-deleteSpell: (characterId, spellId) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spells: (char.spells ?? []).filter(
-              (spell) => spell.id !== spellId
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spells: (state.currentCharacter.spells ?? []).filter(
-              (spell) => spell.id !== spellId
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  setSpellcastingAbility: (characterId, ability) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spellcastingAbility: ability,
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spellcastingAbility: ability,
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-  setSpellSlotsTotal: (characterId, level, total) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spellSlots: char.spellSlots.map((slot) =>
-              slot.level === level
-                ? { ...slot, total }
-                : slot
-            ),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spellSlots: state.currentCharacter.spellSlots.map((slot) =>
-              slot.level === level
-                ? { ...slot, total }
-                : slot
-            ),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-changeSpellSlot: (characterId, level, delta) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === characterId
-        ? {
-            ...char,
-            spellSlots: char.spellSlots.map((slot) => {
-              if (slot.level !== level) return slot
-
-              const newUsed = Math.max(
-                0,
-                Math.min(slot.total, slot.used + delta)
-              )
-
-              return { ...slot, used: newUsed }
-            }),
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === characterId
-        ? {
-            ...state.currentCharacter,
-            spellSlots: state.currentCharacter.spellSlots.map((slot) => {
-              if (slot.level !== level) return slot
-
-              const newUsed = Math.max(
-                0,
-                Math.min(slot.total, slot.used + delta)
-              )
-
-              return { ...slot, used: newUsed }
-            }),
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-}))
+void hydrateCharactersFromApi()
