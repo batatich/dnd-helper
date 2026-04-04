@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Character, Stats } from '../types/characters'
 
 type Props = {
@@ -18,6 +18,7 @@ const statLabels: Record<keyof Stats, string> = {
 export function ProfileSection({ character, onUpdateCharacter }: Props) {
   const [isEditing, setIsEditing] = useState(false)
 
+
   const [form, setForm] = useState({
     name: character.name,
     race: character.race,
@@ -29,6 +30,13 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
     avatarUrl: character.avatarUrl,
     baseStats: { ...character.baseStats },
   })
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+  if (isEditing) {
+    nameInputRef.current?.focus()
+  }
+}, [isEditing])
+
 
   const handleStartEdit = () => {
     setForm({
@@ -71,6 +79,7 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
       {isEditing ? (
         <div className="space-y-4">
           <input
+            ref={nameInputRef}
             type="text"
             value={form.name}
             onChange={(e) =>

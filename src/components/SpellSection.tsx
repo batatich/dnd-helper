@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { NewSpell, Spell, SpellSlot, Stats } from '../types/characters'
 
 type Props = {
@@ -33,6 +33,7 @@ type SpellFormProps = {
   onCancel?: () => void
   submitLabel: string
   title: string
+  autoFocus?: boolean
 }
 
 function SpellForm({
@@ -42,12 +43,21 @@ function SpellForm({
   onCancel,
   submitLabel,
   title,
+  autoFocus = false,
 }: SpellFormProps) {
+    const nameInputRef = useRef<HTMLInputElement | null>(null)
+
+    useEffect(() => {
+      if (autoFocus) {
+        nameInputRef.current?.focus()
+      }
+    }, [autoFocus])
   return (
     <div className="bg-gray-800 rounded-lg p-4 space-y-3">
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
+        ref={nameInputRef}
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -331,6 +341,7 @@ export function SpellSection({
         onChange={setNewSpell}
         onSubmit={handleAddSpell}
         submitLabel="Добавить заклинание"
+        autoFocus
       />
 
       {spells.length === 0 && (
@@ -351,6 +362,7 @@ export function SpellSection({
                 onSubmit={() => handleSaveEdit(spell.id)}
                 onCancel={handleCancelEdit}
                 submitLabel="Сохранить"
+                autoFocus={editingSpellId === spell.id}
               />
             )
           }

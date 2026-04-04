@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Attack, NewAttack, Stats } from '../types/characters'
 
 type Props = {
@@ -33,6 +33,7 @@ type AttackFormProps = {
   onCancel?: () => void
   submitLabel: string
   title: string
+  autoFocus?: boolean
 }
 
 function AttackForm({
@@ -42,12 +43,23 @@ function AttackForm({
   onCancel,
   submitLabel,
   title,
+  autoFocus = false,
+
+  
 }: AttackFormProps) {
+    const nameInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (autoFocus) {
+      nameInputRef.current?.focus()
+    }
+  }, [autoFocus])
   return (
     <div className="bg-gray-800 rounded-lg p-4 space-y-3">
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
+        ref={nameInputRef}
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -217,7 +229,7 @@ export function AttackSection({
     if (!normalizedAttack.damageDice.trim()) return
     if (!normalizedAttack.damageType.trim()) return
 
-    onAddAttack(newAttack)
+    onAddAttack(normalizedAttack)
     setNewAttack(createEmptyAttack())
   }
 
@@ -249,7 +261,7 @@ export function AttackSection({
     if (!normalizedAttack.damageDice.trim()) return
     if (!normalizedAttack.damageType.trim()) return
 
-    onUpdateAttack(attackId, editingAttack)
+    onUpdateAttack(attackId, normalizedAttack)
     setEditingAttackId(null)
     setEditingAttack(createEmptyAttack())
   }
@@ -258,6 +270,7 @@ export function AttackSection({
     setEditingAttackId(null)
     setEditingAttack(createEmptyAttack())
   }
+  
 
   return (
     <div className="space-y-4">
@@ -269,6 +282,7 @@ export function AttackSection({
   onChange={setNewAttack}
   onSubmit={handleAddAttack}
   submitLabel="Добавить атаку"
+  autoFocus
 />
       {attacks.length === 0 && (
         <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-400">
@@ -298,6 +312,7 @@ export function AttackSection({
                 onSubmit={() => handleSaveEdit(attack.id)}
                 onCancel={handleCancelEdit}
                 submitLabel="Сохранить"
+                autoFocus={editingAttackId === attack.id}
                 submitButtonClassName = 'bg-blue-600 hover:bg-blue-700'
               />
             )
