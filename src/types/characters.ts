@@ -114,6 +114,8 @@ export type Spell = {
   ritual: boolean
   description: string
 }
+export type NewSpell = Omit<Spell, 'id'>
+export type SpellUpdate = Partial<NewSpell>
 export type SpellSlot = {
   level: number
   total: number

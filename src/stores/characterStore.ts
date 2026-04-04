@@ -7,6 +7,8 @@ import type {
   Spell,
   SpellSlot,
   NewAttack,
+  NewSpell,
+  SpellUpdate,
 } from '../types/characters'
 import { standardSkills } from '../types/characters'
 import { initialCharacters } from '../data/characters'
@@ -173,11 +175,11 @@ interface CharacterStore {
     updated: Partial<Attack>
   ) => void
   deleteAttack: (characterId: string, attackId: string) => void
-  addSpell: (characterId: string, spell: Spell) => void
+  addSpell: (characterId: string, spell: NewSpell) => void
   updateSpell: (
     characterId: string,
     spellId: string,
-    updated: Partial<Spell>
+    spell: SpellUpdate,
   ) => void
   deleteSpell: (characterId: string, spellId: string) => void
   setSpellcastingAbility: (
@@ -937,11 +939,16 @@ deleteAttack: (characterId, attackId) =>
   set((state) => {
     const updatedAt = new Date().toISOString()
 
+    const spellWithId: Spell = {
+      ...spell,
+      id: crypto.randomUUID(),
+    }
+
     const newCharacters = state.characters.map((char) =>
       char.id === characterId
         ? {
             ...char,
-            spells: [...(char.spells ?? []), spell],
+            spells: [...(char.spells ?? []), spellWithId],
             updatedAt,
           }
         : char
@@ -953,7 +960,7 @@ deleteAttack: (characterId, attackId) =>
       state.currentCharacter?.id === characterId
         ? {
             ...state.currentCharacter,
-            spells: [...(state.currentCharacter.spells ?? []), spell],
+            spells: [...(state.currentCharacter.spells ?? []), spellWithId],
             updatedAt,
           }
         : state.currentCharacter
