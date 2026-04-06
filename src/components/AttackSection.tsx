@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Attack, NewAttack, Stats } from '../types/characters'
+import { Input } from './ui/Input'
+import { Button } from './ui/Button'
+import { Textarea} from './ui/Textarea'
+import { Select } from './ui/Select'
 
 type Props = {
   attacks: Attack[]
@@ -21,7 +25,6 @@ const createEmptyAttack = (): NewAttack => ({
   notes: '',
   source: 'manual',
 })
-const formatSignedValue = (value: number) => (value >= 0 ? `+${value}` : `${value}`)
 const getModifier = (value: number) => Math.floor((value - 10) / 2)
 
 
@@ -45,7 +48,6 @@ function AttackForm({
   onCancel,
   submitLabel,
   title,
-  autoFocus = false,
   errors,
 
   
@@ -66,7 +68,7 @@ function AttackForm({
     >
       <h3 className="text-white font-semibold">{title}</h3>
 
-      <input
+      <Input
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -76,17 +78,12 @@ function AttackForm({
           })
         }
         placeholder="Название атаки"
-        className={`bg-gray-700 text-white rounded p-2 w-full ${
-          errors?.name ? 'border border-red-500' : ''
-        }`}
+        error={errors?.name}
       />
-      {errors?.name && (
-        <div className="text-red-400 text-sm">{errors.name}</div>
-      )}
       
 
       <div className="grid grid-cols-2 gap-3">
-        <select
+        <Select
           value={value.attackType}
           onChange={(e) =>
             onChange({
@@ -94,14 +91,13 @@ function AttackForm({
               attackType: e.target.value as NewAttack['attackType'],
             })
           }
-          className="bg-gray-700 text-white rounded p-2 w-full"
         >
           <option value="melee">Ближняя</option>
           <option value="ranged">Дальняя</option>
           <option value="spell">Заклинание</option>
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={value.ability}
           onChange={(e) =>
             onChange({
@@ -109,7 +105,6 @@ function AttackForm({
               ability: e.target.value as NewAttack['ability'],
             })
           }
-          className="bg-gray-700 text-white rounded p-2 w-full"
         >
           <option value="strength">Сила</option>
           <option value="dexterity">Ловкость</option>
@@ -117,11 +112,11 @@ function AttackForm({
           <option value="intelligence">Интеллект</option>
           <option value="wisdom">Мудрость</option>
           <option value="charisma">Харизма</option>
-        </select>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <input
+        <Input
           type="text"
           value={value.damageDice}
           onChange={(e) =>
@@ -131,15 +126,10 @@ function AttackForm({
             })
           }
           placeholder="Урон, например 1d8"
-          className={`bg-gray-700 text-white rounded p-2 w-full ${
-            errors?.damageDice ? 'border border-red-500' : ''
-          }`}
+          error={errors?.damageDice}
         />
-        {errors?.damageDice && (
-          <div className="text-red-400 text-sm">{errors.damageDice}</div>
-        )}
 
-        <input
+        <Input
           type="number"
           value={value.damageBonus}
           onChange={(e) =>
@@ -149,27 +139,21 @@ function AttackForm({
             })
           }
           placeholder="Бонус урона"
-          className="bg-gray-700 text-white rounded p-2 w-full"
         />
       </div>
 
-      <input
-        type="text"
-        value={value.damageType}
-        onChange={(e) =>
-          onChange({
-            ...value,
-            damageType: e.target.value,
-          })
-        }
-        placeholder="Тип урона"
-        className={`bg-gray-700 text-white rounded p-2 w-full ${
-          errors?.damageType ? 'border border-red-500' : ''
-        }`}
-      />
-        {errors?.damageType && (
-          <div className="text-red-400 text-sm">{errors.damageType}</div>
-        )}
+        <Input
+          type="text"
+          value={value.damageType}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              damageType: e.target.value,
+            })
+          }
+          placeholder="Тип урона"
+          error={errors?.damageType}
+        />
 
       <label className="flex items-center gap-2 text-white">
         <input
@@ -185,7 +169,7 @@ function AttackForm({
         Владение оружием
       </label>
 
-      <textarea
+      <Textarea
         value={value.notes}
         onChange={(e) =>
           onChange({
@@ -194,25 +178,17 @@ function AttackForm({
           })
         }
         placeholder="Заметки"
-        className="bg-gray-700 text-white rounded p-2 w-full min-h-[80px]"
       />
 
       <div className="flex gap-2">
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
-        >
+        <Button type="submit">
           {submitLabel}
-        </button>
+        </Button>
 
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-white"
-          >
+          <Button type="button" onClick={onCancel} variant="secondary">
             Отмена
-          </button>
+          </Button>
         )}
       </div>
     </form>
@@ -344,7 +320,6 @@ export function AttackSection({
   onSubmit={handleAddAttack}
   errors={createErrors}
   submitLabel="Добавить атаку"
-  autoFocus
 />
       {attacks.length === 0 && (
         <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-400">
@@ -384,23 +359,21 @@ export function AttackSection({
           return (
             <div
               key={attack.id}
-              className="bg-gray-800 rounded-lg p-4 flex items-start justify-between"
+              className="bg-gray-800 rounded-lg p-4 flex items-start justify-between border border-gray-700 hover:border-gray-500 transition"
             >
               <div>
-                <div className="text-white font-semibold">{attack.name}</div>
+                <div className="text-white font-bold text-lg">{attack.name}</div>
 
-                <div className="text-sm text-gray-300">
+                <div className="text-xs text-gray-400 mt-1">
                   {attack.attackType === 'melee' && 'Ближняя атака'}
                   {attack.attackType === 'ranged' && 'Дальняя атака'}
                   {attack.attackType === 'spell' && 'Атака заклинанием'}
+                  {' • '}
+                  {abilityLabels[attack.ability]}
                 </div>
 
                 <div className="text-sm text-gray-300">
-                  {formatSignedValue(attackBonus)} к попаданию • {damage} {attack.damageType}
-                </div>
-
-                <div className="text-xs text-gray-400 mt-1">
-                  Характеристика: {abilityLabels[attack.ability]}
+                  Урон: <span className="text-white">{damage}</span> ({attack.damageType})
                 </div>
 
                 {attack.source === 'item' && (

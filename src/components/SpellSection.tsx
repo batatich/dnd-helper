@@ -1,5 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import type { NewSpell, Spell, SpellSlot, Stats } from '../types/characters'
+import { Input } from './ui/Input'
+import { Textarea } from './ui/Textarea'
+import { Button } from './ui/Button'
+import { Select } from './ui/Select'
 
 type Props = {
   spells: Spell[]
@@ -42,9 +46,8 @@ function SpellForm({
   onChange,
   onSubmit,
   onCancel,
-  submitLabel,
   title,
-  autoFocus = false,
+  
   errors,
 }: SpellFormProps) {
   return (
@@ -63,7 +66,7 @@ function SpellForm({
     >
       <h3 className="text-white font-semibold">{title}</h3>
 
-      <input
+      <Input
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -73,17 +76,12 @@ function SpellForm({
           })
         }
         placeholder="Название заклинания"
-        className={`bg-gray-700 text-white rounded p-2 w-full ${
-          errors?.name ? 'border border-red-500' : ''
-        }`}
+        error={errors?.name}
       />
 
-      {errors?.name && (
-        <div className="text-red-400 text-sm">{errors.name}</div>
-      )}
 
       <div className="grid grid-cols-2 gap-3">
-        <input
+        <Input
           type="number"
           value={value.level}
           onChange={(e) =>
@@ -93,10 +91,9 @@ function SpellForm({
             })
           }
           placeholder="Уровень"
-          className="bg-gray-700 text-white rounded p-2 w-full"
         />
 
-        <input
+        <Input
           type="text"
           value={value.school}
           onChange={(e) =>
@@ -106,11 +103,10 @@ function SpellForm({
             })
           }
           placeholder="Школа"
-          className="bg-gray-700 text-white rounded p-2 w-full"
         />
       </div>
 
-      <input
+      <Input
         type="text"
         value={value.castingTime}
         onChange={(e) =>
@@ -120,10 +116,9 @@ function SpellForm({
           })
         }
         placeholder="Время накладывания"
-        className="bg-gray-700 text-white rounded p-2 w-full"
       />
 
-      <input
+      <Input
         type="text"
         value={value.range}
         onChange={(e) =>
@@ -133,10 +128,9 @@ function SpellForm({
           })
         }
         placeholder="Дистанция"
-        className="bg-gray-700 text-white rounded p-2 w-full"
       />
 
-      <input
+      <Input
         type="text"
         value={value.duration}
         onChange={(e) =>
@@ -146,10 +140,9 @@ function SpellForm({
           })
         }
         placeholder="Длительность"
-        className="bg-gray-700 text-white rounded p-2 w-full"
       />
 
-      <textarea
+      <Textarea
         value={value.description}
         onChange={(e) =>
           onChange({
@@ -158,26 +151,18 @@ function SpellForm({
           })
         }
         placeholder="Описание"
-        className="bg-gray-700 text-white rounded p-2 w-full min-h-[100px]"
       />
 
 
       <div className="flex gap-2">
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
-        >
-          {submitLabel}
-        </button>
+        <Button type="button" onClick={onCancel} variant="secondary">
+          Отмена
+        </Button>
 
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-white"
-          >
+          <Button type="button" onClick={onCancel} variant="secondary">
             Отмена
-          </button>
+          </Button>
         )}
       </div>
     </form>
@@ -306,12 +291,11 @@ const handleCancelEdit = () => {
         Характеристика заклинателя
       </label>
 
-      <select
+      <Select
         value={spellcastingAbility}
         onChange={(e) =>
           onSetSpellcastingAbility(e.target.value as keyof Stats)
         }
-        className="w-full bg-gray-700 text-white rounded p-2"
       >
         <option value="strength">Сила</option>
         <option value="dexterity">Ловкость</option>
@@ -319,7 +303,7 @@ const handleCancelEdit = () => {
         <option value="intelligence">Интеллект</option>
         <option value="wisdom">Мудрость</option>
         <option value="charisma">Харизма</option>
-      </select>
+      </Select>
     </div>
 
     <div className="bg-gray-700 rounded p-3 text-center">
