@@ -221,10 +221,10 @@ const savingThrowStats: (keyof Stats)[] = [
     const proficiencyBonus = getProficiencyBonus(character.level)
     const inspiration =character.inspiration ?? false
     const speed = character.speed ?? 30
-    const hitDice = character.hitDice ?? {
-      total: 1,
-      used: 0,
-      dice: '1d8',
+    const hitDice = {
+      total: character.level,
+      used: character.hitDice?.used ?? 0,
+      dice: `${character.level}d8`,
     }
 
     const spells = character.spells ?? []

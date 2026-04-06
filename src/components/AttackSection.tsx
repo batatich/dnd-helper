@@ -50,13 +50,6 @@ function AttackForm({
 
   
 }: AttackFormProps) {
-    const nameInputRef = useRef<HTMLInputElement | null>(null)
-
-  useEffect(() => {
-    if (autoFocus) {
-      nameInputRef.current?.focus()
-    }
-  }, [autoFocus])
   return (
     <form
       className="bg-gray-800 rounded-lg p-4 space-y-3"
@@ -74,7 +67,6 @@ function AttackForm({
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
-        ref={nameInputRef}
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -404,7 +396,7 @@ export function AttackSection({
                 </div>
 
                 <div className="text-sm text-gray-300">
-                  +{formatSignedValue(attackBonus)} к попаданию • {damage} {attack.damageType}
+                  {formatSignedValue(attackBonus)} к попаданию • {damage} {attack.damageType}
                 </div>
 
                 <div className="text-xs text-gray-400 mt-1">

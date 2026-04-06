@@ -47,13 +47,6 @@ function SpellForm({
   autoFocus = false,
   errors,
 }: SpellFormProps) {
-    const nameInputRef = useRef<HTMLInputElement | null>(null)
-
-    useEffect(() => {
-      if (autoFocus) {
-        nameInputRef.current?.focus()
-      }
-    }, [autoFocus])
   return (
     <form
       className="bg-gray-800 rounded-lg p-4 space-y-3"
@@ -71,7 +64,6 @@ function SpellForm({
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
-        ref={nameInputRef}
         type="text"
         value={value.name}
         onChange={(e) =>
@@ -400,7 +392,6 @@ const handleCancelEdit = () => {
         onChange={handleNewSpellChange}
         onSubmit={handleAddSpell}
         submitLabel="Добавить заклинание"
-        autoFocus
         errors={createErrors}
       />
 
