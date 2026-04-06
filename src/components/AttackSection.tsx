@@ -58,7 +58,19 @@ function AttackForm({
     }
   }, [autoFocus])
   return (
-    <div className="bg-gray-800 rounded-lg p-4 space-y-3">
+    <form
+      className="bg-gray-800 rounded-lg p-4 space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && onCancel) {
+          e.preventDefault()
+          onCancel()
+        }
+      }}
+    >
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
@@ -195,8 +207,7 @@ function AttackForm({
 
       <div className="flex gap-2">
         <button
-          type="button"
-          onClick={onSubmit}
+          type="submit"
           className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
         >
           {submitLabel}
@@ -212,7 +223,7 @@ function AttackForm({
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 const abilityLabels: Record<NewAttack['ability'], string> = {

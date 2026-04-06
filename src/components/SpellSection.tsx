@@ -55,7 +55,19 @@ function SpellForm({
       }
     }, [autoFocus])
   return (
-    <div className="bg-gray-800 rounded-lg p-4 space-y-3">
+    <form
+      className="bg-gray-800 rounded-lg p-4 space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && onCancel) {
+          e.preventDefault()
+          onCancel()
+        }
+      }}
+    >
       <h3 className="text-white font-semibold">{title}</h3>
 
       <input
@@ -160,8 +172,7 @@ function SpellForm({
 
       <div className="flex gap-2">
         <button
-          type="button"
-          onClick={onSubmit}
+          type="submit"
           className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
         >
           {submitLabel}
@@ -177,7 +188,7 @@ function SpellForm({
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 export function SpellSection({
@@ -208,13 +219,21 @@ export function SpellSection({
     return errors
   }
   const handleNewSpellChange = (value: NewSpell) => {
-  setNewSpell(value)
+    setNewSpell(value)
 
-  setCreateErrors(prev => ({
-    ...prev,
-    name: value.name ? undefined : prev.name,
-  }))
-}
+    setCreateErrors(prev => ({
+      ...prev,
+      name: value.name ? undefined : prev.name,
+    }))
+  }
+  const handleEditSpellChange = (value: NewSpell) => {
+    setEditingSpell(value)
+
+    setEditErrors(prev => ({
+      ...prev,
+      name: value.name ? undefined : prev.name,
+    }))
+  }
   const handleAddSpell = () => {
     const normalizedSpell: NewSpell = {      
       ...newSpell,
@@ -232,26 +251,33 @@ export function SpellSection({
       return
     }
 
-    setCreateErrors({})
     onAddSpell(normalizedSpell)
     setNewSpell(createEmptySpell())
+    setCreateErrors({})
   }
 
-  const handleStartEdit = (spell: Spell) => {
-    setEditingSpellId(spell.id)
-    setEditingSpell({
-        name: spell.name,
-        level: spell.level,
-        school: spell.school,
-        castingTime: spell.castingTime,
-        range: spell.range,
-        duration: spell.duration,
-        components: spell.components,
-        concentration: spell.concentration,
-        ritual: spell.ritual,
-        description: spell.description,
-    })
-  }
+const handleStartEdit = (spell: Spell) => {
+  setEditErrors({})
+  setEditingSpellId(spell.id)
+  setEditingSpell({
+    name: spell.name,
+    level: spell.level,
+    school: spell.school,
+    castingTime: spell.castingTime,
+    range: spell.range,
+    duration: spell.duration,
+    components: spell.components,
+    concentration: spell.concentration,
+    ritual: spell.ritual,
+    description: spell.description,
+  })
+}
+
+const handleCancelEdit = () => {
+  setEditErrors({})
+  setEditingSpellId(null)
+  setEditingSpell(createEmptySpell())
+}
 
   const handleSaveEdit = (spellId: string) => {
     const normalizedSpell: NewSpell = {
@@ -273,11 +299,6 @@ export function SpellSection({
 
     setEditErrors({})
     onUpdateSpell(spellId, normalizedSpell)
-    setEditingSpellId(null)
-    setEditingSpell(createEmptySpell())
-  }
-
-  const handleCancelEdit = () => {
     setEditingSpellId(null)
     setEditingSpell(createEmptySpell())
   }
@@ -397,7 +418,7 @@ export function SpellSection({
                 key={spell.id}
                 title={`Редактирование: ${spell.name}`}
                 value={editingSpell}
-                onChange={handleNewSpellChange}
+                onChange={handleEditSpellChange}
                 onSubmit={() => handleSaveEdit(spell.id)}
                 onCancel={handleCancelEdit}
                 submitLabel="Сохранить"
