@@ -34,6 +34,7 @@ type SpellFormProps = {
   submitLabel: string
   title: string
   autoFocus?: boolean
+  errors?: { name?: string }
 }
 
 function SpellForm({
@@ -44,6 +45,7 @@ function SpellForm({
   submitLabel,
   title,
   autoFocus = false,
+  errors,
 }: SpellFormProps) {
     const nameInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -67,8 +69,14 @@ function SpellForm({
           })
         }
         placeholder="Название заклинания"
-        className="bg-gray-700 text-white rounded p-2 w-full"
+        className={`bg-gray-700 text-white rounded p-2 w-full ${
+          errors?.name ? 'border border-red-500' : ''
+        }`}
       />
+
+      {errors?.name && (
+        <div className="text-red-400 text-sm">{errors.name}</div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <input
@@ -188,19 +196,43 @@ export function SpellSection({
   const [newSpell, setNewSpell] = useState<NewSpell>(createEmptySpell())
   const [editingSpellId, setEditingSpellId] = useState<string | null>(null)
   const [editingSpell, setEditingSpell] = useState<NewSpell>(createEmptySpell())
-    const handleAddSpell = () => {
-    const normalizedSpell: NewSpell = {
+  const [createErrors, setCreateErrors] = useState<{ name?: string }>({})
+  const [editErrors, setEditErrors] = useState<{ name?: string }>({})
+  const validateSpell = (spell: NewSpell) => {
+    const errors: { name?: string } = {}
+
+    if (!spell.name.trim()) {
+      errors.name = 'Введите название заклинания'
+    }
+
+    return errors
+  }
+  const handleNewSpellChange = (value: NewSpell) => {
+  setNewSpell(value)
+
+  setCreateErrors(prev => ({
+    ...prev,
+    name: value.name ? undefined : prev.name,
+  }))
+}
+  const handleAddSpell = () => {
+    const normalizedSpell: NewSpell = {      
       ...newSpell,
       name: newSpell.name.trim(),
-      school: newSpell.school.trim(),
+      school: newSpell.school.trim(),     
       castingTime: newSpell.castingTime.trim(),
       range: newSpell.range.trim(),
       duration: newSpell.duration.trim(),
       description: newSpell.description.trim(),
     }
+    const errors = validateSpell(normalizedSpell)
 
-    if (!normalizedSpell.name) return
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors)
+      return
+    }
 
+    setCreateErrors({})
     onAddSpell(normalizedSpell)
     setNewSpell(createEmptySpell())
   }
@@ -232,8 +264,14 @@ export function SpellSection({
       description: editingSpell.description.trim(),
     }
 
-    if (!normalizedSpell.name) return
+    const errors = validateSpell(normalizedSpell)
 
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
+      return
+    }
+
+    setEditErrors({})
     onUpdateSpell(spellId, normalizedSpell)
     setEditingSpellId(null)
     setEditingSpell(createEmptySpell())
@@ -338,10 +376,11 @@ export function SpellSection({
       <SpellForm
         title="Добавить заклинание"
         value={newSpell}
-        onChange={setNewSpell}
+        onChange={handleNewSpellChange}
         onSubmit={handleAddSpell}
         submitLabel="Добавить заклинание"
         autoFocus
+        errors={createErrors}
       />
 
       {spells.length === 0 && (
@@ -358,11 +397,12 @@ export function SpellSection({
                 key={spell.id}
                 title={`Редактирование: ${spell.name}`}
                 value={editingSpell}
-                onChange={setEditingSpell}
+                onChange={handleNewSpellChange}
                 onSubmit={() => handleSaveEdit(spell.id)}
                 onCancel={handleCancelEdit}
                 submitLabel="Сохранить"
                 autoFocus={editingSpellId === spell.id}
+                errors={editErrors}
               />
             )
           }

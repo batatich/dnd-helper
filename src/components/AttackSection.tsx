@@ -25,6 +25,7 @@ const formatSignedValue = (value: number) => (value >= 0 ? `+${value}` : `${valu
 const getModifier = (value: number) => Math.floor((value - 10) / 2)
 
 
+
 type AttackFormProps = {
   value: NewAttack
   submitButtonClassName?: string
@@ -34,6 +35,7 @@ type AttackFormProps = {
   submitLabel: string
   title: string
   autoFocus?: boolean
+  errors?: Partial<Record<'name' | 'damageDice' | 'damageType', string>>
 }
 
 function AttackForm({
@@ -44,6 +46,7 @@ function AttackForm({
   submitLabel,
   title,
   autoFocus = false,
+  errors,
 
   
 }: AttackFormProps) {
@@ -69,8 +72,14 @@ function AttackForm({
           })
         }
         placeholder="Название атаки"
-        className="bg-gray-700 text-white rounded p-2 w-full"
+        className={`bg-gray-700 text-white rounded p-2 w-full ${
+          errors?.name ? 'border border-red-500' : ''
+        }`}
       />
+      {errors?.name && (
+        <div className="text-red-400 text-sm">{errors.name}</div>
+      )}
+      
 
       <div className="grid grid-cols-2 gap-3">
         <select
@@ -118,8 +127,13 @@ function AttackForm({
             })
           }
           placeholder="Урон, например 1d8"
-          className="bg-gray-700 text-white rounded p-2 w-full"
+          className={`bg-gray-700 text-white rounded p-2 w-full ${
+            errors?.damageDice ? 'border border-red-500' : ''
+          }`}
         />
+        {errors?.damageDice && (
+          <div className="text-red-400 text-sm">{errors.damageDice}</div>
+        )}
 
         <input
           type="number"
@@ -145,8 +159,13 @@ function AttackForm({
           })
         }
         placeholder="Тип урона"
-        className="bg-gray-700 text-white rounded p-2 w-full"
+        className={`bg-gray-700 text-white rounded p-2 w-full ${
+          errors?.damageType ? 'border border-red-500' : ''
+        }`}
       />
+        {errors?.damageType && (
+          <div className="text-red-400 text-sm">{errors.damageType}</div>
+        )}
 
       <label className="flex items-center gap-2 text-white">
         <input
@@ -213,25 +232,50 @@ export function AttackSection({
   onDeleteAttack,
   onUpdateAttack,
 }: Props) {
+  const [createErrors, setCreateErrors] = useState<Partial<Record<'name' | 'damageDice' | 'damageType', string>>>({})
+  const [editErrors, setEditErrors] = useState<Partial<Record<'name' | 'damageDice' | 'damageType', string>>>({})
   const [newAttack, setNewAttack] = useState<NewAttack>(createEmptyAttack())
   const [editingAttackId, setEditingAttackId] = useState<string | null>(null)
   const [editingAttack, setEditingAttack] = useState<NewAttack>(createEmptyAttack())
 
+  const validateAttack = (attack: NewAttack) => {
+  const errors: Partial<Record<'name' | 'damageDice' | 'damageType', string>> = {}
+
+  if (!attack.name.trim()) {
+    errors.name = 'Введите название атаки'
+  }
+
+  if (!attack.damageDice.trim()) {
+    errors.damageDice = 'Укажите кость урона'
+  }
+
+  if (!attack.damageType.trim()) {
+    errors.damageType = 'Укажите тип урона'
+  }
+
+  return errors
+}
+
   const handleAddAttack = () => {
-    const normalizedAttack: NewAttack = {
+  const normalizedAttack: NewAttack = {
     ...newAttack,
     name: newAttack.name.trim(),
     damageDice: newAttack.damageDice.trim(),
     damageType: newAttack.damageType.trim(),
     notes: newAttack.notes.trim(),
   }
-    if (!normalizedAttack.name.trim()) return
-    if (!normalizedAttack.damageDice.trim()) return
-    if (!normalizedAttack.damageType.trim()) return
 
-    onAddAttack(normalizedAttack)
-    setNewAttack(createEmptyAttack())
+  const errors = validateAttack(normalizedAttack)
+
+  if (Object.keys(errors).length > 0) {
+    setCreateErrors(errors)
+    return
   }
+
+  setCreateErrors({})
+  onAddAttack(normalizedAttack)
+  setNewAttack(createEmptyAttack())
+}
 
   const handleStartEdit = (attack: Attack) => {
     setEditingAttackId(attack.id)
@@ -257,10 +301,14 @@ export function AttackSection({
     damageType: editingAttack.damageType.trim(),
     notes: editingAttack.notes.trim(),
   }
-    if (!normalizedAttack.name.trim()) return
-    if (!normalizedAttack.damageDice.trim()) return
-    if (!normalizedAttack.damageType.trim()) return
+    const errors = validateAttack(normalizedAttack)
 
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
+      return
+    }
+
+    setEditErrors({})
     onUpdateAttack(attackId, normalizedAttack)
     setEditingAttackId(null)
     setEditingAttack(createEmptyAttack())
@@ -269,6 +317,16 @@ export function AttackSection({
   const handleCancelEdit = () => {
     setEditingAttackId(null)
     setEditingAttack(createEmptyAttack())
+  }
+  const handleNewAttackChangeFull = (value: NewAttack) => {
+    setNewAttack(value)
+
+    setCreateErrors(prev => ({
+      ...prev,
+      name: value.name ? undefined : prev.name,
+      damageDice: value.damageDice ? undefined : prev.damageDice,
+      damageType: value.damageType ? undefined : prev.damageType,
+    }))
   }
   
 
@@ -279,8 +337,9 @@ export function AttackSection({
       <AttackForm
   title="Добавить атаку"
   value={newAttack}
-  onChange={setNewAttack}
+  onChange={handleNewAttackChangeFull}
   onSubmit={handleAddAttack}
+  errors={createErrors}
   submitLabel="Добавить атаку"
   autoFocus
 />
@@ -313,6 +372,7 @@ export function AttackSection({
                 onCancel={handleCancelEdit}
                 submitLabel="Сохранить"
                 autoFocus={editingAttackId === attack.id}
+                errors={editErrors}
                 submitButtonClassName = 'bg-blue-600 hover:bg-blue-700'
               />
             )
