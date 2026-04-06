@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Character, Stats } from '../types/characters'
+import { Input } from './ui/Input'
+import { Button } from './ui/Button'
+import { Textarea} from './ui/Textarea'
+
 
 type Props = {
   character: Character
@@ -30,12 +34,7 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
     avatarUrl: character.avatarUrl,
     baseStats: { ...character.baseStats },
   })
-  const nameInputRef = useRef<HTMLInputElement | null>(null)
-  useEffect(() => {
-  if (isEditing) {
-    nameInputRef.current?.focus()
-  }
-}, [isEditing])
+
 
 
   const handleStartEdit = () => {
@@ -75,42 +74,35 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 mb-6">
+    <div className="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700 shadow-sm">
       {isEditing ? (
         <div className="space-y-4">
-          <input
-            ref={nameInputRef}
-            type="text"
+          <Input
             value={form.name}
             onChange={(e) =>
               setForm({ ...form, name: e.target.value })
             }
             placeholder="Имя персонажа"
-            className="w-full bg-gray-700 text-white rounded p-2"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              type="text"
+            <Input
               value={form.race}
               onChange={(e) =>
                 setForm({ ...form, race: e.target.value })
               }
               placeholder="Раса"
-              className="bg-gray-700 text-white rounded p-2"
             />
 
-            <input
-              type="text"
+            <Input
               value={form.class}
               onChange={(e) =>
                 setForm({ ...form, class: e.target.value })
               }
               placeholder="Класс"
-              className="bg-gray-700 text-white rounded p-2"
             />
 
-            <input
+            <Input
               type="number"
               value={form.level}
               onChange={(e) =>
@@ -120,49 +112,42 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
                 })
               }
               placeholder="Уровень"
-              className="bg-gray-700 text-white rounded p-2"
-              min="1"
             />
 
-            <input
+            <Input
               type="text"
               value={form.alignment}
               onChange={(e) =>
                 setForm({ ...form, alignment: e.target.value })
               }
               placeholder="Мировоззрение"
-              className="bg-gray-700 text-white rounded p-2"
             />
 
-            <input
+            <Input
               type="text"
               value={form.background}
               onChange={(e) =>
                 setForm({ ...form, background: e.target.value })
               }
               placeholder="Предыстория"
-              className="bg-gray-700 text-white rounded p-2"
             />
 
-            <input
+            <Input
               type="text"
               value={form.avatarUrl}
               onChange={(e) =>
                 setForm({ ...form, avatarUrl: e.target.value })
               }
               placeholder="Ссылка на аватар"
-              className="bg-gray-700 text-white rounded p-2"
             />
           </div>
 
-          <textarea
+          <Textarea
             value={form.description}
             onChange={(e) =>
               setForm({ ...form, description: e.target.value })
             }
             placeholder="Описание персонажа"
-            className="w-full bg-gray-700 text-white rounded p-2"
-            rows={4}
           />
 
           <div>
@@ -178,7 +163,7 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
                       {statLabels[key]}
                     </label>
 
-                    <input
+                    <Input
                       type="number"
                       value={value}
                       onChange={(e) =>
@@ -190,7 +175,6 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
                           },
                         })
                       }
-                      className="w-full bg-gray-700 text-white rounded p-2"
                     />
                   </div>
                 )
@@ -199,33 +183,29 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
           </div>
 
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleSave}
-              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
-            >
+            <Button type="button" onClick={handleSave}>
               Сохранить
-            </button>
+            </Button>
 
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded"
-            >
+            <Button type="button" onClick={handleCancel} variant="secondary">
               Отмена
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <div>
-          <div className="flex justify-between items-start gap-4">
+          <div className="flex justify-between items-start gap-6">
             <div>
-              <h1 className="text-3xl font-bold text-white">
+              <h1 className="text-3xl font-bold text-white tracking-wide">
                 {character.name || 'Новый персонаж'}
               </h1>
 
               <div className="text-gray-300 mt-2">
-                {character.race || 'Без расы'} • {character.class || 'Без класса'} уровень {character.level}
+                <span>{character.race || 'Без расы'}</span>
+                {' • '}
+                <span>{character.class || 'Без класса'}</span>
+                {' • '}
+                <span>Уровень {character.level}</span>
               </div>
 
               {(character.alignment || character.background) && (
@@ -237,30 +217,29 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm transition"
-            >
+            <Button type="button" onClick={handleStartEdit}>
               Редактировать
-            </button>
+            </Button>
           </div>
 
           {character.avatarUrl && (
             <img
               src={character.avatarUrl}
               alt={`${character.name} avatar`}
-              className="mt-4 w-32 h-32 object-cover rounded-lg border border-gray-700"
+              className="mt-4 w-32 h-32 object-cover rounded-xl border border-gray-700 shadow-md"
             />
           )}
 
           {character.description && (
-            <p className="text-gray-300 mt-4 whitespace-pre-line">
-              {character.description}
-            </p>
+            <div className="mt-4 border-t border-gray-700 pt-4">
+              <p className="text-gray-300 whitespace-pre-line leading-relaxed">
+                {character.description}
+              </p>
+            </div>
           )}
         </div>
-      )}
-    </div>
+      )
+    }
+  </div>
   )
 }
