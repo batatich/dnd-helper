@@ -47,7 +47,7 @@ function SpellForm({
   onSubmit,
   onCancel,
   title,
-  
+  submitLabel,
   errors,
 }: SpellFormProps) {
   return (
@@ -155,8 +155,8 @@ function SpellForm({
 
 
       <div className="flex gap-2">
-        <Button type="button" onClick={onCancel} variant="secondary">
-          Отмена
+        <Button type="submit">
+          {submitLabel}
         </Button>
 
         {onCancel && (
@@ -333,7 +333,7 @@ const handleCancelEdit = () => {
           Уровень {slot.level}
         </div>
 
-        <input
+        <Input
           type="number"
           value={slot.total}
           onChange={(e) =>
