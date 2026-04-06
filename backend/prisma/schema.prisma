@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Character {
+  id          String   @id @default(uuid())
+  name        String
+  race        String
+  className   String
+  level       Int      @default(1)
+  description String?
+  alignment   String?
+  background  String?
+  avatarUrl   String?
+  currentHp   Int      @default(0)
+  temporaryHp Int      @default(0)
+  speed       Int      @default(30)
+  inspiration Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

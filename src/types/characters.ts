@@ -54,6 +54,7 @@ export type Character = {
 
   createdAt: string
   updatedAt: string
+  isSynced?: boolean
 }
 
 export const standardSkills: Skill[] = [
