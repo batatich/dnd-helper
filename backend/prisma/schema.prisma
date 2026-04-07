@@ -21,6 +21,118 @@ model Character {
   temporaryHp Int      @default(0)
   speed       Int      @default(30)
   inspiration Boolean  @default(false)
+
+  /// Для первой версии удобно хранить spell slots как Json
+  /// пример: [{ "level": 1, "total": 2, "used": 1 }]
+  spellSlots  Json?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  stats       CharacterStats?
+  attacks     CharacterAttack[]
+  spells      CharacterSpell[]
+  items       CharacterItem[]
+}
+
+model CharacterStats {
+  id           String   @id @default(uuid())
+  characterId  String   @unique
+
+  strength     Int
+  dexterity    Int
+  constitution Int
+  intelligence Int
+  wisdom       Int
+  charisma     Int
+
+  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+}
+
+model CharacterAttack {
+  id          String   @id @default(uuid())
+  characterId String
+
+  name        String
+  attackType  String?
+  ability     String?
+  proficient  Boolean  @default(false)
+
+  damageDice  String?
+  damageBonus Int?
+  damageType  String?
+  notes       String?
+
+  /// manual | item
+  source      String?
+  /// если атака связана с предметом, пока просто nullable reference id
+  itemId      String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
+}
+
+model CharacterSpell {
+  id          String   @id @default(uuid())
+  characterId String
+
+  name        String
+  level       Int
+  school      String?
+  castingTime String?
+  range       String?
+  components  String?
+  duration    String?
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
+}
+
+model ItemTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  type        String?
+  slot        String?
+  description String?
+
+  /// Эффекты пока можно хранить как Json
+  effects     Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  characterItems CharacterItem[]
+}
+
+model CharacterItem {
+  id             String   @id @default(uuid())
+  characterId    String
+  itemTemplateId String?
+
+  /// снапшот имени, чтобы предмет у персонажа не ломался,
+  /// если template потом изменится
+  nameSnapshot   String
+
+  quantity       Int      @default(1)
+  isEquipped     Boolean  @default(false)
+  slot           String?
+  notes          String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  character      Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  itemTemplate   ItemTemplate? @relation(fields: [itemTemplateId], references: [id], onDelete: SetNull)
+
+  @@index([characterId])
+  @@index([itemTemplateId])
 }
