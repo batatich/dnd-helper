@@ -328,7 +328,7 @@ const handleUpdateAttack = (
 </div>
 </div>
 
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
       {(Object.entries(finalStats) as [keyof Stats, number][]).map(
         ([key, value]) => {
           const labels: Record<keyof Stats, string> = {
@@ -462,7 +462,7 @@ const handleUpdateAttack = (
   })}
 </div>
 
-<div className="bg-gray-800 rounded-lg p-4 text-center">
+<div className="bg-gray-800 rounded-lg p-4 text-center mt-4">
   <div className="text-gray-400 text-sm">
     Пассивное восприятие
   </div>
@@ -476,7 +476,7 @@ const handleUpdateAttack = (
     </h2>
 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-gray-800 p-4 rounded text-center">
+      <div className="bg-gray-800 p-4 rounded-lg text-center">
   <div className="text-gray-400 text-sm">Хиты</div>
   <div className="text-white text-xl font-bold">
     {currentHp} / {finalDerivedStats.maxHp}
@@ -487,40 +487,41 @@ const handleUpdateAttack = (
       Временные хиты: {temporaryHp}
     </div>
   )}
-</div>
-<div className="mt-3 flex items-center gap-2 justify-center">
-  <input
-  type="text"
-  value={hpChangeInput}
-  onChange={(e) => setHpChangeInput(e.target.value)}
-  placeholder="+5 лечение / 5 урон"
-  className="w-24 bg-gray-700 text-white rounded p-1 text-center"
-/>
 
-<button
-  onClick={handleHpChange}
-  className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm transition"
->
-  Применить
-</button>
+  <div className="mt-4 flex items-center gap-2 justify-center">
+    <input
+      type="text"
+      value={hpChangeInput}
+      onChange={(e) => setHpChangeInput(e.target.value)}
+      placeholder="+5 лечение / 5 урон"
+      className="w-32 bg-gray-700 text-white rounded-lg p-2 text-center"
+    />
+
+    <button
+      onClick={handleHpChange}
+      className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg text-sm transition"
+    >
+      Применить
+    </button>
+  </div>
+
+  <div className="mt-3 flex items-center gap-2 justify-center">
+    <input
+      type="number"
+      value={tempHpInput}
+      onChange={(e) => setTempHpInput(Number(e.target.value))}
+      className="w-24 bg-gray-700 text-white rounded-lg p-2 text-center"
+      min="0"
+    />
+    <button
+      onClick={() => setTemporaryHp(character.id, tempHpInput)}
+      className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg  text-sm transition"
+    >
+      Временные
+    </button>
+  </div>
 </div>
 
-
-<div className="mt-3 flex items-center gap-2 justify-center">
-  <input
-    type="number"
-    value={tempHpInput}
-    onChange={(e) => setTempHpInput(Number(e.target.value))}
-    className="w-20 bg-gray-700 text-white rounded p-1 text-center"
-    min="0"
-  />
-  <button
-    onClick={() => setTemporaryHp(character.id, tempHpInput)}
-    className="bg-cyan-600 hover:bg-cyan-700 px-3 py-1 rounded text-sm transition"
-  >
-    Временные
-  </button>
-</div>
 
 <div className="bg-gray-800 p-4 rounded text-center">
   <div className="text-gray-400 text-sm mb-3">Спасброски от смерти</div>
