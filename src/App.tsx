@@ -14,9 +14,9 @@ import { CreateItem } from './pages/CreateItem'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 to-blue-900 text-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-900 to-blue-900 text-white">
         <Navigation />
-        <main>
+        <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/character/:id" element={<CharacterSheet />} />
