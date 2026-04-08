@@ -11,12 +11,10 @@ import type {
   SpellUpdate,
 } from '../types/characters'
 import { standardSkills } from '../types/characters'
-import { initialCharacters } from '../data/characters'
 import type { Item, EquipmentSlot } from '../types/items'
 import { useItemsStore } from './itemsStore'
 import { calculateCharacter } from '../utils/calculateCharacter'
 
-const STORAGE_KEY = 'dnd-characters'
 const API_URL = 'http://localhost:3000'
 
 const defaultDeathSaves = {
@@ -140,12 +138,10 @@ const mapPartialCharacterToBackendPayload = (character: Partial<Character>) => {
   }
 
   if (character.level !== undefined) payload.level = character.level
-
   if (character.description !== undefined) payload.description = character.description
   if (character.alignment !== undefined) payload.alignment = character.alignment
   if (character.background !== undefined) payload.background = character.background
   if (character.avatarUrl !== undefined) payload.avatarUrl = character.avatarUrl
-
   if (character.currentHp !== undefined) payload.currentHp = character.currentHp
   if (character.temporaryHp !== undefined) payload.temporaryHp = character.temporaryHp
   if (character.speed !== undefined) payload.speed = character.speed
@@ -164,8 +160,18 @@ const fetchCharactersFromApi = async (): Promise<BackendCharacter[]> => {
   return response.json()
 }
 
+const fetchCharacterByIdFromApi = async (id: string): Promise<BackendCharacter> => {
+  const response = await fetch(`${API_URL}/characters/${id}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch character')
+  }
+
+  return response.json()
+}
+
 const createCharacterInApi = async (
-  character: Character
+  character: Partial<Character>
 ): Promise<BackendCharacter> => {
   const response = await fetch(`${API_URL}/characters`, {
     method: 'POST',
@@ -188,8 +194,6 @@ const updateCharacterInApi = async (
 ): Promise<BackendCharacter> => {
   const payload = mapPartialCharacterToBackendPayload(updated)
 
-  console.log('PATCH payload:', payload)
-
   const response = await fetch(`${API_URL}/characters/${id}`, {
     method: 'PATCH',
     headers: {
@@ -199,8 +203,6 @@ const updateCharacterInApi = async (
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    console.error('PATCH failed:', errorText)
     throw new Error('Failed to update character')
   }
 
@@ -268,43 +270,35 @@ const normalizeCharacter = (character: Partial<Character>): Character => {
   }
 }
 
-const loadCharacters = (): Character[] => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
+const mergeCharacterIntoList = (
+  characters: Character[],
+  character: Character
+): Character[] => {
+  const exists = characters.some((item) => item.id === character.id)
 
-    if (!saved) {
-      return initialCharacters.map((character) => normalizeCharacter(character))
-    }
-
-    const parsed = JSON.parse(saved)
-
-    if (!Array.isArray(parsed)) {
-      return initialCharacters.map((character) => normalizeCharacter(character))
-    }
-
-    return parsed.map((character) => normalizeCharacter(character))
-  } catch (error) {
-    console.error('Failed to load characters from localStorage:', error)
-    return initialCharacters.map((character) => normalizeCharacter(character))
+  if (!exists) {
+    return [...characters, character]
   }
-}
 
-const saveCharacters = (characters: Character[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters))
-  } catch (error) {
-    console.error('Failed to save characters to localStorage:', error)
-  }
+  return characters.map((item) => (item.id === character.id ? character : item))
 }
 
 interface CharacterStore {
   characters: Character[]
   currentCharacter: Character | null
-  addCharacter: (character: Character) => void
-  updateCharacter: (id: string, updated: Partial<Character>) => void
-  deleteCharacter: (id: string) => void
+  isLoading: boolean
+  error: string | null
+
+  fetchCharacters: () => Promise<void>
+  fetchCharacterById: (id: string) => Promise<void>
+
+  addCharacter: (character: Character) => Promise<void>
+  updateCharacter: (id: string, updated: Partial<Character>) => Promise<void>
+  deleteCharacter: (id: string) => Promise<void>
+
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
+
   equipItem: (characterId: string, item: Item, slot: EquipmentSlot) => void
   unequipItem: (characterId: string, slot: EquipmentSlot) => void
   toggleSkillProficiency: (characterId: string, skillName: string) => void
@@ -341,7 +335,6 @@ interface CharacterStore {
     level: number,
     total: number
   ) => void
-
   changeSpellSlot: (
     characterId: string,
     level: number,
@@ -350,6 +343,133 @@ interface CharacterStore {
 }
 
 export const useCharacterStore = create<CharacterStore>((set) => ({
+  characters: [],
+  currentCharacter: null,
+  isLoading: false,
+  error: null,
+
+  fetchCharacters: async () => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const backendCharacters = await fetchCharactersFromApi()
+
+      const characters = backendCharacters.map((backendCharacter) =>
+        normalizeCharacter(mapBackendCharacterToCharacter(backendCharacter))
+      )
+
+      set({
+        characters,
+        isLoading: false,
+      })
+    } catch (error) {
+      console.error('Failed to fetch characters from backend:', error)
+      set({
+        error: 'Не удалось загрузить персонажей',
+        isLoading: false,
+      })
+    }
+  },
+
+  fetchCharacterById: async (id) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const backendCharacter = await fetchCharacterByIdFromApi(id)
+      const character = normalizeCharacter(
+        mapBackendCharacterToCharacter(backendCharacter)
+      )
+
+      set((state) => ({
+        currentCharacter: character,
+        characters: mergeCharacterIntoList(state.characters, character),
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('Failed to fetch character from backend:', error)
+      set({
+        error: 'Не удалось загрузить персонажа',
+        isLoading: false,
+      })
+    }
+  },
+
+  addCharacter: async (character) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const createdCharacter = await createCharacterInApi(character)
+      const mappedCharacter = normalizeCharacter(
+        mapBackendCharacterToCharacter(createdCharacter)
+      )
+
+      set((state) => ({
+        characters: [...state.characters, mappedCharacter],
+        currentCharacter: mappedCharacter,
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('Failed to create character in backend:', error)
+      set({
+        error: 'Не удалось создать персонажа',
+        isLoading: false,
+      })
+    }
+  },
+
+  updateCharacter: async (id, updated) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      const updatedCharacterFromApi = await updateCharacterInApi(id, updated)
+      const mappedCharacter = normalizeCharacter(
+        mapBackendCharacterToCharacter(updatedCharacterFromApi)
+      )
+
+      set((state) => ({
+        characters: state.characters.map((char) =>
+          char.id === id ? { ...char, ...mappedCharacter } : char
+        ),
+        currentCharacter:
+          state.currentCharacter?.id === id
+            ? { ...state.currentCharacter, ...mappedCharacter }
+            : state.currentCharacter,
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('Failed to update character in backend:', error)
+      set({
+        error: 'Не удалось обновить персонажа',
+        isLoading: false,
+      })
+    }
+  },
+
+  deleteCharacter: async (id) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await deleteCharacterInApi(id)
+
+      set((state) => ({
+        characters: state.characters.filter((char) => char.id !== id),
+        currentCharacter:
+          state.currentCharacter?.id === id ? null : state.currentCharacter,
+        isLoading: false,
+      }))
+    } catch (error) {
+      console.error('Failed to delete character in backend:', error)
+      set({
+        error: 'Не удалось удалить персонажа',
+        isLoading: false,
+      })
+    }
+  },
+
+  setCurrentCharacter: (character) => set({ currentCharacter: character }),
+
+  clearCurrentCharacter: () => set({ currentCharacter: null }),
+
   toggleSkillProficiency: (characterId, skillName) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -367,8 +487,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -388,165 +506,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
-  characters: loadCharacters(),
-  currentCharacter: null,
 
-  addCharacter: (character) =>
-  set((state) => {
-    const normalizedCharacter = normalizeCharacter(character)
-    const newCharacters = [...state.characters, normalizedCharacter]
-
-    saveCharacters(newCharacters)
-
-    const canSyncToBackend =
-      normalizedCharacter.name.trim() !== '' &&
-      normalizedCharacter.race.trim() !== '' &&
-      normalizedCharacter.class.trim() !== ''
-
-    if (canSyncToBackend) {
-      void createCharacterInApi(normalizedCharacter)
-        .then((createdCharacter) => {
-          const mappedCharacter = normalizeCharacter(
-            mapBackendCharacterToCharacter(createdCharacter)
-          )
-
-          useCharacterStore.setState((currentState) => {
-            const syncedCharacters = currentState.characters.map((char) =>
-              char.id === normalizedCharacter.id
-                ? {
-                    ...char,
-                    ...mappedCharacter,
-                  }
-                : char
-            )
-
-            saveCharacters(syncedCharacters)
-
-            return {
-              characters: syncedCharacters,
-              currentCharacter:
-                currentState.currentCharacter?.id === normalizedCharacter.id
-                  ? {
-                      ...currentState.currentCharacter,
-                      ...mappedCharacter,
-                    }
-                  : currentState.currentCharacter,
-            }
-          })
-        })
-        .catch((error) => {
-          console.error('Failed to sync created character with backend:', error)
-        })
-    }
-
-    return { characters: newCharacters }
-  }),
-
-  updateCharacter: (id, updated) =>
-  set((state) => {
-    const updatedAt = new Date().toISOString()
-
-    const existingCharacter = state.characters.find((char) => char.id === id)
-
-    const newCharacters = state.characters.map((char) =>
-      char.id === id
-        ? {
-            ...char,
-            ...updated,
-            updatedAt,
-          }
-        : char
-    )
-
-    saveCharacters(newCharacters)
-
-    const updatedCurrentCharacter =
-      state.currentCharacter?.id === id
-        ? {
-            ...state.currentCharacter,
-            ...updated,
-            updatedAt,
-          }
-        : state.currentCharacter
-
-    const nextCharacter = newCharacters.find((char) => char.id === id)
-
-    if (nextCharacter) {
-      const canSyncToBackend =
-        nextCharacter.name.trim() !== '' &&
-        nextCharacter.race.trim() !== '' &&
-        nextCharacter.class.trim() !== ''
-
-      if (canSyncToBackend) {
-        if (!existingCharacter?.isSynced) {
-          void createCharacterInApi(nextCharacter)
-            .then((createdCharacter) => {
-              const mappedCharacter = normalizeCharacter(
-                mapBackendCharacterToCharacter(createdCharacter)
-              )
-
-              useCharacterStore.setState((currentState) => {
-                const syncedCharacters = currentState.characters.map((char) =>
-                  char.id === id
-                    ? {
-                        ...char,
-                        ...mappedCharacter,
-                        isSynced: true,
-                      }
-                    : char
-                )
-
-                saveCharacters(syncedCharacters)
-
-                return {
-                  characters: syncedCharacters,
-                  currentCharacter:
-                    currentState.currentCharacter?.id === id
-                      ? {
-                          ...currentState.currentCharacter,
-                          ...mappedCharacter,
-                          isSynced: true,
-                        }
-                      : currentState.currentCharacter,
-                }
-              })
-            })
-            .catch((error) => {
-              console.error('Failed to create character in backend:', error)
-            })
-        } else {
-          void updateCharacterInApi(id, updated).catch((error) => {
-            console.error('Failed to sync updated character with backend:', error)
-          })
-        }
-      }
-    }
-
-    return {
-      characters: newCharacters,
-      currentCharacter: updatedCurrentCharacter,
-    }
-  }),
-
-  deleteCharacter: (id) =>
-    set((state) => {
-      const newCharacters = state.characters.filter((char) => char.id !== id)
-      saveCharacters(newCharacters)
-
-      void deleteCharacterInApi(id).catch((error) => {
-        console.error('Failed to delete character in backend:', error)
-      })
-
-      return {
-        characters: newCharacters,
-        currentCharacter:
-          state.currentCharacter?.id === id ? null : state.currentCharacter,
-      }
-    }),
-
-  setCurrentCharacter: (character) => set({ currentCharacter: character }),
-
-  clearCurrentCharacter: () => set({ currentCharacter: null }),
   equipItem: (characterId: string, item: Item, slot: EquipmentSlot) =>
     set((state) => {
       if (!item.allowedSlots.includes(slot)) {
@@ -555,7 +515,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
       }
 
       const updatedAt = new Date().toISOString()
-
       const items = useItemsStore.getState().items
 
       const newCharacters = state.characters.map((char) => {
@@ -604,8 +563,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? (() => {
@@ -649,10 +606,10 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   unequipItem: (characterId, slot) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
-
       const items = useItemsStore.getState().items
 
       const newCharacters = state.characters.map((char) => {
@@ -682,8 +639,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? (() => {
@@ -708,6 +663,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   toggleSavingThrowProficiency: (characterId: string, stat: keyof Stats) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -731,8 +687,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -753,6 +707,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   changeCurrentHp: (characterId, amount) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -776,8 +731,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? (() => {
@@ -786,7 +739,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
                 items
               )
               const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
               const currentHp = state.currentCharacter.currentHp ?? maxHp
               const newCurrentHp = Math.max(
                 0,
@@ -810,6 +762,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   setTemporaryHp: (characterId, amount) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -823,8 +776,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -840,6 +791,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   applyDamage: (characterId, damage) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -850,7 +802,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
 
         const calculatedCharacter = calculateCharacter(char, items)
         const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
         const currentHp = char.currentHp ?? maxHp
         const temporaryHp = char.temporaryHp ?? 0
 
@@ -867,8 +818,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? (() => {
@@ -877,7 +826,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
                 items
               )
               const maxHp = calculatedCharacter.finalDerivedStats.maxHp
-
               const currentHp = state.currentCharacter.currentHp ?? maxHp
               const temporaryHp = state.currentCharacter.temporaryHp ?? 0
 
@@ -900,6 +848,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   setDeathSaves: (characterId, deathSaves) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -916,8 +865,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -954,8 +901,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
           : char
       )
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -973,6 +918,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   toggleInspiration: (characterId) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -986,8 +932,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1017,8 +961,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1054,8 +996,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         }
       })
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -1076,6 +1016,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   addAttack: (characterId, attack) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -1094,8 +1035,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1127,8 +1066,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1163,8 +1100,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
           : char
       )
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -1181,6 +1116,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   addSpell: (characterId, spell) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -1199,8 +1135,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1233,8 +1167,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
           : char
       )
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -1266,8 +1198,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
           : char
       )
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -1284,6 +1214,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   setSpellcastingAbility: (characterId, ability) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -1297,8 +1228,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1314,6 +1243,7 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
         currentCharacter: updatedCurrentCharacter,
       }
     }),
+
   setSpellSlotsTotal: (characterId, level, total) =>
     set((state) => {
       const updatedAt = new Date().toISOString()
@@ -1329,8 +1259,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
             }
           : char
       )
-
-      saveCharacters(newCharacters)
 
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
@@ -1372,8 +1300,6 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
           : char
       )
 
-      saveCharacters(newCharacters)
-
       const updatedCurrentCharacter =
         state.currentCharacter?.id === characterId
           ? {
@@ -1398,61 +1324,3 @@ export const useCharacterStore = create<CharacterStore>((set) => ({
       }
     }),
 }))
-
-const hydrateCharactersFromApi = async () => {
-  try {
-    const backendCharacters = await fetchCharactersFromApi()
-
-    useCharacterStore.setState((state) => {
-      const localById = new Map(
-        state.characters.map((character) => [character.id, character])
-      )
-
-      const mergedCharacters = backendCharacters.map((backendCharacter) => {
-        const mappedCharacter = normalizeCharacter(
-          mapBackendCharacterToCharacter(backendCharacter)
-        )
-
-        const localCharacter = localById.get(mappedCharacter.id)
-
-        return normalizeCharacter(
-          localCharacter
-            ? {
-                ...localCharacter,
-                ...mappedCharacter,
-              }
-            : mappedCharacter
-        )
-      })
-
-      const localOnlyCharacters = state.characters
-        .filter(
-          (character) =>
-            !backendCharacters.some(
-              (backendCharacter) => backendCharacter.id === character.id
-            )
-        )
-        .map((character) => normalizeCharacter(character))
-
-      const nextCharacters = [...mergedCharacters, ...localOnlyCharacters].map(
-        (character) => normalizeCharacter(character)
-      )
-
-      saveCharacters(nextCharacters)
-
-      return {
-        characters: nextCharacters,
-        currentCharacter:
-          state.currentCharacter == null
-            ? null
-            : nextCharacters.find(
-                (character) => character.id === state.currentCharacter?.id
-              ) ?? state.currentCharacter,
-      }
-    })
-  } catch (error) {
-    console.error('Failed to hydrate characters from backend:', error)
-  }
-}
-
-void hydrateCharactersFromApi()

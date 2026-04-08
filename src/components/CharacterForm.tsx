@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useCharacterStore } from '../stores/characterStore'
 import type { Character, Stats } from '../types/characters'
 import { calculateStartingDerivedStats } from '../utils/createCharacter'
-import { standardSkills } from '../data/skills'
 
 interface CharacterFormProps {
   character?: Character | null
@@ -10,7 +9,6 @@ interface CharacterFormProps {
 }
 
 type CharacterFormData = {
-  id: string
   name: string
   level: number
   class: string
@@ -31,22 +29,10 @@ const defaultBaseStats: Stats = {
   charisma: 10,
 }
 
-const defaultEquippedItems = {
-  mainHand: null,
-  offHand: null,
-  head: null,
-  body: null,
-  ring1: null,
-  ring2: null,
-  amulet: null,
-  boots: null,
-}
-
 export function CharacterForm({ character, onClose }: CharacterFormProps) {
-  const { addCharacter, updateCharacter } = useCharacterStore()
+  const { addCharacter, updateCharacter, isLoading } = useCharacterStore()
 
   const [formData, setFormData] = useState<CharacterFormData>({
-    id: character?.id || crypto.randomUUID(),
     name: character?.name || '',
     level: character?.level || 1,
     class: character?.class || 'Воин',
@@ -57,14 +43,14 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     background: character?.background || '',
     avatarUrl: character?.avatarUrl || '',
   })
-  const startingDerivedStats = calculateStartingDerivedStats(formData.baseStats)
+
   const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (character) {
-      updateCharacter(character.id, {
+      await updateCharacter(character.id, {
         name: formData.name,
         level: formData.level,
         class: formData.class,
@@ -76,8 +62,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         avatarUrl: formData.avatarUrl,
       })
     } else {
-      const newCharacter: Character = {
-        id: formData.id,
+      await addCharacter({
         name: formData.name,
         level: formData.level,
         class: formData.class,
@@ -87,38 +72,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         alignment: formData.alignment,
         background: formData.background,
         avatarUrl: formData.avatarUrl,
-        skills: standardSkills,
-        derivedStats: startingDerivedStats, 
-        currentHp: startingDerivedStats.maxHp,
-        temporaryHp: 0,
-        inventory: [],
-        equippedItems: defaultEquippedItems,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        savingThrowProficiencies: [],
-        deathSaves: {
-        successes: 0,
-        failures: 0,
-        },
-        attacks: [],
-        inspiration: false,
-        speed: 30,
-        hitDice: {
-          total: 1,
-          used: 0,
-          dice: '1d8',
-        },
-        spells: [],
-        spellcastingAbility: 'intelligence',
-        spellSlots: Array.from({ length: 9 }, (_, i) => ({
-          level: i + 1,
-          total: 0,
-          used: 0,
-        })),
-
-      }
-
-      addCharacter(newCharacter)
+      } as Character)
     }
 
     onClose()
@@ -197,7 +151,6 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
             placeholder="https://..."
           />
         </div>
-
 
         <div>
           <label className="block text-gray-400 text-sm mb-1">Уровень</label>
@@ -282,46 +235,52 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           )}
         </div>
       </div>
+
       <div>
+        <h3 className="text-white font-semibold mb-3">Стартовые параметры</h3>
 
-      <h3 className="text-white font-semibold mb-3">Стартовые параметры</h3>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-gray-800 rounded-lg p-3 text-center">
-          <div className="text-gray-400 text-sm">HP</div>
-          <div className="text-white font-bold text-lg">
-            {previewDerivedStats.maxHp}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-gray-800 rounded-lg p-3 text-center">
+            <div className="text-gray-400 text-sm">HP</div>
+            <div className="text-white font-bold text-lg">
+              {previewDerivedStats.maxHp}
+            </div>
           </div>
-        </div>
 
-        <div className="bg-gray-800 rounded-lg p-3 text-center">
-          <div className="text-gray-400 text-sm">Класс брони</div>
-          <div className="text-white font-bold text-lg">
-            {previewDerivedStats.armorClass}
+          <div className="bg-gray-800 rounded-lg p-3 text-center">
+            <div className="text-gray-400 text-sm">Класс брони</div>
+            <div className="text-white font-bold text-lg">
+              {previewDerivedStats.armorClass}
+            </div>
           </div>
-        </div>
 
-        <div className="bg-gray-800 rounded-lg p-3 text-center">
-          <div className="text-gray-400 text-sm">Инициатива</div>
-          <div className="text-white font-bold text-lg">
-            {previewDerivedStats.initiative}
+          <div className="bg-gray-800 rounded-lg p-3 text-center">
+            <div className="text-gray-400 text-sm">Инициатива</div>
+            <div className="text-white font-bold text-lg">
+              {previewDerivedStats.initiative}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
       <div className="flex gap-3 pt-4">
         <button
           type="submit"
-          className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded-lg font-semibold transition"
+          disabled={isLoading}
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 py-2 rounded-lg font-semibold transition"
         >
-          {character ? 'Сохранить изменения' : 'Создать персонажа'}
+          {isLoading
+            ? 'Сохранение...'
+            : character
+              ? 'Сохранить изменения'
+              : 'Создать персонажа'}
         </button>
 
         <button
           type="button"
           onClick={onClose}
-          className="px-6 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
+          disabled={isLoading}
+          className="px-6 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600 rounded-lg transition"
         >
           Отмена
         </button>
