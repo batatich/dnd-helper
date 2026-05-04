@@ -4,6 +4,15 @@ import { useCharacterStore } from '../stores/characterStore'
 import { CharacterForm } from '../components/CharacterForm'
 import type { Character } from '../types/characters'
 
+const defaultBaseStats = {
+  strength: 10,
+  dexterity: 10,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 10,
+}
+
 export function CharactersList() {
   const {
     characters,
@@ -81,59 +90,63 @@ export function CharactersList() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {characters.map((char) => (
-            <div
-              key={char.id}
-              className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <h2 className="text-xl font-bold text-white">{char.name}</h2>
-                  <span className="text-yellow-400 text-sm">Ур. {char.level}</span>
-                </div>
+          {characters.map((char) => {
+            const stats = char.baseStats ?? defaultBaseStats
 
-                <p className="text-gray-300 mb-2">
-                  {char.race} • {char.class}
-                </p>
+            return (
+              <div
+                key={char.id}
+                className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform"
+              >
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-3">
+                    <h2 className="text-xl font-bold text-white">{char.name}</h2>
+                    <span className="text-yellow-400 text-sm">Ур. {char.level}</span>
+                  </div>
 
-                <div className="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
-                  <div className="bg-gray-700 rounded p-1">
-                    <div className="text-gray-400">Сила</div>
-                    <div className="text-white font-bold">{char.baseStats.strength}</div>
-                  </div>
-                  <div className="bg-gray-700 rounded p-1">
-                    <div className="text-gray-400">Ловк</div>
-                    <div className="text-white font-bold">{char.baseStats.dexterity}</div>
-                  </div>
-                  <div className="bg-gray-700 rounded p-1">
-                    <div className="text-gray-400">Тело</div>
-                    <div className="text-white font-bold">{char.baseStats.constitution}</div>
-                  </div>
-                </div>
+                  <p className="text-gray-300 mb-2">
+                    {char.race} • {char.class}
+                  </p>
 
-                <div className="flex gap-3 mt-6">
-                  <Link
-                    to={`/character/${char.id}`}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-center py-2 rounded-lg transition text-sm"
-                  >
-                    Открыть
-                  </Link>
-                  <button
-                    onClick={() => handleEdit(char)}
-                    className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition text-sm"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => void handleDelete(char.id)}
-                    className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition text-sm"
-                  >
-                    🗑️
-                  </button>
+                  <div className="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
+                    <div className="bg-gray-700 rounded p-1">
+                      <div className="text-gray-400">Сила</div>
+                      <div className="text-white font-bold">{stats.strength}</div>
+                    </div>
+                    <div className="bg-gray-700 rounded p-1">
+                      <div className="text-gray-400">Ловк</div>
+                      <div className="text-white font-bold">{stats.dexterity}</div>
+                    </div>
+                    <div className="bg-gray-700 rounded p-1">
+                      <div className="text-gray-400">Тело</div>
+                      <div className="text-white font-bold">{stats.constitution}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <Link
+                      to={`/character/${char.id}`}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-center py-2 rounded-lg transition text-sm"
+                    >
+                      Открыть
+                    </Link>
+                    <button
+                      onClick={() => handleEdit(char)}
+                      className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition text-sm"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => void handleDelete(char.id)}
+                      className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition text-sm"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

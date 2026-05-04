@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useItemsStore } from '../stores/itemsStore'
-import type { EquipmentSlot, Item, ItemType } from '../types/items'
+import type { EquipmentSlot, ItemType } from '../types/items'
 import type { Stats } from '../types/characters'
-import { useCharacterStore } from '../stores/characterStore'
+import { addItem } from '../api/characterApi'
 
 type EffectType = 'stat' | 'hp' | 'ac' | 'initiative'
 
@@ -49,9 +48,10 @@ const itemTypes: ItemType[] = [
 
 export function CreateItem() {
   const navigate = useNavigate()
-  const { addItem } = useItemsStore()
-  const { characters, updateCharacter } = useCharacterStore()
   const [searchParams] = useSearchParams()
+
+  // characterId приходит из ссылки:
+  // /items/create?characterId=...
   const characterId = searchParams.get('characterId')
 
   const [name, setName] = useState('')
@@ -61,12 +61,17 @@ export function CreateItem() {
   const [selectedStat, setSelectedStat] = useState<keyof Stats>('strength')
   const [effectValue, setEffectValue] = useState(1)
 
-  const [weaponAttackType, setWeaponAttackType] = useState<'melee' | 'ranged'>('melee')
+  const [weaponAttackType, setWeaponAttackType] = useState<'melee' | 'ranged'>(
+    'melee'
+  )
   const [weaponAbility, setWeaponAbility] = useState<keyof Stats>('strength')
   const [weaponDamageDice, setWeaponDamageDice] = useState('1d6')
   const [weaponDamageBonus, setWeaponDamageBonus] = useState(0)
   const [weaponDamageType, setWeaponDamageType] = useState('slashing')
   const [weaponNotes, setWeaponNotes] = useState('')
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const toggleSlot = (slot: EquipmentSlot) => {
     setAllowedSlots((prev) =>
@@ -76,79 +81,93 @@ export function CreateItem() {
     )
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!characterId) {
+      setError('Не найден id персонажа')
+      return
+    }
+
     if (!name.trim()) {
-      alert('Введите название предмета')
+      setError('Введите название предмета')
       return
     }
 
     if (allowedSlots.length === 0) {
-      alert('Выберите хотя бы один слот')
+      setError('Выберите хотя бы один слот')
       return
     }
 
-    const newItem: Item = {
-  id: crypto.randomUUID(),
-  name,
-  type,
-  allowedSlots,
-  effects: [],
-  weaponConfig:
-    type === 'weapon'
-      ? {
-          attackType: weaponAttackType,
-          ability: weaponAbility,
-          damageDice: weaponDamageDice,
-          damageBonus: weaponDamageBonus,
-          damageType: weaponDamageType,
-          notes: weaponNotes,
-        }
-      : undefined,
-}
+    const effects: unknown[] = []
 
+    // Эффекты пока просто отправляем в notes JSON-строкой.
+    // Полный effects engine будем подключать позже через ItemTemplate.
     if (effectType === 'stat') {
-      newItem.effects.push({
+      effects.push({
         stat: selectedStat,
         value: effectValue,
       })
     }
 
     if (effectType === 'hp') {
-      newItem.effects.push({
+      effects.push({
         hpBonus: effectValue,
       })
     }
 
     if (effectType === 'ac') {
-      newItem.effects.push({
+      effects.push({
         armorClassBonus: effectValue,
       })
     }
 
     if (effectType === 'initiative') {
-      newItem.effects.push({
+      effects.push({
         initiativeBonus: effectValue,
       })
     }
 
-    addItem(newItem)
+    const notesPayload = {
+      type,
+      allowedSlots,
+      effects,
+      weaponConfig:
+        type === 'weapon'
+          ? {
+              attackType: weaponAttackType,
+              ability: weaponAbility,
+              damageDice: weaponDamageDice,
+              damageBonus: weaponDamageBonus,
+              damageType: weaponDamageType,
+              notes: weaponNotes,
+            }
+          : undefined,
+    }
 
-    if (characterId) {
-        const character = characters.find((c) => c.id === characterId)
+    try {
+      setIsSaving(true)
+      setError(null)
 
-    if (character) {
-        updateCharacter(character.id, {
-        inventory: [...character.inventory, newItem.id],
-        })
+      // Главная замена:
+      // раньше предмет создавался локально в itemsStore,
+      // теперь создаём его через backend.
+      await addItem(characterId, {
+        nameSnapshot: name.trim(),
+        quantity: 1,
+        isEquipped: false,
+        slot: allowedSlots[0],
+        notes: JSON.stringify(notesPayload),
+      })
 
-    navigate(`/character/${character.id}`)
-    return
-  }
-}
-
-navigate('/characters')
+      navigate(`/character/${characterId}`)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Не удалось создать предмет'
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -156,9 +175,17 @@ navigate('/characters')
       <div className="bg-gray-800 rounded-lg p-6">
         <h1 className="text-2xl font-bold text-white mb-6">Создать предмет</h1>
 
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-900/40 border border-red-700 text-red-200 p-3">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-gray-300 mb-2">Название предмета</label>
+            <label className="block text-gray-300 mb-2">
+              Название предмета
+            </label>
             <input
               type="text"
               value={name}
@@ -184,78 +211,86 @@ navigate('/characters')
           </div>
 
           {type === 'weapon' && (
-  <div className="space-y-4">
-    <div>
-      <label className="block text-gray-300 mb-2">Тип атаки</label>
-      <select
-        value={weaponAttackType}
-        onChange={(e) => setWeaponAttackType(e.target.value as 'melee' | 'ranged')}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-      >
-        <option value="melee">Ближняя</option>
-        <option value="ranged">Дальняя</option>
-      </select>
-    </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-300 mb-2">Тип атаки</label>
+                <select
+                  value={weaponAttackType}
+                  onChange={(e) =>
+                    setWeaponAttackType(e.target.value as 'melee' | 'ranged')
+                  }
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                >
+                  <option value="melee">Ближняя</option>
+                  <option value="ranged">Дальняя</option>
+                </select>
+              </div>
 
-    <div>
-      <label className="block text-gray-300 mb-2">Характеристика</label>
-      <select
-        value={weaponAbility}
-        onChange={(e) => setWeaponAbility(e.target.value as keyof Stats)}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-      >
-        {Object.entries(statLabels).map(([key, label]) => (
-          <option key={key} value={key}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </div>
+              <div>
+                <label className="block text-gray-300 mb-2">
+                  Характеристика
+                </label>
+                <select
+                  value={weaponAbility}
+                  onChange={(e) =>
+                    setWeaponAbility(e.target.value as keyof Stats)
+                  }
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                >
+                  {Object.entries(statLabels).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-    <div>
-      <label className="block text-gray-300 mb-2">Кубик урона</label>
-      <input
-        type="text"
-        value={weaponDamageDice}
-        onChange={(e) => setWeaponDamageDice(e.target.value)}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-        placeholder="Например: 1d8"
-      />
-    </div>
+              <div>
+                <label className="block text-gray-300 mb-2">Кубик урона</label>
+                <input
+                  type="text"
+                  value={weaponDamageDice}
+                  onChange={(e) => setWeaponDamageDice(e.target.value)}
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                  placeholder="Например: 1d8"
+                />
+              </div>
 
-    <div>
-      <label className="block text-gray-300 mb-2">Бонус урона</label>
-      <input
-        type="number"
-        value={weaponDamageBonus}
-        onChange={(e) => setWeaponDamageBonus(Number(e.target.value))}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-      />
-    </div>
+              <div>
+                <label className="block text-gray-300 mb-2">Бонус урона</label>
+                <input
+                  type="number"
+                  value={weaponDamageBonus}
+                  onChange={(e) => setWeaponDamageBonus(Number(e.target.value))}
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                />
+              </div>
 
-    <div>
-      <label className="block text-gray-300 mb-2">Тип урона</label>
-      <input
-        type="text"
-        value={weaponDamageType}
-        onChange={(e) => setWeaponDamageType(e.target.value)}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-        placeholder="Например: slashing"
-      />
-    </div>
+              <div>
+                <label className="block text-gray-300 mb-2">Тип урона</label>
+                <input
+                  type="text"
+                  value={weaponDamageType}
+                  onChange={(e) => setWeaponDamageType(e.target.value)}
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                  placeholder="Например: slashing"
+                />
+              </div>
 
-    <div>
-      <label className="block text-gray-300 mb-2">Заметки к атаке</label>
-      <textarea
-        value={weaponNotes}
-        onChange={(e) => setWeaponNotes(e.target.value)}
-        className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
-        rows={3}
-        placeholder="Например: versatile, thrown, finesse"
-      />
-    </div>
-  </div>
-)}
+              <div>
+                <label className="block text-gray-300 mb-2">
+                  Заметки к атаке
+                </label>
+                <textarea
+                  value={weaponNotes}
+                  onChange={(e) => setWeaponNotes(e.target.value)}
+                  className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                  rows={3}
+                  placeholder="Например: versatile, thrown, finesse"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-gray-300 mb-2">Доступные слоты</label>
@@ -309,7 +344,9 @@ navigate('/characters')
           )}
 
           <div>
-            <label className="block text-gray-300 mb-2">Значение эффекта</label>
+            <label className="block text-gray-300 mb-2">
+              Значение эффекта
+            </label>
             <input
               type="number"
               value={effectValue}
@@ -322,9 +359,10 @@ navigate('/characters')
           <div className="flex gap-3">
             <button
               type="submit"
-              className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition"
+              disabled={isSaving}
+              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold transition"
             >
-              Создать предмет
+              {isSaving ? 'Создание...' : 'Создать предмет'}
             </button>
 
             <button

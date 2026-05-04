@@ -8,14 +8,23 @@ import type {
   UpdateCharacterInput,
   UpdateItemInput,
   UpdateSpellInput,
+  UpdateSpellSlotsInput,
+  CreateCharacterStatsInput,
+  UpdateCharacterStatsInput,
 } from './character.schemas'
 
-// Базовый include для персонажа (минимум для большинства операций)
+// =========================================================
+// Include-конфиги
+// =========================================================
+
+// Базовый include для большинства операций над персонажем.
+// Здесь подтягиваем только stats, чтобы не раздувать ответ без необходимости.
 const characterBaseInclude = {
   stats: true,
 } as const
 
-// Расширенный include для "собранного" персонажа (ближе к sheet)
+// Расширенный include для "собранного" персонажа.
+// Используется там, где нужен более полный character sheet.
 const characterSheetInclude = {
   stats: true,
   attacks: true,
@@ -27,25 +36,22 @@ const characterSheetInclude = {
   },
 } as const
 
-// Внутренний тип для обновления HP-состояния
+// =========================================================
+// Внутренние типы repository
+// =========================================================
+
+// Внутренний тип для обновления HP-состояния персонажа.
 type UpdateHpStateInput = {
   currentHp: number
   temporaryHp: number
 }
-
-// Тип для spell slots (пока хранится как массив)
-type UpdateSpellSlotsInput = {
-  level: number
-  total: number
-  used: number
-}[]
 
 export const characterRepository = {
   // =========================================================
   // Characters
   // =========================================================
 
-  // Получить список всех персонажей (для списка/дашборда)
+  // Получить список всех персонажей.
   findAll() {
     return prisma.character.findMany({
       orderBy: {
@@ -55,7 +61,7 @@ export const characterRepository = {
     })
   },
 
-  // Получить одного персонажа по ID
+  // Получить персонажа по ID.
   findById(id: string) {
     return prisma.character.findUnique({
       where: { id },
@@ -63,19 +69,32 @@ export const characterRepository = {
     })
   },
 
-  // Создать нового персонажа с дефолтными значениями
+  // Получить персонажа с полным набором связанных сущностей.
+  // Это ближе к character sheet, чем обычный findById.
+  findByIdWithSheet(id: string) {
+    return prisma.character.findUnique({
+      where: { id },
+      include: characterSheetInclude,
+    })
+  },
+
+  // Создать нового персонажа.
+  // Важно:
+  // - поля spellcastingAbility / death saves / hit dice / spellSlots
+  //   записываются в Character, а не в CharacterStats
+  // - stats создаются отдельно как relation create
   create(data: CreateCharacterInput) {
     return prisma.character.create({
       data: {
         name: data.name,
         race: data.race,
-        className: data.className,
+        class: data.class,
         level: data.level ?? 1,
-        description: data.description,
-        alignment: data.alignment,
-        background: data.background,
+        description: data.description ?? null,
+        alignment: data.alignment ?? null,
+        background: data.background ?? null,
 
-        // Приводим пустую строку к null
+        // Пустую строку превращаем в null, чтобы не хранить мусор.
         avatarUrl: data.avatarUrl?.trim() ? data.avatarUrl : null,
 
         currentHp: data.currentHp ?? 0,
@@ -83,7 +102,19 @@ export const characterRepository = {
         speed: data.speed ?? 30,
         inspiration: data.inspiration ?? false,
 
-        // Создаём базовые характеристики
+        spellcastingAbility: data.spellcastingAbility ?? null,
+
+        deathSaveSuccesses: data.deathSaveSuccesses ?? 0,
+        deathSaveFailures: data.deathSaveFailures ?? 0,
+
+        hitDiceTotal: data.hitDiceTotal ?? null,
+        hitDiceUsed: data.hitDiceUsed ?? 0,
+        hitDiceDice: data.hitDiceDice ?? null,
+
+        // В Prisma это Json?, поэтому можно хранить массив объектов напрямую.
+        spellSlots: [],
+
+        // Для нового персонажа создаём базовые stats по умолчанию.
         stats: {
           create: {
             strength: 10,
@@ -99,23 +130,56 @@ export const characterRepository = {
     })
   },
 
-  // Обновить базовые поля персонажа
+  // Обновить базовые поля персонажа.
   update(id: string, data: UpdateCharacterInput) {
     return prisma.character.update({
       where: { id },
       data: {
-        ...data,
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.race !== undefined && { race: data.race }),
+        ...(data.class !== undefined && { class: data.class }),
+        ...(data.level !== undefined && { level: data.level }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.alignment !== undefined && { alignment: data.alignment }),
+        ...(data.background !== undefined && { background: data.background }),
 
-        // Нормализация avatarUrl ('' → null)
         ...(data.avatarUrl !== undefined && {
           avatarUrl: data.avatarUrl.trim() ? data.avatarUrl : null,
+        }),
+
+        ...(data.currentHp !== undefined && { currentHp: data.currentHp }),
+        ...(data.temporaryHp !== undefined && {
+          temporaryHp: data.temporaryHp,
+        }),
+        ...(data.speed !== undefined && { speed: data.speed }),
+        ...(data.inspiration !== undefined && { inspiration: data.inspiration }),
+
+        ...(data.spellcastingAbility !== undefined && {
+          spellcastingAbility: data.spellcastingAbility,
+        }),
+
+        ...(data.deathSaveSuccesses !== undefined && {
+          deathSaveSuccesses: data.deathSaveSuccesses,
+        }),
+        ...(data.deathSaveFailures !== undefined && {
+          deathSaveFailures: data.deathSaveFailures,
+        }),
+
+        ...(data.hitDiceTotal !== undefined && {
+          hitDiceTotal: data.hitDiceTotal,
+        }),
+        ...(data.hitDiceUsed !== undefined && {
+          hitDiceUsed: data.hitDiceUsed,
+        }),
+        ...(data.hitDiceDice !== undefined && {
+          hitDiceDice: data.hitDiceDice,
         }),
       },
       include: characterBaseInclude,
     })
   },
 
-  // Удалить персонажа
+  // Удалить персонажа.
   delete(id: string) {
     return prisma.character.delete({
       where: { id },
@@ -123,14 +187,84 @@ export const characterRepository = {
   },
 
   // =========================================================
+  // Character stats
+  // =========================================================
+
+  // Получить stats персонажа по characterId.
+  findStatsByCharacterId(characterId: string) {
+    return prisma.characterStats.findUnique({
+      where: { characterId },
+    })
+  },
+
+  // Создать stats персонажа.
+  // Обычно при create(character) они уже создаются автоматически,
+  // но метод может пригодиться отдельно.
+  createStats(characterId: string, data: CreateCharacterStatsInput) {
+    return prisma.characterStats.create({
+      data: {
+        characterId,
+        ...data,
+      },
+    })
+  },
+
+  // Обновить stats персонажа по characterId.
+  updateStats(characterId: string, data: UpdateCharacterStatsInput) {
+    return prisma.characterStats.update({
+      where: { characterId },
+      data: {
+        ...(data.strength !== undefined && { strength: data.strength }),
+        ...(data.dexterity !== undefined && { dexterity: data.dexterity }),
+        ...(data.constitution !== undefined && {
+          constitution: data.constitution,
+        }),
+        ...(data.intelligence !== undefined && {
+          intelligence: data.intelligence,
+        }),
+        ...(data.wisdom !== undefined && { wisdom: data.wisdom }),
+        ...(data.charisma !== undefined && { charisma: data.charisma }),
+      },
+    })
+  },
+
+  // Создать stats, если их нет, или обновить, если уже есть.
+  upsertStats(characterId: string, data: CreateCharacterStatsInput) {
+    return prisma.characterStats.upsert({
+      where: { characterId },
+      update: {
+        strength: data.strength,
+        dexterity: data.dexterity,
+        constitution: data.constitution,
+        intelligence: data.intelligence,
+        wisdom: data.wisdom,
+        charisma: data.charisma,
+      },
+      create: {
+        characterId,
+        strength: data.strength,
+        dexterity: data.dexterity,
+        constitution: data.constitution,
+        intelligence: data.intelligence,
+        wisdom: data.wisdom,
+        charisma: data.charisma,
+      },
+    })
+  },
+
+  // =========================================================
   // HP
   // =========================================================
 
-  // Обновление HP состояния (используется сервисом для damage/heal/tempHp)
+  // Обновить HP-состояние персонажа.
+  // Используется сервисом для damage / heal / set temp HP.
   updateHpState(id: string, data: UpdateHpStateInput) {
     return prisma.character.update({
       where: { id },
-      data,
+      data: {
+        currentHp: data.currentHp,
+        temporaryHp: data.temporaryHp,
+      },
       include: characterBaseInclude,
     })
   },
@@ -139,35 +273,78 @@ export const characterRepository = {
   // Attacks
   // =========================================================
 
-  // Найти атаку по ID
+  // Найти атаку по ID.
   findAttackById(attackId: string) {
     return prisma.characterAttack.findUnique({
       where: { id: attackId },
     })
   },
 
-  // Добавить атаку персонажу
-  addAttack(characterId: string, data: CreateAttackInput) {
-    return prisma.characterAttack.create({
-      data: {
-        characterId,
-        ...data,
+  // Получить все атаки персонажа.
+  findAttacksByCharacterId(characterId: string) {
+    return prisma.characterAttack.findMany({
+      where: { characterId },
+      orderBy: {
+        createdAt: 'asc',
       },
     })
   },
 
-  // Обновить атаку
-  updateAttack(attackId: string, data: UpdateAttackInput) {
-    return prisma.characterAttack.update({
-      where: { id: attackId },
-      data,
+  // Добавить атаку персонажу.
+  addAttack(characterId: string, data: CreateAttackInput) {
+    return prisma.characterAttack.create({
+      data: {
+        characterId,
+        name: data.name,
+        attackType: data.attackType ?? null,
+        ability: data.ability ?? null,
+        proficient: data.proficient ?? false,
+        damageDice: data.damageDice ?? null,
+        damageBonus: data.damageBonus ?? null,
+        damageType: data.damageType ?? null,
+        notes: data.notes ?? null,
+        source: data.source ?? null,
+        itemId: data.itemId ?? null,
+      },
     })
   },
 
-  // Удалить атаку
+  // Обновить атаку.
+  updateAttack(attackId: string, data: UpdateAttackInput) {
+    return prisma.characterAttack.update({
+      where: { id: attackId },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.attackType !== undefined && { attackType: data.attackType }),
+        ...(data.ability !== undefined && { ability: data.ability }),
+        ...(data.proficient !== undefined && { proficient: data.proficient }),
+        ...(data.damageDice !== undefined && { damageDice: data.damageDice }),
+        ...(data.damageBonus !== undefined && {
+          damageBonus: data.damageBonus,
+        }),
+        ...(data.damageType !== undefined && { damageType: data.damageType }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.source !== undefined && { source: data.source }),
+        ...(data.itemId !== undefined && { itemId: data.itemId }),
+      },
+    })
+  },
+
+  // Удалить атаку.
   deleteAttack(attackId: string) {
     return prisma.characterAttack.delete({
       where: { id: attackId },
+    })
+  },
+
+  // Удалить все item-атаки, связанные с конкретным предметом.
+  // Это пригодится для логики экипировки/снятия предметов.
+  deleteAttacksByItemId(characterId: string, itemId: string) {
+    return prisma.characterAttack.deleteMany({
+      where: {
+        characterId,
+        itemId,
+      },
     })
   },
 
@@ -175,32 +352,69 @@ export const characterRepository = {
   // Spells
   // =========================================================
 
-  // Найти заклинание по ID
+  // Найти заклинание по ID.
   findSpellById(spellId: string) {
     return prisma.characterSpell.findUnique({
       where: { id: spellId },
     })
   },
 
-  // Добавить заклинание персонажу
+  // Получить все заклинания персонажа.
+  findSpellsByCharacterId(characterId: string) {
+    return prisma.characterSpell.findMany({
+      where: { characterId },
+      orderBy: [
+        { level: 'asc' },
+        { createdAt: 'asc' },
+      ],
+    })
+  },
+
+  // Добавить заклинание персонажу.
   addSpell(characterId: string, data: CreateSpellInput) {
     return prisma.characterSpell.create({
       data: {
         characterId,
-        ...data,
+        name: data.name,
+        level: data.level,
+        school: data.school ?? null,
+        castingTime: data.castingTime ?? null,
+        range: data.range ?? null,
+        components: data.components ?? null,
+        duration: data.duration ?? null,
+        concentration: data.concentration ?? false,
+        ritual: data.ritual ?? false,
+        description: data.description ?? null,
       },
     })
   },
 
-  // Обновить заклинание
+  // Обновить заклинание.
   updateSpell(spellId: string, data: UpdateSpellInput) {
     return prisma.characterSpell.update({
       where: { id: spellId },
-      data,
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.level !== undefined && { level: data.level }),
+        ...(data.school !== undefined && { school: data.school }),
+        ...(data.castingTime !== undefined && {
+          castingTime: data.castingTime,
+        }),
+        ...(data.range !== undefined && { range: data.range }),
+        ...(data.components !== undefined && { components: data.components }),
+        ...(data.duration !== undefined && { duration: data.duration }),
+        ...(data.concentration !== undefined && {
+          concentration: data.concentration,
+        }),
+        ...(data.ritual !== undefined && { ritual: data.ritual }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+      },
     })
   },
 
-  // Удалить заклинание
+  // Удалить заклинание.
   deleteSpell(spellId: string) {
     return prisma.characterSpell.delete({
       where: { id: spellId },
@@ -211,13 +425,13 @@ export const characterRepository = {
   // Spell slots
   // =========================================================
 
-  // Обновить все слоты заклинаний персонажа
-  // (пока храним как массив, позже можно вынести в отдельную таблицу)
-  updateSpellSlots(id: string, spellSlots: UpdateSpellSlotsInput) {
+  // Обновить весь массив spell slots у персонажа.
+  // В Prisma поле хранится как Json.
+  updateSpellSlots(id: string, data: UpdateSpellSlotsInput) {
     return prisma.character.update({
       where: { id },
       data: {
-        spellSlots,
+        spellSlots: data.spellSlots,
       },
       include: characterSheetInclude,
     })
@@ -227,7 +441,7 @@ export const characterRepository = {
   // Items / Inventory
   // =========================================================
 
-  // Получить все шаблоны предметов
+  // Получить все шаблоны предметов.
   findAllItemTemplates() {
     return prisma.itemTemplate.findMany({
       orderBy: {
@@ -236,14 +450,14 @@ export const characterRepository = {
     })
   },
 
-  // Найти шаблон предмета по ID
+  // Найти шаблон предмета по ID.
   findItemTemplateById(itemTemplateId: string) {
     return prisma.itemTemplate.findUnique({
       where: { id: itemTemplateId },
     })
   },
 
-  // Найти предмет персонажа по ID
+  // Найти предмет персонажа по ID.
   findItemById(itemId: string) {
     return prisma.characterItem.findUnique({
       where: { id: itemId },
@@ -253,8 +467,20 @@ export const characterRepository = {
     })
   },
 
-  // Найти уже экипированный предмет персонажа по слоту
-  // Используется для проверки занятости слота
+  // Получить все предметы персонажа.
+  findItemsByCharacterId(characterId: string) {
+    return prisma.characterItem.findMany({
+      where: { characterId },
+      include: {
+        itemTemplate: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    })
+  },
+
+  // Найти уже экипированный предмет в конкретном слоте.
   findEquippedItemBySlot(characterId: string, slot: string) {
     return prisma.characterItem.findFirst({
       where: {
@@ -268,7 +494,8 @@ export const characterRepository = {
     })
   },
 
-  // Добавить предмет в инвентарь персонажа
+  // Добавить предмет в инвентарь персонажа.
+  // nameSnapshot обязателен по Prisma, поэтому здесь он должен приходить уже готовым.
   addItem(characterId: string, data: CreateItemInput & { nameSnapshot: string }) {
     return prisma.characterItem.create({
       data: {
@@ -286,7 +513,7 @@ export const characterRepository = {
     })
   },
 
-  // Обновить предмет персонажа
+  // Обновить предмет персонажа.
   updateItem(itemId: string, data: UpdateItemInput) {
     return prisma.characterItem.update({
       where: { id: itemId },
@@ -313,19 +540,22 @@ export const characterRepository = {
     })
   },
 
-  // Удалить предмет персонажа
+  // Удалить предмет персонажа.
   deleteItem(itemId: string) {
     return prisma.characterItem.delete({
       where: { id: itemId },
     })
   },
 
-  // Экипировать предмет
-  equipItem(itemId: string) {
+  // Экипировать предмет.
+  // При необходимости слот можно пробросить отдельно через updateItem,
+  // либо расширить этот метод под body со slot.
+  equipItem(itemId: string, slot?: string | null) {
     return prisma.characterItem.update({
       where: { id: itemId },
       data: {
         isEquipped: true,
+        ...(slot !== undefined && { slot }),
       },
       include: {
         itemTemplate: true,
@@ -333,7 +563,7 @@ export const characterRepository = {
     })
   },
 
-  // Снять предмет
+  // Снять предмет.
   unequipItem(itemId: string) {
     return prisma.characterItem.update({
       where: { id: itemId },

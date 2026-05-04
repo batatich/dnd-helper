@@ -15,8 +15,25 @@ import { AttackSection } from '../components/AttackSection'
 import { SpellSection } from '../components/SpellSection'
 import type { NewSpell } from '../types/characters'
 import { ProfileSection } from '../components/ProfileSection'
-
-const API_URL = 'http://localhost:3000'
+import {
+  getCharacterSheet,
+  updateCharacter,
+  updateCharacterStats,
+  damageCharacter,
+  healCharacter,
+  setTemporaryHp,
+  equipItem as equipInventoryItem,
+  unequipItem as unequipInventoryItem,
+  addSpell,
+  updateSpell,
+  deleteSpell,
+  updateSpellSlots,
+  updateSpellcastingAbility,
+  addAttack,
+  updateAttack,
+  deleteAttack,
+  type UpdateCharacterInput,
+} from '../api/characterApi'
 
 const defaultStats: Stats = {
   strength: 10,
@@ -30,6 +47,76 @@ const defaultStats: Stats = {
 type ServerCharacter = Partial<Character> & {
   id: string
 }
+
+type BackendInventoryItem = {
+  id: string
+  nameSnapshot?: string | null
+  quantity?: number | null
+  notes?: string | null
+  isEquipped?: boolean
+  slot?: EquipmentSlot | string | null
+  template?: {
+    id: string
+    name: string
+    type?: string | null
+    slot?: EquipmentSlot | string | null
+    effects?: unknown
+  } | null
+  itemTemplate?: {
+    id: string
+    name: string
+    type?: string | null
+    slot?: EquipmentSlot | string | null
+    effects?: unknown
+  } | null
+}
+
+const normalizeCharacter = (data: ServerCharacter): Character => ({
+  id: data.id,
+  name: data.name ?? 'Без имени',
+  race: data.race ?? '',
+  class: (data as Partial<Character>).class ?? '',
+  level: data.level ?? 1,
+  description: data.description ?? '',
+  alignment: data.alignment ?? '',
+  background: data.background ?? '',
+  avatarUrl: data.avatarUrl ?? '',
+  baseStats: data.baseStats ?? defaultStats,
+  currentHp: data.currentHp ?? 0,
+  temporaryHp: data.temporaryHp ?? 0,
+  speed: data.speed ?? 30,
+  inspiration: data.inspiration ?? false,
+  inventory: data.inventory ?? [],
+  equippedItems: data.equippedItems ?? {
+    mainHand: null,
+    offHand: null,
+    head: null,
+    body: null,
+    ring1: null,
+    ring2: null,
+    amulet: null,
+    boots: null,
+  },
+  skills: data.skills ?? standardSkills,
+  savingThrowProficiencies: data.savingThrowProficiencies ?? [],
+  attacks: data.attacks ?? [],
+  spells: data.spells ?? [],
+  spellSlots: data.spellSlots ?? [],
+  spellcastingAbility: data.spellcastingAbility ?? 'intelligence',
+  deathSaves: data.deathSaves ?? { successes: 0, failures: 0 },
+  hitDice: data.hitDice ?? {
+    total: data.level ?? 1,
+    used: 0,
+    dice: `${data.level ?? 1}d8`,
+  },
+  derivedStats: data.derivedStats ?? {
+    armorClass: 10,
+    initiative: 0,
+    maxHp: data.currentHp ?? 0,
+  },
+  createdAt: data.createdAt ?? new Date().toISOString(),
+  updatedAt: data.updatedAt ?? new Date().toISOString(),
+})
 
 export function CharacterSheet() {
   const { id } = useParams()
@@ -54,64 +141,9 @@ export function CharacterSheet() {
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(`${API_URL}/characters/${id}`)
+        const data = (await getCharacterSheet(id)) as ServerCharacter
 
-        if (!response.ok) {
-          throw new Error(`Ошибка загрузки персонажа: ${response.status}`)
-        }
-
-        const data = (await response.json()) as ServerCharacter
-
-        const safeCharacter: Character = {
-          id: data.id,
-          name: data.name ?? 'Без имени',
-          race: data.race ?? '',
-          class: (data as Partial<Character>).class ?? '',
-          level: data.level ?? 1,
-          description: data.description ?? '',
-          alignment: data.alignment ?? '',
-          background: data.background ?? '',
-          avatarUrl: data.avatarUrl ?? '',
-          baseStats: data.baseStats ?? defaultStats,
-          currentHp: data.currentHp ?? 0,
-          temporaryHp: data.temporaryHp ?? 0,
-          speed: data.speed ?? 30,
-          inspiration: data.inspiration ?? false,
-          inventory: data.inventory ?? [],
-          equippedItems: data.equippedItems ?? {
-            mainHand: null,
-            offHand: null,
-            head: null,
-            body: null,
-            ring1: null,
-            ring2: null,
-            amulet: null,
-            boots: null,
-          },
-          skills: data.skills ?? standardSkills,
-          savingThrowProficiencies: data.savingThrowProficiencies ?? [],
-          attacks: data.attacks ?? [],
-          spells: data.spells ?? [],
-          spellSlots: data.spellSlots ?? [],
-          spellcastingAbility: data.spellcastingAbility ?? 'intelligence',
-          deathSaves: data.deathSaves ?? { successes: 0, failures: 0 },
-          //hitDice: data.hitDice ?? { used: 0 },
-          hitDice: data.hitDice ?? {
-            total: data.level ?? 1,
-            used: 0,
-            dice: `${data.level ?? 1}d8`,
-          },
-
-          derivedStats: data.derivedStats ?? {
-            armorClass: 10,
-            initiative: 0,
-            maxHp: data.currentHp ?? 0,
-          },
-          createdAt: data.createdAt ?? new Date().toISOString(),
-          updatedAt: data.updatedAt ?? new Date().toISOString(),
-        }
-
-        setCharacter(safeCharacter)
+        setCharacter(normalizeCharacter(data))
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Не удалось загрузить персонажа'
@@ -125,25 +157,221 @@ export function CharacterSheet() {
     void loadCharacter()
   }, [id])
 
-  const handleAddSpell = (_spell: NewSpell) => {}
+  const refreshCharacterSheet = async (characterId: string) => {
+    const freshCharacter = await getCharacterSheet(characterId)
+    const normalizedCharacter = normalizeCharacter(freshCharacter as ServerCharacter)
+    setCharacter(normalizedCharacter)
+    return normalizedCharacter
+  }
 
-  const handleDeleteSpell = (_spellId: string) => {}
+  const handleAddSpell = async (spell: NewSpell) => {
+    if (!character) return
 
-  const handleUpdateSpell = (
-    _spellId: string,
-    _spell: Partial<NewSpell>
-  ) => {}
+    try {
+      setIsLoading(true)
+      setError(null)
+      await addSpell(character.id, spell)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось добавить заклинание')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleSetSpellcastingAbility = (_ability: keyof Stats) => {}
+  const handleDeleteSpell = async (spellId: string) => {
+    if (!character) return
 
-  const handleSetSpellSlotsTotal = (_level: number, _total: number) => {}
+    try {
+      setIsLoading(true)
+      setError(null)
+      await deleteSpell(character.id, spellId)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить заклинание')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleChangeSpellSlot = (_level: number, _delta: number) => {}
+  const handleUpdateSpell = async (spellId: string, spell: Partial<NewSpell>) => {
+    if (!character) return
 
-  const handleUpdateProfile = (_updates: Partial<Character>) => {}
+    try {
+      setIsLoading(true)
+      setError(null)
+      await updateSpell(character.id, spellId, spell)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить заклинание')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleHpChange = () => {
-    setHpChangeInput('')
+  const handleSetSpellcastingAbility = async (ability: keyof Stats) => {
+    if (!character) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+      await updateSpellcastingAbility(character.id, ability)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить характеристику заклинаний')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSetSpellSlotsTotal = async (level: number, total: number) => {
+    if (!character) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+      const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
+        slot.level === level
+          ? { ...slot, total, used: Math.min(Number(slot.used ?? 0), total) }
+          : slot
+      )
+      await updateSpellSlots(character.id, nextSpellSlots)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить spell slots')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChangeSpellSlot = async (level: number, delta: number) => {
+    if (!character) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+      const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
+        slot.level === level
+          ? {
+              ...slot,
+              used: Math.max(0, Math.min(Number(slot.total ?? 0), Number(slot.used ?? 0) + delta)),
+            }
+          : slot
+      )
+      await updateSpellSlots(character.id, nextSpellSlots)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось изменить spell slot')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdateProfile = async (updates: Partial<Character>) => {
+    if (!character) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const payload: UpdateCharacterInput = {
+        name: updates.name,
+        race: updates.race,
+        class: updates.class,
+        level: updates.level,
+        description: updates.description,
+        alignment: updates.alignment,
+        background: updates.background,
+        avatarUrl: updates.avatarUrl,
+        currentHp: updates.currentHp,
+        temporaryHp: updates.temporaryHp,
+        speed: updates.speed,
+        inspiration: updates.inspiration,
+        spellcastingAbility: updates.spellcastingAbility,
+        deathSaves: updates.deathSaves,
+        hitDice: updates.hitDice,
+      }
+
+      await updateCharacter(character.id, payload)
+
+      if (updates.baseStats) {
+        await updateCharacterStats(character.id, updates.baseStats)
+      }
+
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить персонажа')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleHpChange = async () => {
+    if (!character) {
+      return
+    }
+
+    const normalizedValue = hpChangeInput.trim()
+
+    if (!normalizedValue) {
+      return
+    }
+
+    const isHeal = normalizedValue.startsWith('+')
+    const numericPart = isHeal ? normalizedValue.slice(1) : normalizedValue
+    const amount = Number(numericPart)
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Введите корректное значение HP. Пример: +5 или 5')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      if (isHeal) {
+        await healCharacter(character.id, amount)
+      } else {
+        await damageCharacter(character.id, amount)
+      }
+
+      await refreshCharacterSheet(character.id)
+      setHpChangeInput('')
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Не удалось изменить HP персонажа'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSetTempHp = async () => {
+    if (!character) {
+      return
+    }
+
+    if (!Number.isFinite(tempHpInput) || tempHpInput < 0) {
+      setError('Введите корректное значение временных HP')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      await setTemporaryHp(character.id, tempHpInput)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Не удалось обновить временные HP персонажа'
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isLoading) {
@@ -172,23 +400,6 @@ export function CharacterSheet() {
     )
   }
 
-  const { finalStats, finalDerivedStats } = calculateCharacter(character, items)
-
-  const inventoryItems = items.filter((item) =>
-    character.inventory.includes(item.id)
-  )
-
-  const equippedEntries = (
-    Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
-  ).map(([slot, itemId]) => {
-    const item = items.find((i) => i.id === itemId) || null
-
-    return {
-      slot,
-      item,
-    }
-  })
-
   const slotLabels: Record<string, string> = {
     mainHand: 'Основная рука',
     offHand: 'Вторая рука',
@@ -200,15 +411,152 @@ export function CharacterSheet() {
     boots: 'Обувь',
   }
 
-  const handleEquipItem = (_item: typeof items[number], _slot: EquipmentSlot) => {}
+  const safeBaseStats: Stats = {
+    strength: Number(character.baseStats?.strength ?? 10),
+    dexterity: Number(character.baseStats?.dexterity ?? 10),
+    constitution: Number(character.baseStats?.constitution ?? 10),
+    intelligence: Number(character.baseStats?.intelligence ?? 10),
+    wisdom: Number(character.baseStats?.wisdom ?? 10),
+    charisma: Number(character.baseStats?.charisma ?? 10),
+  }
 
-  const handleUnequipItem = (_slot: EquipmentSlot) => {}
+  const safeCharacterForProfile: Character = {
+    ...character,
+    name: character.name ?? '',
+    race: character.race ?? '',
+    class: character.class ?? '',
+    level: character.level ?? 1,
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    description: character.description ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+    baseStats: safeBaseStats,
+  }
+
+  const legacyInventoryIds = (character.inventory ?? []).filter(
+    (item): item is string => typeof item === 'string'
+  )
+
+  const legacyItems = items.filter((item) => legacyInventoryIds.includes(item.id))
+
+  const { finalStats, finalDerivedStats } = calculateCharacter(
+    safeCharacterForProfile,
+    legacyItems
+  )
+
+  const rawInventory = (character.inventory ?? []) as unknown[]
+
+  const backendInventoryItems = rawInventory.filter(
+    (item): item is BackendInventoryItem =>
+      typeof item === 'object' && item !== null && 'id' in item
+  )
+
+  const inventoryItems =
+    backendInventoryItems.length > 0
+      ? backendInventoryItems.map((inventoryItem) => {
+          const template = inventoryItem.template ?? inventoryItem.itemTemplate
+
+          let parsedNotes: { allowedSlots?: EquipmentSlot[]; type?: string } = {}
+
+          try {
+            if (inventoryItem.notes) {
+              parsedNotes = JSON.parse(inventoryItem.notes)
+            }
+          } catch {
+            parsedNotes = {}
+          }
+
+          return {
+            id: inventoryItem.id,
+            itemId: inventoryItem.id,
+            name: inventoryItem.nameSnapshot ?? template?.name ?? 'Предмет',
+            type: template?.type ?? parsedNotes.type ?? 'Предмет',
+            effects: Array.isArray(template?.effects) ? template.effects : [],
+            allowedSlots: template?.slot
+              ? [template.slot as EquipmentSlot]
+              : parsedNotes.allowedSlots ?? [],
+            isEquipped: inventoryItem.isEquipped ?? false,
+            equippedSlot: inventoryItem.slot as EquipmentSlot | null,
+          }
+        })
+      : items
+          .filter((item) => legacyInventoryIds.includes(item.id))
+          .map((item) => ({
+            ...item,
+            itemId: item.id,
+            isEquipped: Object.values(character.equippedItems).includes(item.id),
+            equippedSlot:
+              (Object.entries(character.equippedItems) as [
+                EquipmentSlot,
+                string | null,
+              ][]).find(([, equippedItemId]) => equippedItemId === item.id)?.[0] ??
+              null,
+          }))
+
+  const equipmentSlots = Object.keys(slotLabels) as EquipmentSlot[]
+
+  const equippedEntries = equipmentSlots.map((slot) => {
+    const item =
+      backendInventoryItems.length > 0
+        ? inventoryItems.find(
+            (inventoryItem) =>
+              inventoryItem.isEquipped && inventoryItem.equippedSlot === slot
+          ) ?? null
+        : inventoryItems.find((i) => i.id === character.equippedItems[slot]) ?? null
+
+    return { slot, item }
+  })
+
+  const handleEquipItem = async (
+    item: (typeof inventoryItems)[number],
+    _slot: EquipmentSlot
+  ) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await equipInventoryItem(character.id, item.itemId)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось надеть предмет')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnequipItem = async (itemId: string) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await unequipInventoryItem(character.id, itemId)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось снять предмет')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const isItemEquipped = (itemId: string) => {
+    const backendItem = inventoryItems.find(
+      (item) => item.itemId === itemId || item.id === itemId
+    )
+
+    if (backendItem) {
+      return backendItem.isEquipped
+    }
+
     return Object.values(character.equippedItems).includes(itemId)
   }
 
   const getEquippedSlot = (itemId: string): EquipmentSlot | null => {
+    const backendItem = inventoryItems.find(
+      (item) => item.itemId === itemId || item.id === itemId
+    )
+
+    if (backendItem?.equippedSlot) {
+      return backendItem.equippedSlot
+    }
+
     const entry = (
       Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
     ).find(([, equippedItemId]) => equippedItemId === itemId)
@@ -289,19 +637,52 @@ export function CharacterSheet() {
     )
   }
 
-  const handleAddAttack = (_attack: NewAttack) => {}
+  const handleAddAttack = async (attack: NewAttack) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await addAttack(character.id, attack)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось добавить атаку')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleDeleteAttack = (_attackId: string) => {}
+  const handleDeleteAttack = async (attackId: string) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await deleteAttack(character.id, attackId)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить атаку')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleUpdateAttack = (
-    _attackId: string,
-    _attack: Partial<NewAttack>
-  ) => {}
+  const handleUpdateAttack = async (
+    attackId: string,
+    attack: Partial<NewAttack>
+  ) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await updateAttack(character.id, attackId, attack)
+      await refreshCharacterSheet(character.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обновить атаку')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <ProfileSection
-        character={character}
+        character={safeCharacterForProfile}
         onUpdateCharacter={handleUpdateProfile}
       />
 
@@ -514,7 +895,7 @@ export function CharacterSheet() {
             />
 
             <button
-              onClick={handleHpChange}
+              onClick={() => void handleHpChange()}
               className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg text-sm transition"
             >
               Применить
@@ -530,8 +911,8 @@ export function CharacterSheet() {
               min="0"
             />
             <button
-              className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg text-sm transition opacity-60 cursor-not-allowed"
-              disabled
+              onClick={() => void handleSetTempHp()}
+              className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg text-sm transition"
             >
               Временные
             </button>
@@ -630,9 +1011,8 @@ export function CharacterSheet() {
 
             {item && (
               <button
-                onClick={() => handleUnequipItem(slot)}
+                onClick={() => void handleUnequipItem(item.itemId)}
                 className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition opacity-60 cursor-not-allowed"
-                disabled
               >
                 Снять
               </button>
@@ -683,9 +1063,8 @@ export function CharacterSheet() {
                 {item.allowedSlots.map((slot) => (
                   <button
                     key={slot}
-                    onClick={() => handleEquipItem(item, slot)}
-                    disabled
-                    className="px-3 py-1 rounded text-sm transition bg-gray-600 cursor-not-allowed"
+                    onClick={() => void handleEquipItem(item, slot)}
+                    className="px-3 py-1 rounded text-sm transition bg-purple-600 hover:bg-purple-700"
                   >
                     Надеть в {slotLabels[slot] || slot}
                   </button>

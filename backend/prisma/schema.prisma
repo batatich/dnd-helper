@@ -8,31 +8,40 @@ datasource db {
 }
 
 model Character {
-  id          String   @id @default(uuid())
-  name        String
-  race        String
-  className   String
-  level       Int      @default(1)
-  description String?
-  alignment   String?
-  background  String?
-  avatarUrl   String?
-  currentHp   Int      @default(0)
-  temporaryHp Int      @default(0)
-  speed       Int      @default(30)
-  inspiration Boolean  @default(false)
+  id                   String   @id @default(uuid())
+  name                 String
+  race                 String
+  class                String
+  level                Int      @default(1)
+  description          String?
+  alignment            String?
+  background           String?
+  avatarUrl            String?
+  currentHp            Int      @default(0)
+  temporaryHp          Int      @default(0)
+  speed                Int      @default(30)
+  inspiration          Boolean  @default(false)
+
+  spellcastingAbility  String?
+
+  deathSaveSuccesses   Int      @default(0)
+  deathSaveFailures    Int      @default(0)
+
+  hitDiceTotal         Int?
+  hitDiceUsed          Int      @default(0)
+  hitDiceDice          String?
 
   /// Для первой версии удобно хранить spell slots как Json
   /// пример: [{ "level": 1, "total": 2, "used": 1 }]
-  spellSlots  Json?
+  spellSlots           Json?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  stats       CharacterStats?
-  attacks     CharacterAttack[]
-  spells      CharacterSpell[]
-  items       CharacterItem[]
+  stats                CharacterStats?
+  attacks              CharacterAttack[]
+  spells               CharacterSpell[]
+  items                CharacterItem[]
 }
 
 model CharacterStats {
@@ -65,7 +74,7 @@ model CharacterAttack {
 
   /// manual | item
   source      String?
-  /// если атака связана с предметом, пока просто nullable reference id
+  /// если атака связана с предметом
   itemId      String?
 
   createdAt   DateTime @default(now())
@@ -77,38 +86,40 @@ model CharacterAttack {
 }
 
 model CharacterSpell {
-  id          String   @id @default(uuid())
-  characterId String
+  id            String   @id @default(uuid())
+  characterId   String
 
-  name        String
-  level       Int
-  school      String?
-  castingTime String?
-  range       String?
-  components  String?
-  duration    String?
-  description String?
+  name          String
+  level         Int
+  school        String?
+  castingTime   String?
+  range         String?
+  components    String?
+  duration      String?
+  concentration Boolean  @default(false)
+  ritual        Boolean  @default(false)
+  description   String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId])
 }
 
 model ItemTemplate {
-  id          String   @id @default(uuid())
-  name        String
-  type        String?
-  slot        String?
-  description String?
+  id             String   @id @default(uuid())
+  name           String
+  type           String?
+  slot           String?
+  description    String?
 
   /// Эффекты пока можно хранить как Json
-  effects     Json?
+  effects        Json?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   characterItems CharacterItem[]
 }

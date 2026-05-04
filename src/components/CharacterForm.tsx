@@ -55,7 +55,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         level: formData.level,
         class: formData.class,
         race: formData.race,
-        baseStats: formData.baseStats,
+        //baseStats: formData.baseStats,
         description: formData.description,
         alignment: formData.alignment,
         background: formData.background,

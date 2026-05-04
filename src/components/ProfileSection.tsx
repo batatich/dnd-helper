@@ -24,30 +24,44 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
 
 
   const [form, setForm] = useState({
-    name: character.name,
-    race: character.race,
-    class: character.class,
-    level: character.level,
-    alignment: character.alignment,
-    background: character.background,
-    description: character.description,
-    avatarUrl: character.avatarUrl,
-    baseStats: { ...character.baseStats },
-  })
+  name: character.name ?? '',
+  race: character.race ?? '',
+  class: character.class ?? '',
+  level: character.level ?? 1,
+  alignment: character.alignment ?? '',
+  background: character.background ?? '',
+  description: character.description ?? '',
+  avatarUrl: character.avatarUrl ?? '',
+  baseStats: {
+    strength: Number(character.baseStats?.strength ?? 10),
+    dexterity: Number(character.baseStats?.dexterity ?? 10),
+    constitution: Number(character.baseStats?.constitution ?? 10),
+    intelligence: Number(character.baseStats?.intelligence ?? 10),
+    wisdom: Number(character.baseStats?.wisdom ?? 10),
+    charisma: Number(character.baseStats?.charisma ?? 10),
+  },
+})
 
 
 
   const handleStartEdit = () => {
     setForm({
-      name: character.name,
-      race: character.race,
-      class: character.class,
-      level: character.level,
-      alignment: character.alignment,
-      background: character.background,
-      description: character.description,
-      avatarUrl: character.avatarUrl,
-      baseStats: { ...character.baseStats },
+      name: character.name ?? '',
+      race: character.race ?? '',
+      class: character.class ?? '',
+      level: character.level ?? 1,
+      alignment: character.alignment ?? '',
+      background: character.background ?? '',
+      description: character.description ?? '',
+      avatarUrl: character.avatarUrl ?? '',
+      baseStats: {
+        strength: Number(character.baseStats?.strength ?? 10),
+        dexterity: Number(character.baseStats?.dexterity ?? 10),
+        constitution: Number(character.baseStats?.constitution ?? 10),
+        intelligence: Number(character.baseStats?.intelligence ?? 10),
+        wisdom: Number(character.baseStats?.wisdom ?? 10),
+        charisma: Number(character.baseStats?.charisma ?? 10),
+      },
     })
 
     setIsEditing(true)
@@ -56,13 +70,13 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
   const handleSave = () => {
     const normalizedForm = {
       ...form,
-      name: form.name.trim(),
-      race: form.race.trim(),
-      class: form.class.trim(),
-      alignment: form.alignment.trim(),
-      background: form.background.trim(),
-      description: form.description.trim(),
-      avatarUrl: form.avatarUrl.trim(),
+      name: (form.name ?? '').trim(),
+      race: (form.race ?? '').trim(),
+      class: (form.class ?? '').trim(),
+      alignment: (form.alignment ?? '').trim(),
+      background: (form.background ?? '').trim(),
+      description: (form.description ?? '').trim(),
+      avatarUrl: (form.avatarUrl ?? '').trim(),
     }
 
     onUpdateCharacter(normalizedForm)

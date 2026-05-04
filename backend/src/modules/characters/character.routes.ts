@@ -8,9 +8,11 @@ import {
   createSpellSchema,
   hpAmountSchema,
   itemParamsSchema,
+  setTemporaryHpSchema,
   spellParamsSchema,
   updateAttackSchema,
   updateCharacterSchema,
+  updateCharacterStatsSchema,
   updateItemSchema,
   updateSpellSchema,
   updateSpellSlotsSchema,
@@ -65,6 +67,28 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
+  // Получить полный character sheet
+  app.get('/characters/:id/sheet', async (request, reply) => {
+    const paramsParsed = characterParamsSchema.safeParse(request.params)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    try {
+      return await characterService.getCharacterSheet(paramsParsed.data.id)
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      throw error
+    }
+  })
+
   // Создать персонажа
   app.post('/characters', async (request, reply) => {
     const bodyParsed = createCharacterSchema.safeParse(request.body)
@@ -108,6 +132,42 @@ export async function characterRoutes(app: FastifyInstance) {
     } catch (error) {
       if (error instanceof CharacterNotFoundError) {
         return reply.status(404).send({ message: error.message })
+      }
+
+      throw error
+    }
+  })
+
+    // Обновить базовые характеристики персонажа
+    // Обновить характеристики персонажа
+  app.patch('/characters/:id/stats', async (request, reply) => {
+    const paramsParsed = characterParamsSchema.safeParse(request.params)
+    const bodyParsed = updateCharacterStatsSchema.safeParse(request.body)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
+    try {
+      return await characterService.updateCharacterStats(
+        paramsParsed.data.id,
+        bodyParsed.data
+      )
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({
+          message: error.message,
+        })
       }
 
       throw error
@@ -219,7 +279,7 @@ export async function characterRoutes(app: FastifyInstance) {
   // Установить temporary HP персонажу
   app.post('/characters/:id/hp/temp', async (request, reply) => {
     const paramsParsed = characterParamsSchema.safeParse(request.params)
-    const bodyParsed = hpAmountSchema.safeParse(request.body)
+    const bodyParsed = setTemporaryHpSchema.safeParse(request.body)
 
     if (!paramsParsed.success) {
       return reply.status(400).send({

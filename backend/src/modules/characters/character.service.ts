@@ -6,6 +6,7 @@ import type {
   SpellSlotItemInput,
   UpdateAttackInput,
   UpdateCharacterInput,
+  UpdateCharacterStatsInput,
   UpdateItemInput,
   UpdateSpellInput,
 } from './character.schemas'
@@ -32,12 +33,10 @@ export const characterService = {
   // Characters
   // =========================================================
 
-  // Получить список всех персонажей
   async getCharacters() {
     return characterRepository.findAll()
   },
 
-  // Получить персонажа по ID
   async getCharacterById(id: string) {
     const character = await characterRepository.findById(id)
 
@@ -48,12 +47,21 @@ export const characterService = {
     return character
   },
 
-  // Создать нового персонажа
+  // 🔥 НОВОЕ — получить полный sheet
+  async getCharacterSheet(id: string) {
+    const character = await characterRepository.findByIdWithSheet(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    return character
+  },
+
   async createCharacter(data: CreateCharacterInput) {
     return characterRepository.create(data)
   },
 
-  // Обновить базовые данные персонажа
   async updateCharacter(id: string, data: UpdateCharacterInput) {
     const existingCharacter = await characterRepository.findById(id)
 
@@ -64,7 +72,22 @@ export const characterService = {
     return characterRepository.update(id, data)
   },
 
-  // Удалить персонажа
+    // Обновить базовые характеристики персонажа.
+  // Stats живут в отдельной таблице CharacterStats,
+  // поэтому не обновляются через PATCH /characters/:id.
+  async updateCharacterStats(id: string, data: UpdateCharacterStatsInput) {
+    const existingCharacter = await characterRepository.findById(id)
+
+    if (!existingCharacter) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    await characterRepository.updateStats(id, data)
+
+    // Возвращаем полный sheet, чтобы frontend сразу получил актуальные stats.
+    return characterRepository.findByIdWithSheet(id)
+  },
+
   async deleteCharacter(id: string) {
     const existingCharacter = await characterRepository.findById(id)
 
@@ -79,7 +102,6 @@ export const characterService = {
   // HP
   // =========================================================
 
-  // Нанести урон персонажу с учётом temporary HP
   async damageCharacter(id: string, amount: number) {
     const character = await characterRepository.findById(id)
 
@@ -95,14 +117,14 @@ export const characterService = {
     let tempHp = character.temporaryHp
     let currentHp = character.currentHp
 
-    // Сначала урон поглощается временными HP
+    // Сначала урон в temp HP
     if (tempHp > 0) {
       const absorbed = Math.min(tempHp, remainingDamage)
       tempHp -= absorbed
       remainingDamage -= absorbed
     }
 
-    // Оставшийся урон уменьшает текущие HP
+    // Потом основной HP
     currentHp = Math.max(0, currentHp - remainingDamage)
 
     return characterRepository.updateHpState(id, {
@@ -111,7 +133,6 @@ export const characterService = {
     })
   },
 
-  // Исцелить персонажа
   async healCharacter(id: string, amount: number) {
     const character = await characterRepository.findById(id)
 
@@ -123,13 +144,14 @@ export const characterService = {
       throw new ValidationError('Heal amount cannot be negative')
     }
 
+    // ❗ Пока нет maxHp → просто увеличиваем
+    // TODO: позже ограничить maxHp из calculation service
     return characterRepository.updateHpState(id, {
       currentHp: character.currentHp + amount,
       temporaryHp: character.temporaryHp,
     })
   },
 
-  // Установить значение temporary HP
   async setTempHp(id: string, amount: number) {
     const character = await characterRepository.findById(id)
 
@@ -151,7 +173,6 @@ export const characterService = {
   // Attacks
   // =========================================================
 
-  // Добавить атаку персонажу
   async addAttack(characterId: string, data: CreateAttackInput) {
     const character = await characterRepository.findById(characterId)
 
@@ -162,12 +183,7 @@ export const characterService = {
     return characterRepository.addAttack(characterId, data)
   },
 
-  // Обновить атаку персонажа
-  async updateAttack(
-    characterId: string,
-    attackId: string,
-    data: UpdateAttackInput,
-  ) {
+  async updateAttack(characterId: string, attackId: string, data: UpdateAttackInput) {
     const attack = await characterRepository.findAttackById(attackId)
 
     if (!attack) {
@@ -181,7 +197,6 @@ export const characterService = {
     return characterRepository.updateAttack(attackId, data)
   },
 
-  // Удалить атаку персонажа
   async deleteAttack(characterId: string, attackId: string) {
     const attack = await characterRepository.findAttackById(attackId)
 
@@ -200,7 +215,6 @@ export const characterService = {
   // Spells
   // =========================================================
 
-  // Добавить заклинание персонажу
   async addSpell(characterId: string, data: CreateSpellInput) {
     const character = await characterRepository.findById(characterId)
 
@@ -211,12 +225,7 @@ export const characterService = {
     return characterRepository.addSpell(characterId, data)
   },
 
-  // Обновить заклинание персонажа
-  async updateSpell(
-    characterId: string,
-    spellId: string,
-    data: UpdateSpellInput,
-  ) {
+  async updateSpell(characterId: string, spellId: string, data: UpdateSpellInput) {
     const spell = await characterRepository.findSpellById(spellId)
 
     if (!spell) {
@@ -230,7 +239,6 @@ export const characterService = {
     return characterRepository.updateSpell(spellId, data)
   },
 
-  // Удалить заклинание персонажа
   async deleteSpell(characterId: string, spellId: string) {
     const spell = await characterRepository.findSpellById(spellId)
 
@@ -249,19 +257,13 @@ export const characterService = {
   // Spell slots
   // =========================================================
 
-  // Обновить spell slots персонажа
-  async updateSpellSlots(
-    characterId: string,
-    spellSlots: SpellSlotItemInput[],
-  ) {
+  async updateSpellSlots(characterId: string, spellSlots: SpellSlotItemInput[]) {
     const character = await characterRepository.findById(characterId)
 
     if (!character) {
       throw new CharacterNotFoundError(characterId)
     }
 
-    // Базовая доменная проверка:
-    // использованных слотов не может быть больше, чем доступных
     for (const slot of spellSlots) {
       if (slot.used > slot.total) {
         throw new ValidationError(
@@ -270,19 +272,20 @@ export const characterService = {
       }
     }
 
-    return characterRepository.updateSpellSlots(characterId, spellSlots)
+    // ✅ исправлено под repository
+    return characterRepository.updateSpellSlots(characterId, {
+      spellSlots,
+    })
   },
 
   // =========================================================
   // Items / Inventory
   // =========================================================
 
-  // Получить список всех item templates
   async getItemTemplates() {
     return characterRepository.findAllItemTemplates()
   },
 
-  // Добавить предмет в инвентарь персонажа
   async addItem(characterId: string, data: CreateItemInput) {
     const character = await characterRepository.findById(characterId)
 
@@ -290,15 +293,12 @@ export const characterService = {
       throw new CharacterNotFoundError(characterId)
     }
 
-    // Количество предметов должно быть положительным
     if (data.quantity !== undefined && data.quantity < 1) {
       throw new InvalidItemQuantityError(data.quantity)
     }
 
     let resolvedNameSnapshot = data.nameSnapshot
 
-    // Если предмет создаётся из шаблона — проверяем существование шаблона
-    // и при необходимости берём имя из template
     if (data.itemTemplateId) {
       const template = await characterRepository.findItemTemplateById(
         data.itemTemplateId,
@@ -313,21 +313,16 @@ export const characterService = {
       }
     }
 
-    // Для кастомного предмета имя обязательно
     if (!resolvedNameSnapshot) {
       throw new ValidationError(
         'nameSnapshot is required when itemTemplateId is not provided',
       )
     }
 
-    // Если предмет сразу создаётся как экипированный,
-    // у него обязательно должен быть слот
     if (data.isEquipped && !data.slot) {
       throw new ItemSlotMissingError()
     }
 
-    // Если слот указан и предмет сразу экипирован,
-    // проверяем, не занят ли слот другим предметом
     if (data.isEquipped && data.slot) {
       const occupiedItem = await characterRepository.findEquippedItemBySlot(
         characterId,
@@ -345,7 +340,6 @@ export const characterService = {
     })
   },
 
-  // Обновить предмет персонажа
   async updateItem(characterId: string, itemId: string, data: UpdateItemInput) {
     const item = await characterRepository.findItemById(itemId)
 
@@ -357,38 +351,13 @@ export const characterService = {
       throw new ItemOwnershipError(characterId, itemId)
     }
 
-    // Проверка количества
     if (data.quantity !== undefined && data.quantity < 1) {
       throw new InvalidItemQuantityError(data.quantity)
-    }
-
-    // Определяем итоговое состояние предмета после обновления
-    const nextIsEquipped = data.isEquipped ?? item.isEquipped
-    const nextSlot =
-      data.slot !== undefined ? data.slot : (item.slot ?? undefined)
-
-    // Если предмет должен быть экипирован, слот обязателен
-    if (nextIsEquipped && !nextSlot) {
-      throw new ItemSlotMissingError(itemId)
-    }
-
-    // Если предмет должен быть экипирован и слот есть —
-    // проверяем, не занят ли он другим предметом
-    if (nextIsEquipped && nextSlot) {
-      const occupiedItem = await characterRepository.findEquippedItemBySlot(
-        characterId,
-        nextSlot,
-      )
-
-      if (occupiedItem && occupiedItem.id !== itemId) {
-        throw new ItemSlotAlreadyOccupiedError(nextSlot, characterId)
-      }
     }
 
     return characterRepository.updateItem(itemId, data)
   },
 
-  // Удалить предмет персонажа
   async deleteItem(characterId: string, itemId: string) {
     const item = await characterRepository.findItemById(itemId)
 
@@ -403,7 +372,6 @@ export const characterService = {
     await characterRepository.deleteItem(itemId)
   },
 
-  // Экипировать предмет
   async equipItem(characterId: string, itemId: string) {
     const item = await characterRepository.findItemById(itemId)
 
@@ -435,7 +403,6 @@ export const characterService = {
     return characterRepository.equipItem(itemId)
   },
 
-  // Снять предмет
   async unequipItem(characterId: string, itemId: string) {
     const item = await characterRepository.findItemById(itemId)
 
