@@ -2,12 +2,20 @@ import { useState } from 'react'
 import type { Character, Stats } from '../types/characters'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
-import { Textarea} from './ui/Textarea'
-
+import { Textarea } from './ui/Textarea'
 
 type Props = {
   character: Character
-  onUpdateCharacter: (updates: Partial<Character>) => void
+
+  // Обычное обновление профиля персонажа:
+  // имя, раса, класс, уровень, описание и т.д.
+  onUpdateCharacter: (updates: Partial<Character>) => void | Promise<void>
+
+  // Отдельное обновление базовых характеристик.
+  // Это должно уходить на PATCH /characters/:id/stats
+  onUpdateStats?: (stats: Stats) => void | Promise<void>
+
+  isLoading?: boolean
 }
 
 const statLabels: Record<keyof Stats, string> = {
@@ -19,71 +27,87 @@ const statLabels: Record<keyof Stats, string> = {
   charisma: 'Харизма',
 }
 
-export function ProfileSection({ character, onUpdateCharacter }: Props) {
+function clampLevel(value: number) {
+  if (Number.isNaN(value)) return 1
+
+  return Math.min(20, Math.max(1, value))
+}
+
+function clampAbilityScore(value: number) {
+  if (Number.isNaN(value)) return 1
+
+  return Math.min(30, Math.max(1, value))
+}
+
+function getCharacterStats(character: Character): Stats {
+  const characterWithMaybeStats = character as Character & {
+    stats?: Stats | null
+  }
+
+  const stats = character.baseStats ?? characterWithMaybeStats.stats
+
+  return {
+    strength: Number(stats?.strength ?? 10),
+    dexterity: Number(stats?.dexterity ?? 10),
+    constitution: Number(stats?.constitution ?? 10),
+    intelligence: Number(stats?.intelligence ?? 10),
+    wisdom: Number(stats?.wisdom ?? 10),
+    charisma: Number(stats?.charisma ?? 10),
+  }
+}
+
+function createFormFromCharacter(character: Character) {
+  return {
+    name: character.name ?? '',
+    race: character.race ?? '',
+    class: character.class ?? '',
+    level: character.level ?? 1,
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    description: character.description ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+    baseStats: getCharacterStats(character),
+  }
+}
+
+export function ProfileSection({
+  character,
+  onUpdateCharacter,
+  onUpdateStats,
+  isLoading = false,
+}: Props) {
   const [isEditing, setIsEditing] = useState(false)
 
-
-  const [form, setForm] = useState({
-  name: character.name ?? '',
-  race: character.race ?? '',
-  class: character.class ?? '',
-  level: character.level ?? 1,
-  alignment: character.alignment ?? '',
-  background: character.background ?? '',
-  description: character.description ?? '',
-  avatarUrl: character.avatarUrl ?? '',
-  baseStats: {
-    strength: Number(character.baseStats?.strength ?? 10),
-    dexterity: Number(character.baseStats?.dexterity ?? 10),
-    constitution: Number(character.baseStats?.constitution ?? 10),
-    intelligence: Number(character.baseStats?.intelligence ?? 10),
-    wisdom: Number(character.baseStats?.wisdom ?? 10),
-    charisma: Number(character.baseStats?.charisma ?? 10),
-  },
-})
-
-
+  const [form, setForm] = useState(() => createFormFromCharacter(character))
 
   const handleStartEdit = () => {
-    setForm({
-      name: character.name ?? '',
-      race: character.race ?? '',
-      class: character.class ?? '',
-      level: character.level ?? 1,
-      alignment: character.alignment ?? '',
-      background: character.background ?? '',
-      description: character.description ?? '',
-      avatarUrl: character.avatarUrl ?? '',
-      baseStats: {
-        strength: Number(character.baseStats?.strength ?? 10),
-        dexterity: Number(character.baseStats?.dexterity ?? 10),
-        constitution: Number(character.baseStats?.constitution ?? 10),
-        intelligence: Number(character.baseStats?.intelligence ?? 10),
-        wisdom: Number(character.baseStats?.wisdom ?? 10),
-        charisma: Number(character.baseStats?.charisma ?? 10),
-      },
-    })
-
+    setForm(createFormFromCharacter(character))
     setIsEditing(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const normalizedForm = {
-      ...form,
       name: (form.name ?? '').trim(),
       race: (form.race ?? '').trim(),
       class: (form.class ?? '').trim(),
+      level: clampLevel(Number(form.level)),
       alignment: (form.alignment ?? '').trim(),
       background: (form.background ?? '').trim(),
       description: (form.description ?? '').trim(),
       avatarUrl: (form.avatarUrl ?? '').trim(),
     }
 
-    onUpdateCharacter(normalizedForm)
+    await onUpdateCharacter(normalizedForm)
+
+    if (onUpdateStats) {
+      await onUpdateStats(form.baseStats)
+    }
+
     setIsEditing(false)
   }
 
   const handleCancel = () => {
+    setForm(createFormFromCharacter(character))
     setIsEditing(false)
   }
 
@@ -93,36 +117,32 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
         <div className="space-y-4">
           <Input
             value={form.name}
-            onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Имя персонажа"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Input
               value={form.race}
-              onChange={(e) =>
-                setForm({ ...form, race: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, race: e.target.value })}
               placeholder="Раса"
             />
 
             <Input
               value={form.class}
-              onChange={(e) =>
-                setForm({ ...form, class: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, class: e.target.value })}
               placeholder="Класс"
             />
 
             <Input
               type="number"
+              min={1}
+              max={20}
               value={form.level}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  level: Math.max(1, Number(e.target.value)),
+                  level: clampLevel(Number(e.target.value)),
                 })
               }
               placeholder="Уровень"
@@ -179,29 +199,42 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
 
                     <Input
                       type="number"
+                      min={1}
+                      max={30}
                       value={value}
                       onChange={(e) =>
                         setForm({
                           ...form,
                           baseStats: {
                             ...form.baseStats,
-                            [key]: Number(e.target.value),
+                            [key]: clampAbilityScore(
+                              Number(e.target.value),
+                            ),
                           },
                         })
                       }
                     />
                   </div>
-                )
+                ),
               )}
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button type="button" onClick={handleSave}>
+            <Button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={isLoading}
+            >
               Сохранить
             </Button>
 
-            <Button type="button" onClick={handleCancel} variant="secondary">
+            <Button
+              type="button"
+              onClick={handleCancel}
+              variant="secondary"
+              disabled={isLoading}
+            >
               Отмена
             </Button>
           </div>
@@ -252,8 +285,7 @@ export function ProfileSection({ character, onUpdateCharacter }: Props) {
             </div>
           )}
         </div>
-      )
-    }
-  </div>
+      )}
+    </div>
   )
 }

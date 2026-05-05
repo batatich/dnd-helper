@@ -26,14 +26,19 @@ const characterBaseInclude = {
 // Расширенный include для "собранного" персонажа.
 // Используется там, где нужен более полный character sheet.
 const characterSheetInclude = {
-  stats: true,
-  attacks: true,
-  spells: true,
-  items: {
-    include: {
-      itemTemplate: true,
+   stats: true,
+    attacks: true,
+    spells: true,
+    items: {
+      include: {
+        itemTemplate: true,
+      },
     },
-  },
+    hpIncreases: {
+      orderBy: {
+        level: 'asc',
+      },
+    },
 } as const
 
 // =========================================================
@@ -44,6 +49,32 @@ const characterSheetInclude = {
 type UpdateHpStateInput = {
   currentHp: number
   temporaryHp: number
+}
+type HpIncreaseMode = 'fixed' | 'roll'
+
+type CreateHpIncreaseInput = {
+  level: number
+  mode: HpIncreaseMode
+  value: number
+  dice: string
+  rolledValue?: number | null
+}
+
+type CharacterStatsInput = {
+  strength: number
+  dexterity: number
+  constitution: number
+  intelligence: number
+  wisdom: number
+  charisma: number
+}
+
+type UpdateLevelAndHpStateInput = {
+  level: number
+  currentHp: number
+  temporaryHp: number
+  hitDiceTotal: number
+  hitDiceDice: string
 }
 
 export const characterRepository = {
@@ -197,41 +228,49 @@ export const characterRepository = {
     })
   },
 
-  // Создать stats персонажа.
-  // Обычно при create(character) они уже создаются автоматически,
-  // но метод может пригодиться отдельно.
-  createStats(characterId: string, data: CreateCharacterStatsInput) {
+    // Обновить базовые характеристики персонажа.
+  // Используется для ручного ввода статов через форму.
+  updateStats(characterId: string, data: CharacterStatsInput) {
+    return prisma.characterStats.update({
+      where: {
+        characterId,
+      },
+      data: {
+        strength: data.strength,
+        dexterity: data.dexterity,
+        constitution: data.constitution,
+        intelligence: data.intelligence,
+        wisdom: data.wisdom,
+        charisma: data.charisma,
+      },
+    })
+  },
+
+  // Создать stats, если их почему-то ещё нет.
+  // Нужен как безопасный fallback, чтобы PATCH /characters/:id/stats
+  // не падал, если персонаж был создан до появления CharacterStats.
+  createStats(characterId: string, data: CharacterStatsInput) {
     return prisma.characterStats.create({
       data: {
         characterId,
-        ...data,
+        strength: data.strength,
+        dexterity: data.dexterity,
+        constitution: data.constitution,
+        intelligence: data.intelligence,
+        wisdom: data.wisdom,
+        charisma: data.charisma,
       },
     })
   },
 
-  // Обновить stats персонажа по characterId.
-  updateStats(characterId: string, data: UpdateCharacterStatsInput) {
-    return prisma.characterStats.update({
-      where: { characterId },
-      data: {
-        ...(data.strength !== undefined && { strength: data.strength }),
-        ...(data.dexterity !== undefined && { dexterity: data.dexterity }),
-        ...(data.constitution !== undefined && {
-          constitution: data.constitution,
-        }),
-        ...(data.intelligence !== undefined && {
-          intelligence: data.intelligence,
-        }),
-        ...(data.wisdom !== undefined && { wisdom: data.wisdom }),
-        ...(data.charisma !== undefined && { charisma: data.charisma }),
-      },
-    })
-  },
-
-  // Создать stats, если их нет, или обновить, если уже есть.
-  upsertStats(characterId: string, data: CreateCharacterStatsInput) {
+  // Обновить stats, а если записи нет — создать.
+  // Это самый удобный метод для service:
+  // service не обязан знать, существует ли CharacterStats.
+  upsertStats(characterId: string, data: CharacterStatsInput) {
     return prisma.characterStats.upsert({
-      where: { characterId },
+      where: {
+        characterId,
+      },
       update: {
         strength: data.strength,
         dexterity: data.dexterity,
@@ -268,6 +307,76 @@ export const characterRepository = {
       include: characterBaseInclude,
     })
   },
+
+    // Получить персонажа со всем, что нужно для расчёта HP.
+    // Используется для heal / level-up / пересчёта maxHp.
+    findByIdWithHpData(id: string) {
+      return prisma.character.findUnique({
+        where: { id },
+        include: {
+          stats: true,
+          hpIncreases: {
+            orderBy: {
+              level: 'asc',
+            },
+          },
+        },
+      })
+    },
+
+    // Найти HP-прибавку конкретного персонажа на конкретном уровне.
+    // Нужна защита от дублей при level-up.
+    findHpIncreaseByLevel(characterId: string, level: number) {
+      return prisma.characterHpIncrease.findFirst({
+        where: {
+          characterId,
+          level,
+        },
+      })
+    },
+
+    // Сохранить HP-прибавку за уровень.
+    // Например: level 2, fixed, value 5, dice 1d8.
+    createHpIncrease(characterId: string, data: CreateHpIncreaseInput) {
+      return prisma.characterHpIncrease.create({
+        data: {
+          characterId,
+          level: data.level,
+          mode: data.mode,
+          value: data.value,
+          dice: data.dice,
+          rolledValue: data.rolledValue ?? null,
+        },
+      })
+    },
+
+    // Обновить уровень и HP-состояние после level-up.
+    updateLevelAndHpState(id: string, data: UpdateLevelAndHpStateInput) {
+      return prisma.character.update({
+        where: { id },
+        data: {
+          level: data.level,
+          currentHp: data.currentHp,
+          temporaryHp: data.temporaryHp,
+          hitDiceTotal: data.hitDiceTotal,
+          hitDiceDice: data.hitDiceDice,
+        },
+        include: characterSheetInclude,
+      })
+    },
+
+    // Удаляет HP-прибавки выше указанного уровня.
+    // Нужно, когда пользователь вручную понижает level через форму.
+    deleteHpIncreasesAboveLevel(characterId: string, level: number) {
+      return prisma.characterHpIncrease.deleteMany({
+        where: {
+          characterId,
+          level: {
+            gt: level,
+          },
+        },
+      })
+    },
 
   // =========================================================
   // Attacks

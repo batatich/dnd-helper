@@ -1,6 +1,5 @@
 import type { Character, NewSpell, NewAttack, Stats } from '../types/characters'
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+import { httpClient } from './httpClient.ts'
 
 // =========================================================
 // Types
@@ -56,17 +55,6 @@ export type UpdateItemInput = {
   notes?: string
 }
 
-export type ItemTemplate = {
-  id: string
-  name: string
-  type?: string | null
-  slot?: string | null
-  description?: string | null
-  effects?: unknown
-  createdAt: string
-  updatedAt: string
-}
-
 type BackendCharacter = Character & {
   stats?: Stats | null
   items?: unknown[]
@@ -83,6 +71,18 @@ export type SpellSlotInput = {
   level: number
   total: number
   used: number
+}
+
+export type AbilityRollResult = {
+  dice: number[]
+  dropped: number
+  total: number
+}
+
+export type RollCharacterStatsResult = {
+  character: Character
+  stats: Stats
+  rolls: Record<keyof Stats, AbilityRollResult>
 }
 
 // =========================================================
@@ -114,10 +114,8 @@ function mapBackendCharacterToFrontend(data: BackendCharacter): Character {
   return {
     ...data,
 
-    // backend отдаёт stats, frontend ждёт baseStats
     baseStats: data.baseStats ?? data.stats,
 
-    // backend отдаёт items, frontend ждёт inventory
     inventory: (data.inventory ?? data.items ?? []) as Character['inventory'],
 
     deathSaves: data.deathSaves ?? {
@@ -158,37 +156,10 @@ function mapBackendCharacterToFrontend(data: BackendCharacter): Character {
   } as Character
 }
 
-// =========================================================
-// Request helper
-// =========================================================
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-    ...options,
-  })
-
-  if (!response.ok) {
-    let message = 'Request failed'
-
-    try {
-      const data = await response.json()
-      message = data.message ?? message
-    } catch {
-      // сервер не вернул JSON
-    }
-
-    throw new Error(message)
-  }
-
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json()
+function removeEmptyValues<T extends Record<string, unknown>>(data: T) {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined && value !== null)
+  )
 }
 
 // =========================================================
@@ -196,27 +167,27 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // =========================================================
 
 export async function getCharacters(): Promise<Character[]> {
-  const data = await request<BackendCharacter[]>('/characters')
+  const data = await httpClient.get<BackendCharacter[]>('/characters')
   return data.map(mapBackendCharacterToFrontend)
 }
 
 export async function getCharacterById(id: string): Promise<Character> {
-  const data = await request<BackendCharacter>(`/characters/${id}`)
+  const data = await httpClient.get<BackendCharacter>(`/characters/${id}`)
   return mapBackendCharacterToFrontend(data)
 }
 
 export async function getCharacterSheet(id: string): Promise<Character> {
-  const data = await request<BackendCharacter>(`/characters/${id}/sheet`)
+  const data = await httpClient.get<BackendCharacter>(`/characters/${id}/sheet`)
   return mapBackendCharacterToFrontend(data)
 }
 
 export async function createCharacter(
   data: CreateCharacterInput
 ): Promise<Character> {
-  const created = await request<BackendCharacter>('/characters', {
-    method: 'POST',
-    body: JSON.stringify(mapCharacterPayloadToBackend(data)),
-  })
+  const created = await httpClient.post<BackendCharacter>(
+    '/characters',
+    mapCharacterPayloadToBackend(data)
+  )
 
   return mapBackendCharacterToFrontend(created)
 }
@@ -225,32 +196,44 @@ export async function updateCharacter(
   id: string,
   data: UpdateCharacterInput
 ): Promise<Character> {
-  const updated = await request<BackendCharacter>(`/characters/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(mapCharacterPayloadToBackend(data)),
-  })
-
-  return mapBackendCharacterToFrontend(updated)
-}
-export async function updateCharacterStats(
-  characterId: string,
-  baseStats: Stats
-): Promise<Character> {
-  const updated = await request<BackendCharacter>(
-    `/characters/${characterId}/stats`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(baseStats),
-    }
+  const updated = await httpClient.patch<BackendCharacter>(
+    `/characters/${id}`,
+    mapCharacterPayloadToBackend(data)
   )
 
   return mapBackendCharacterToFrontend(updated)
 }
 
+export async function updateCharacterStats(
+  characterId: string,
+  baseStats: Stats
+): Promise<Character> {
+  const updated = await httpClient.patch<BackendCharacter>(
+    `/characters/${characterId}/stats`,
+    baseStats
+  )
+
+  return mapBackendCharacterToFrontend(updated)
+}
+
+export async function rollCharacterStats(
+  characterId: string
+): Promise<RollCharacterStatsResult> {
+  const result = await httpClient.post<{
+    character: BackendCharacter
+    stats: Stats
+    rolls: Record<keyof Stats, AbilityRollResult>
+  }>(`/characters/${characterId}/stats/roll`)
+
+  return {
+    character: mapBackendCharacterToFrontend(result.character),
+    stats: result.stats,
+    rolls: result.rolls,
+  }
+}
+
 export function deleteCharacter(id: string): Promise<void> {
-  return request<void>(`/characters/${id}`, {
-    method: 'DELETE',
-  })
+  return httpClient.delete<void>(`/characters/${id}`)
 }
 
 // =========================================================
@@ -261,10 +244,10 @@ export async function damageCharacter(
   id: string,
   amount: number
 ): Promise<Character> {
-  const updated = await request<BackendCharacter>(`/characters/${id}/hp/damage`, {
-    method: 'POST',
-    body: JSON.stringify({ amount }),
-  })
+  const updated = await httpClient.post<BackendCharacter>(
+    `/characters/${id}/hp/damage`,
+    { amount }
+  )
 
   return mapBackendCharacterToFrontend(updated)
 }
@@ -273,10 +256,10 @@ export async function healCharacter(
   id: string,
   amount: number
 ): Promise<Character> {
-  const updated = await request<BackendCharacter>(`/characters/${id}/hp/heal`, {
-    method: 'POST',
-    body: JSON.stringify({ amount }),
-  })
+  const updated = await httpClient.post<BackendCharacter>(
+    `/characters/${id}/hp/heal`,
+    { amount }
+  )
 
   return mapBackendCharacterToFrontend(updated)
 }
@@ -285,30 +268,36 @@ export async function setTemporaryHp(
   id: string,
   amount: number
 ): Promise<Character> {
-  const updated = await request<BackendCharacter>(`/characters/${id}/hp/temp`, {
-    method: 'POST',
-    body: JSON.stringify({ amount }),
-  })
+  const updated = await httpClient.post<BackendCharacter>(
+    `/characters/${id}/hp/temp`,
+    { amount }
+  )
 
   return mapBackendCharacterToFrontend(updated)
 }
 
-// =========================================================
-// Items / Inventory
-// =========================================================
-
-export function getItemTemplates(): Promise<ItemTemplate[]> {
-  return request<ItemTemplate[]>('/items')
+// Повышение уровня персонажа.
+// hpMode:
+// fixed — фиксированная прибавка HP
+// roll — сервер бросает кость хитов (1d8)
+export async function levelUpCharacter(
+  characterId: string,
+  hpMode: 'fixed' | 'roll',
+) {
+  return httpClient.post(`/characters/${characterId}/level-up`, {
+    hpMode,
+  })
 }
+
+// =========================================================
+// Inventory
+// =========================================================
 
 export function addItem(
   characterId: string,
   data: CreateItemInput
 ): Promise<unknown> {
-  return request(`/characters/${characterId}/items`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  return httpClient.post(`/characters/${characterId}/items`, data)
 }
 
 export function updateItem(
@@ -316,79 +305,72 @@ export function updateItem(
   itemId: string,
   data: UpdateItemInput
 ): Promise<unknown> {
-  return request(`/characters/${characterId}/items/${itemId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  })
+  return httpClient.patch(`/characters/${characterId}/items/${itemId}`, data)
 }
 
 export function deleteItem(
   characterId: string,
   itemId: string
 ): Promise<void> {
-  return request<void>(`/characters/${characterId}/items/${itemId}`, {
-    method: 'DELETE',
-  })
+  return httpClient.delete<void>(`/characters/${characterId}/items/${itemId}`)
 }
 
 export function equipItem(
   characterId: string,
   itemId: string
 ): Promise<unknown> {
-  return request(`/characters/${characterId}/items/${itemId}/equip`, {
-    method: 'POST',
-  })
+  return httpClient.post(`/characters/${characterId}/items/${itemId}/equip`)
 }
 
 export function unequipItem(
   characterId: string,
   itemId: string
 ): Promise<unknown> {
-  return request(`/characters/${characterId}/items/${itemId}/unequip`, {
-    method: 'POST',
-  })
+  return httpClient.post(`/characters/${characterId}/items/${itemId}/unequip`)
 }
 
 // =========================================================
 // Spells
 // =========================================================
 
-export async function addSpell(characterId: string, data: unknown) {
-  return request(`/characters/${characterId}/spells`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+export async function addSpell(
+  characterId: string,
+  data: NewSpell
+): Promise<Character> {
+  await httpClient.post(`/characters/${characterId}/spells`, data)
+  return getCharacterSheet(characterId)
 }
 
 export async function updateSpell(
   characterId: string,
   spellId: string,
-  data: unknown
-) {
-  return request(`/characters/${characterId}/spells/${spellId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  })
+  data: UpdateSpellInput
+): Promise<Character> {
+  await httpClient.patch(
+    `/characters/${characterId}/spells/${spellId}`,
+    removeEmptyValues(data)
+  )
+
+  return getCharacterSheet(characterId)
 }
 
 export async function deleteSpell(
   characterId: string,
   spellId: string
-) {
-  return request(`/characters/${characterId}/spells/${spellId}`, {
-    method: 'DELETE',
-    body: JSON.stringify({}),
-  })
+): Promise<Character> {
+  await httpClient.delete(`/characters/${characterId}/spells/${spellId}`)
+  return getCharacterSheet(characterId)
 }
 
 export async function updateSpellSlots(
   characterId: string,
-  spellSlots: unknown
-) {
-  return request(`/characters/${characterId}/spell-slots`, {
-    method: 'PATCH',
-    body: JSON.stringify({ spellSlots }),
+  spellSlots: SpellSlotInput[]
+): Promise<Character> {
+  await httpClient.patch(`/characters/${characterId}/spell-slots`, {
+    spellSlots,
   })
+
+  return getCharacterSheet(characterId)
 }
 
 export async function updateSpellcastingAbility(
@@ -408,14 +390,10 @@ export async function addAttack(
   characterId: string,
   data: NewAttack
 ): Promise<Character> {
-  const payload = Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined && value !== null)
+  await httpClient.post(
+    `/characters/${characterId}/attacks`,
+    removeEmptyValues(data)
   )
-
-  await request<void>(`/characters/${characterId}/attacks`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
 
   return getCharacterSheet(characterId)
 }
@@ -425,14 +403,10 @@ export async function updateAttack(
   attackId: string,
   data: Partial<NewAttack>
 ): Promise<Character> {
-  const payload = Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined && value !== null)
+  await httpClient.patch(
+    `/characters/${characterId}/attacks/${attackId}`,
+    removeEmptyValues(data)
   )
-
-  await request<void>(`/characters/${characterId}/attacks/${attackId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  })
 
   return getCharacterSheet(characterId)
 }
@@ -441,10 +415,6 @@ export async function deleteAttack(
   characterId: string,
   attackId: string
 ): Promise<Character> {
-  await request(`/characters/${characterId}/attacks/${attackId}`, {
-    method: 'DELETE',
-    body: JSON.stringify({}),
-  })
-
+  await httpClient.delete(`/characters/${characterId}/attacks/${attackId}`)
   return getCharacterSheet(characterId)
 }

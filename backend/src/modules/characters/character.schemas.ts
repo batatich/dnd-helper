@@ -36,7 +36,7 @@ export const createCharacterSchema = z.object({
   race: z.string().min(1, 'Race is required'),
   class: z.string().min(1, 'Class is required'),
 
-  level: z.number().int().min(1).default(1),
+  level: z.number().int().min(1).max(20).default(1),
 
   description: z.string().optional(),
   alignment: z.string().optional(),
@@ -72,33 +72,44 @@ export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>
 // Character stats
 // =========================================================
 
+// Базовое значение характеристики.
+// Сейчас разрешаем диапазон 1–30.
+//
+// Почему 1–30:
+// - 1 — минимальное значение, чтобы не было нулевых/отрицательных статов
+// - 30 — верхняя безопасная граница для D&D-подобной системы
+export const abilityScoreSchema = z.number().int().min(1).max(30)
+
 // Отдельная сущность CharacterStats живёт в Prisma отдельно,
 // поэтому и схема для неё отдельная.
+//
+// Эта схема используется, когда клиент отправляет полный набор статов вручную.
 export const characterStatsSchema = z.object({
-  strength: z.number().int().min(1),
-  dexterity: z.number().int().min(1),
-  constitution: z.number().int().min(1),
-  intelligence: z.number().int().min(1),
-  wisdom: z.number().int().min(1),
-  charisma: z.number().int().min(1),
+  strength: abilityScoreSchema,
+  dexterity: abilityScoreSchema,
+  constitution: abilityScoreSchema,
+  intelligence: abilityScoreSchema,
+  wisdom: abilityScoreSchema,
+  charisma: abilityScoreSchema,
 })
 
-// Создание/обновление stats
-// Так как stats у персонажа одни, для PATCH удобен partial.
+// Создание stats.
+// При создании/полной ручной установке лучше требовать все 6 характеристик.
 export const createCharacterStatsSchema = characterStatsSchema
-export const updateCharacterStatsSchema = z.object({
-  strength: z.number().int().min(1).max(30).optional(),
-  dexterity: z.number().int().min(1).max(30).optional(),
-  constitution: z.number().int().min(1).max(30).optional(),
-  intelligence: z.number().int().min(1).max(30).optional(),
-  wisdom: z.number().int().min(1).max(30).optional(),
-  charisma: z.number().int().min(1).max(30).optional(),
-})
 
+// Частичное обновление stats.
+// Это пригодится, если позже захочешь обновлять только один стат,
+// например только constitution или только strength.
+export const updateCharacterStatsSchema = characterStatsSchema.partial()
+
+// Типы для stats
 export type CharacterStatsInput = z.infer<typeof characterStatsSchema>
-export type CreateCharacterStatsInput = z.infer<typeof createCharacterStatsSchema>
-export type UpdateCharacterStatsInput = z.infer<typeof updateCharacterStatsSchema>
-
+export type CreateCharacterStatsInput = z.infer<
+  typeof createCharacterStatsSchema
+>
+export type UpdateCharacterStatsInput = z.infer<
+  typeof updateCharacterStatsSchema
+>
 // =========================================================
 // HP
 // =========================================================
@@ -113,9 +124,18 @@ export const setTemporaryHpSchema = z.object({
   amount: z.number().int().min(0),
 })
 
+// Схема для повышения уровня персонажа.
+// hpMode определяет, как считается прибавка HP:
+// fixed — фиксированное значение, сейчас +5 для 1d8
+// roll — сервер бросает кость хитов, сейчас 1d8
+export const levelUpSchema = z.object({
+  hpMode: z.enum(['fixed', 'roll']),
+})
+
 // Типы для HP
 export type HpAmountInput = z.infer<typeof hpAmountSchema>
 export type SetTemporaryHpInput = z.infer<typeof setTemporaryHpSchema>
+export type LevelUpInput = z.infer<typeof levelUpSchema>
 
 // =========================================================
 // Attacks

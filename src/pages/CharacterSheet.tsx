@@ -1,39 +1,20 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { getModifier } from '../utils/stats'
-import { calculateCharacter } from '../utils/calculateCharacter'
-import { useItemsStore } from '../stores/itemsStore'
-import type { Stats, NewAttack, Character } from '../types/characters'
-import { formatItemEffect } from '../utils/itemEffects'
-import type { EquipmentSlot } from '../types/items'
-import { Link } from 'react-router-dom'
-import { calculateSkillBonus } from '../utils/skills'
-import { standardSkills } from '../types/characters'
-import { calculateSavingThrowBonus } from '../utils/savingThrows'
-import { getProficiencyBonus } from '../utils/skills'
+import { Link, useParams } from 'react-router-dom'
+
 import { AttackSection } from '../components/AttackSection'
-import { SpellSection } from '../components/SpellSection'
-import type { NewSpell } from '../types/characters'
 import { ProfileSection } from '../components/ProfileSection'
-import {
-  getCharacterSheet,
-  updateCharacter,
-  updateCharacterStats,
-  damageCharacter,
-  healCharacter,
-  setTemporaryHp,
-  equipItem as equipInventoryItem,
-  unequipItem as unequipInventoryItem,
-  addSpell,
-  updateSpell,
-  deleteSpell,
-  updateSpellSlots,
-  updateSpellcastingAbility,
-  addAttack,
-  updateAttack,
-  deleteAttack,
-  type UpdateCharacterInput,
-} from '../api/characterApi'
+import { SpellSection } from '../components/SpellSection'
+
+import { useCharacterStore } from '../stores/characterStore'
+
+import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
+import type { EquipmentSlot, ItemEffect } from '../types/items'
+
+import { getModifier } from '../utils/stats'
+import { calculateSkillBonus, getProficiencyBonus } from '../utils/skills'
+import { calculateSavingThrowBonus } from '../utils/savingThrows'
+import { formatItemEffect } from '../utils/itemEffects'
+import { standardSkills } from '../types/characters'
 
 const defaultStats: Stats = {
   strength: 10,
@@ -44,8 +25,15 @@ const defaultStats: Stats = {
   charisma: 10,
 }
 
-type ServerCharacter = Partial<Character> & {
+type InventoryItemForUi = {
   id: string
+  itemId: string
+  name: string
+  type: string
+  effects: ItemEffect[]
+  allowedSlots: EquipmentSlot[]
+  isEquipped: boolean
+  equippedSlot: EquipmentSlot | null
 }
 
 type BackendInventoryItem = {
@@ -71,310 +59,230 @@ type BackendInventoryItem = {
   } | null
 }
 
-const normalizeCharacter = (data: ServerCharacter): Character => ({
-  id: data.id,
-  name: data.name ?? 'Без имени',
-  race: data.race ?? '',
-  class: (data as Partial<Character>).class ?? '',
-  level: data.level ?? 1,
-  description: data.description ?? '',
-  alignment: data.alignment ?? '',
-  background: data.background ?? '',
-  avatarUrl: data.avatarUrl ?? '',
-  baseStats: data.baseStats ?? defaultStats,
-  currentHp: data.currentHp ?? 0,
-  temporaryHp: data.temporaryHp ?? 0,
-  speed: data.speed ?? 30,
-  inspiration: data.inspiration ?? false,
-  inventory: data.inventory ?? [],
-  equippedItems: data.equippedItems ?? {
-    mainHand: null,
-    offHand: null,
-    head: null,
-    body: null,
-    ring1: null,
-    ring2: null,
-    amulet: null,
-    boots: null,
-  },
-  skills: data.skills ?? standardSkills,
-  savingThrowProficiencies: data.savingThrowProficiencies ?? [],
-  attacks: data.attacks ?? [],
-  spells: data.spells ?? [],
-  spellSlots: data.spellSlots ?? [],
-  spellcastingAbility: data.spellcastingAbility ?? 'intelligence',
-  deathSaves: data.deathSaves ?? { successes: 0, failures: 0 },
-  hitDice: data.hitDice ?? {
-    total: data.level ?? 1,
-    used: 0,
-    dice: `${data.level ?? 1}d8`,
-  },
-  derivedStats: data.derivedStats ?? {
-    armorClass: 10,
-    initiative: 0,
-    maxHp: data.currentHp ?? 0,
-  },
-  createdAt: data.createdAt ?? new Date().toISOString(),
-  updatedAt: data.updatedAt ?? new Date().toISOString(),
-})
+
+type ServerDerivedStatsForUi = {
+  armorClass?: number | null
+  initiative?: number | null
+  maxHp?: number | null
+}
+
+type CharacterSheetForUi = Character & {
+  stats?: Partial<Stats> | null
+  derived?: ServerDerivedStatsForUi | null
+  hitDice?: {
+    total?: number | null
+    used?: number | null
+    dice?: string | null
+  } | null
+}
 
 export function CharacterSheet() {
   const { id } = useParams()
-  const { items } = useItemsStore()
 
-  const [character, setCharacter] = useState<Character | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    currentSheet,
+    currentCharacter,
+    isLoading,
+    error,
+    fetchCharacterSheet,
+    updateCharacter,
+    updateCharacterStats,
+    damageCharacter,
+    healCharacter,
+    setTemporaryHp,
+    addAttack,
+    updateAttack,
+    deleteAttack,
+    addSpell,
+    updateSpell,
+    deleteSpell,
+    updateSpellSlots,
+    updateSpellcastingAbility,
+    equipItem,
+    unequipItem,
+    levelUpCharacter,
+  } = useCharacterStore()
 
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
 
   useEffect(() => {
-    const loadCharacter = async () => {
-      if (!id) {
-        setCharacter(null)
-        setIsLoading(false)
-        return
-      }
+    if (!id) return
 
-      try {
-        setIsLoading(true)
-        setError(null)
+    void fetchCharacterSheet(id)
+  }, [id, fetchCharacterSheet])
 
-        const data = (await getCharacterSheet(id)) as ServerCharacter
+  const character = currentSheet ?? currentCharacter
 
-        setCharacter(normalizeCharacter(data))
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Не удалось загрузить персонажа'
-        )
-        setCharacter(null)
-      } finally {
-        setIsLoading(false)
-      }
+  const handleUpdateProfile = async (updates: Partial<Character>) => {
+    if (!character) return
+
+    await updateCharacter(character.id, {
+      name: updates.name?.trim() || character.name,
+      race: updates.race?.trim() || character.race,
+      class: updates.class?.trim() || character.class,
+
+      // level отправляем только если он есть.
+      // Backend сам проверит 1–20 и обработает понижение.
+      level: updates.level,
+
+      description: updates.description ?? character.description,
+      alignment: updates.alignment ?? character.alignment,
+      background: updates.background ?? character.background,
+      avatarUrl: updates.avatarUrl ?? character.avatarUrl,
+
+      currentHp: updates.currentHp ?? character.currentHp,
+      temporaryHp: updates.temporaryHp ?? character.temporaryHp,
+      speed: updates.speed ?? character.speed,
+      inspiration: updates.inspiration ?? character.inspiration,
+      spellcastingAbility:
+        updates.spellcastingAbility ?? character.spellcastingAbility,
+    })
+  }
+
+  const handleUpdateStats = async (stats: Stats) => {
+    if (!character) return
+
+    await updateCharacterStats(character.id, stats)
+  }
+
+  const handleHpChange = async () => {
+    if (!character) return
+
+    const value = hpChangeInput.trim()
+
+    if (!value) return
+
+    const isHeal = value.startsWith('+')
+    const amount = Number(isHeal ? value.slice(1) : value)
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return
     }
 
-    void loadCharacter()
-  }, [id])
+    if (isHeal) {
+      await healCharacter(character.id, amount)
+    } else {
+      await damageCharacter(character.id, amount)
+    }
 
-  const refreshCharacterSheet = async (characterId: string) => {
-    const freshCharacter = await getCharacterSheet(characterId)
-    const normalizedCharacter = normalizeCharacter(freshCharacter as ServerCharacter)
-    setCharacter(normalizedCharacter)
-    return normalizedCharacter
+    setHpChangeInput('')
+  }
+
+  const handleSetTempHp = async () => {
+    if (!character) return
+
+    if (!Number.isFinite(tempHpInput) || tempHpInput < 0) {
+      return
+    }
+
+    await setTemporaryHp(character.id, tempHpInput)
+  }
+
+  const handleLevelUpFixed = async () => {
+    if (!character) return
+
+    await levelUpCharacter(character.id, 'fixed')
+  }
+
+  const handleLevelUpRoll = async () => {
+    if (!character) return
+
+    await levelUpCharacter(character.id, 'roll')
+  }
+
+  const handleAddAttack = async (attack: NewAttack) => {
+    if (!character) return
+
+    await addAttack(character.id, attack)
+  }
+
+  const handleUpdateAttack = async (
+    attackId: string,
+    attack: Partial<NewAttack>
+  ) => {
+    if (!character) return
+
+    await updateAttack(character.id, attackId, attack)
+  }
+
+  const handleDeleteAttack = async (attackId: string) => {
+    if (!character) return
+
+    await deleteAttack(character.id, attackId)
   }
 
   const handleAddSpell = async (spell: NewSpell) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-      await addSpell(character.id, spell)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось добавить заклинание')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleDeleteSpell = async (spellId: string) => {
-    if (!character) return
-
-    try {
-      setIsLoading(true)
-      setError(null)
-      await deleteSpell(character.id, spellId)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить заклинание')
-    } finally {
-      setIsLoading(false)
-    }
+    await addSpell(character.id, spell)
   }
 
   const handleUpdateSpell = async (spellId: string, spell: Partial<NewSpell>) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-      await updateSpell(character.id, spellId, spell)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить заклинание')
-    } finally {
-      setIsLoading(false)
-    }
+    await updateSpell(character.id, spellId, spell)
+  }
+
+  const handleDeleteSpell = async (spellId: string) => {
+    if (!character) return
+
+    await deleteSpell(character.id, spellId)
   }
 
   const handleSetSpellcastingAbility = async (ability: keyof Stats) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-      await updateSpellcastingAbility(character.id, ability)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить характеристику заклинаний')
-    } finally {
-      setIsLoading(false)
-    }
+    await updateSpellcastingAbility(character.id, ability)
   }
 
   const handleSetSpellSlotsTotal = async (level: number, total: number) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-      const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
-        slot.level === level
-          ? { ...slot, total, used: Math.min(Number(slot.used ?? 0), total) }
-          : slot
-      )
-      await updateSpellSlots(character.id, nextSpellSlots)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить spell slots')
-    } finally {
-      setIsLoading(false)
-    }
+    const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
+      slot.level === level
+        ? {
+            ...slot,
+            total,
+            used: Math.min(Number(slot.used ?? 0), total),
+          }
+        : slot
+    )
+
+    await updateSpellSlots(character.id, nextSpellSlots)
   }
 
   const handleChangeSpellSlot = async (level: number, delta: number) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-      const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
-        slot.level === level
-          ? {
-              ...slot,
-              used: Math.max(0, Math.min(Number(slot.total ?? 0), Number(slot.used ?? 0) + delta)),
-            }
-          : slot
-      )
-      await updateSpellSlots(character.id, nextSpellSlots)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить spell slot')
-    } finally {
-      setIsLoading(false)
-    }
+    const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
+      slot.level === level
+        ? {
+            ...slot,
+            used: Math.max(
+              0,
+              Math.min(Number(slot.total ?? 0), Number(slot.used ?? 0) + delta)
+            ),
+          }
+        : slot
+    )
+
+    await updateSpellSlots(character.id, nextSpellSlots)
   }
 
-  const handleUpdateProfile = async (updates: Partial<Character>) => {
+  const handleEquipItem = async (item: InventoryItemForUi) => {
     if (!character) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const payload: UpdateCharacterInput = {
-        name: updates.name,
-        race: updates.race,
-        class: updates.class,
-        level: updates.level,
-        description: updates.description,
-        alignment: updates.alignment,
-        background: updates.background,
-        avatarUrl: updates.avatarUrl,
-        currentHp: updates.currentHp,
-        temporaryHp: updates.temporaryHp,
-        speed: updates.speed,
-        inspiration: updates.inspiration,
-        spellcastingAbility: updates.spellcastingAbility,
-        deathSaves: updates.deathSaves,
-        hitDice: updates.hitDice,
-      }
-
-      await updateCharacter(character.id, payload)
-
-      if (updates.baseStats) {
-        await updateCharacterStats(character.id, updates.baseStats)
-      }
-
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить персонажа')
-    } finally {
-      setIsLoading(false)
-    }
+    await equipItem(character.id, item.itemId)
   }
 
-  const handleHpChange = async () => {
-    if (!character) {
-      return
-    }
+  const handleUnequipItem = async (itemId: string) => {
+    if (!character) return
 
-    const normalizedValue = hpChangeInput.trim()
-
-    if (!normalizedValue) {
-      return
-    }
-
-    const isHeal = normalizedValue.startsWith('+')
-    const numericPart = isHeal ? normalizedValue.slice(1) : normalizedValue
-    const amount = Number(numericPart)
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Введите корректное значение HP. Пример: +5 или 5')
-      return
-    }
-
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      if (isHeal) {
-        await healCharacter(character.id, amount)
-      } else {
-        await damageCharacter(character.id, amount)
-      }
-
-      await refreshCharacterSheet(character.id)
-      setHpChangeInput('')
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Не удалось изменить HP персонажа'
-      )
-    } finally {
-      setIsLoading(false)
-    }
+    await unequipItem(character.id, itemId)
   }
 
-  const handleSetTempHp = async () => {
-    if (!character) {
-      return
-    }
-
-    if (!Number.isFinite(tempHpInput) || tempHpInput < 0) {
-      setError('Введите корректное значение временных HP')
-      return
-    }
-
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      await setTemporaryHp(character.id, tempHpInput)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Не удалось обновить временные HP персонажа'
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (isLoading) {
+  if (isLoading && !character) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold text-white">Загрузка персонажа...</h1>
@@ -382,7 +290,7 @@ export function CharacterSheet() {
     )
   }
 
-  if (error) {
+  if (error && !character) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold text-white">Ошибка загрузки</h1>
@@ -400,6 +308,9 @@ export function CharacterSheet() {
     )
   }
 
+  const sheetCharacter = character as CharacterSheetForUi
+  const serverDerivedStats = sheetCharacter.derived ?? undefined
+
   const slotLabels: Record<string, string> = {
     mainHand: 'Основная рука',
     offHand: 'Вторая рука',
@@ -412,12 +323,44 @@ export function CharacterSheet() {
   }
 
   const safeBaseStats: Stats = {
-    strength: Number(character.baseStats?.strength ?? 10),
-    dexterity: Number(character.baseStats?.dexterity ?? 10),
-    constitution: Number(character.baseStats?.constitution ?? 10),
-    intelligence: Number(character.baseStats?.intelligence ?? 10),
-    wisdom: Number(character.baseStats?.wisdom ?? 10),
-    charisma: Number(character.baseStats?.charisma ?? 10),
+    strength: Number(
+      character.baseStats?.strength ?? sheetCharacter.stats?.strength ?? defaultStats.strength
+    ),
+    dexterity: Number(
+      character.baseStats?.dexterity ?? sheetCharacter.stats?.dexterity ?? defaultStats.dexterity
+    ),
+    constitution: Number(
+      character.baseStats?.constitution ??
+        sheetCharacter.stats?.constitution ??
+        defaultStats.constitution
+    ),
+    intelligence: Number(
+      character.baseStats?.intelligence ??
+        sheetCharacter.stats?.intelligence ??
+        defaultStats.intelligence
+    ),
+    wisdom: Number(
+      character.baseStats?.wisdom ?? sheetCharacter.stats?.wisdom ?? defaultStats.wisdom
+    ),
+    charisma: Number(
+      character.baseStats?.charisma ?? sheetCharacter.stats?.charisma ?? defaultStats.charisma
+    ),
+  }
+
+  const finalStats: Stats = safeBaseStats
+
+  const finalDerivedStats = {
+    armorClass: Number(
+      serverDerivedStats?.armorClass ?? character.derivedStats?.armorClass ?? 10
+    ),
+    initiative: Number(
+      serverDerivedStats?.initiative ??
+        character.derivedStats?.initiative ??
+        getModifier(finalStats.dexterity)
+    ),
+    maxHp: Number(
+      serverDerivedStats?.maxHp ?? character.derivedStats?.maxHp ?? character.currentHp ?? 0
+    ),
   }
 
   const safeCharacterForProfile: Character = {
@@ -433,17 +376,6 @@ export function CharacterSheet() {
     baseStats: safeBaseStats,
   }
 
-  const legacyInventoryIds = (character.inventory ?? []).filter(
-    (item): item is string => typeof item === 'string'
-  )
-
-  const legacyItems = items.filter((item) => legacyInventoryIds.includes(item.id))
-
-  const { finalStats, finalDerivedStats } = calculateCharacter(
-    safeCharacterForProfile,
-    legacyItems
-  )
-
   const rawInventory = (character.inventory ?? []) as unknown[]
 
   const backendInventoryItems = rawInventory.filter(
@@ -451,117 +383,63 @@ export function CharacterSheet() {
       typeof item === 'object' && item !== null && 'id' in item
   )
 
-  const inventoryItems =
-    backendInventoryItems.length > 0
-      ? backendInventoryItems.map((inventoryItem) => {
-          const template = inventoryItem.template ?? inventoryItem.itemTemplate
+  const inventoryItems: InventoryItemForUi[] = backendInventoryItems.map(
+    (inventoryItem) => {
+      const template = inventoryItem.template ?? inventoryItem.itemTemplate
 
-          let parsedNotes: { allowedSlots?: EquipmentSlot[]; type?: string } = {}
+      let parsedNotes: { allowedSlots?: EquipmentSlot[]; type?: string } = {}
 
-          try {
-            if (inventoryItem.notes) {
-              parsedNotes = JSON.parse(inventoryItem.notes)
-            }
-          } catch {
-            parsedNotes = {}
-          }
+      try {
+        if (inventoryItem.notes) {
+          parsedNotes = JSON.parse(inventoryItem.notes)
+        }
+      } catch {
+        parsedNotes = {}
+      }
 
-          return {
-            id: inventoryItem.id,
-            itemId: inventoryItem.id,
-            name: inventoryItem.nameSnapshot ?? template?.name ?? 'Предмет',
-            type: template?.type ?? parsedNotes.type ?? 'Предмет',
-            effects: Array.isArray(template?.effects) ? template.effects : [],
-            allowedSlots: template?.slot
-              ? [template.slot as EquipmentSlot]
-              : parsedNotes.allowedSlots ?? [],
-            isEquipped: inventoryItem.isEquipped ?? false,
-            equippedSlot: inventoryItem.slot as EquipmentSlot | null,
-          }
-        })
-      : items
-          .filter((item) => legacyInventoryIds.includes(item.id))
-          .map((item) => ({
-            ...item,
-            itemId: item.id,
-            isEquipped: Object.values(character.equippedItems).includes(item.id),
-            equippedSlot:
-              (Object.entries(character.equippedItems) as [
-                EquipmentSlot,
-                string | null,
-              ][]).find(([, equippedItemId]) => equippedItemId === item.id)?.[0] ??
-              null,
-          }))
+      return {
+        id: inventoryItem.id,
+        itemId: inventoryItem.id,
+        name: inventoryItem.nameSnapshot ?? template?.name ?? 'Предмет',
+        type: template?.type ?? parsedNotes.type ?? 'Предмет',
+        effects: Array.isArray(template?.effects) ? (template.effects as ItemEffect[]) : [],
+        allowedSlots: template?.slot
+          ? [template.slot as EquipmentSlot]
+          : parsedNotes.allowedSlots ?? [],
+        isEquipped: inventoryItem.isEquipped ?? false,
+        equippedSlot: inventoryItem.slot as EquipmentSlot | null,
+      }
+    }
+  )
 
   const equipmentSlots = Object.keys(slotLabels) as EquipmentSlot[]
 
   const equippedEntries = equipmentSlots.map((slot) => {
     const item =
-      backendInventoryItems.length > 0
-        ? inventoryItems.find(
-            (inventoryItem) =>
-              inventoryItem.isEquipped && inventoryItem.equippedSlot === slot
-          ) ?? null
-        : inventoryItems.find((i) => i.id === character.equippedItems[slot]) ?? null
+      inventoryItems.find(
+        (inventoryItem) =>
+          inventoryItem.isEquipped && inventoryItem.equippedSlot === slot
+      ) ?? null
 
     return { slot, item }
   })
 
-  const handleEquipItem = async (
-    item: (typeof inventoryItems)[number],
-    _slot: EquipmentSlot
-  ) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      await equipInventoryItem(character.id, item.itemId)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось надеть предмет')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleUnequipItem = async (itemId: string) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      await unequipInventoryItem(character.id, itemId)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось снять предмет')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const isItemEquipped = (itemId: string) => {
-    const backendItem = inventoryItems.find(
-      (item) => item.itemId === itemId || item.id === itemId
+    const item = inventoryItems.find(
+      (inventoryItem) =>
+        inventoryItem.itemId === itemId || inventoryItem.id === itemId
     )
 
-    if (backendItem) {
-      return backendItem.isEquipped
-    }
-
-    return Object.values(character.equippedItems).includes(itemId)
+    return item?.isEquipped ?? false
   }
 
   const getEquippedSlot = (itemId: string): EquipmentSlot | null => {
-    const backendItem = inventoryItems.find(
-      (item) => item.itemId === itemId || item.id === itemId
+    const item = inventoryItems.find(
+      (inventoryItem) =>
+        inventoryItem.itemId === itemId || inventoryItem.id === itemId
     )
 
-    if (backendItem?.equippedSlot) {
-      return backendItem.equippedSlot
-    }
-
-    const entry = (
-      Object.entries(character.equippedItems) as [EquipmentSlot, string | null][]
-    ).find(([, equippedItemId]) => equippedItemId === itemId)
-
-    return entry ? entry[0] : null
+    return item?.equippedSlot ?? null
   }
 
   const statLabels: Record<keyof Stats, string> = {
@@ -595,16 +473,19 @@ export function CharacterSheet() {
     ? 10 + calculateSkillBonus(perceptionSkill, finalStats, character.level)
     : 10
 
-  const currentHp = character.currentHp ?? finalDerivedStats.maxHp
-  const temporaryHp = character.temporaryHp ?? 0
+  const currentHp = Number(sheetCharacter.currentHp ?? character.currentHp ?? 0)
+  const temporaryHp = Number(
+    sheetCharacter.temporaryHp ?? character.temporaryHp ?? 0
+  )
   const deathSaves = character.deathSaves ?? { successes: 0, failures: 0 }
   const proficiencyBonus = getProficiencyBonus(character.level)
   const inspiration = character.inspiration ?? false
   const speed = character.speed ?? 30
+
   const hitDice = {
-    total: character.level,
-    used: character.hitDice?.used ?? 0,
-    dice: `${character.level}d8`,
+    total: Number(sheetCharacter.hitDice?.total ?? character.level),
+    used: Number(sheetCharacter.hitDice?.used ?? character.hitDice?.used ?? 0),
+    dice: sheetCharacter.hitDice?.dice ?? `${character.level}d8`,
   }
 
   const spells = character.spells ?? []
@@ -612,86 +493,77 @@ export function CharacterSheet() {
   const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
   const spellAttackBonus = spellcastingModifier + proficiencyBonus
   const spellSaveDc = 8 + spellcastingModifier + proficiencyBonus
-  const spellSlots = character.spellSlots
+  const spellSlots = character.spellSlots ?? []
 
   const renderDeathSaveDots = (
     type: 'successes' | 'failures',
     value: number
-  ) => {
-    return (
-      <div className="flex gap-2">
-        {[1, 2, 3].map((dot) => (
-          <button
-            key={dot}
-            type="button"
-            className={`w-4 h-4 rounded-full border transition ${
-              value >= dot
-                ? type === 'successes'
-                  ? 'bg-green-500 border-green-500'
-                  : 'bg-red-500 border-red-500'
-                : 'bg-transparent border-gray-400'
-            }`}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  const handleAddAttack = async (attack: NewAttack) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      await addAttack(character.id, attack)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось добавить атаку')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleDeleteAttack = async (attackId: string) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      await deleteAttack(character.id, attackId)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить атаку')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleUpdateAttack = async (
-    attackId: string,
-    attack: Partial<NewAttack>
-  ) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      await updateAttack(character.id, attackId, attack)
-      await refreshCharacterSheet(character.id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить атаку')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  ) => (
+    <div className="flex gap-2">
+      {[1, 2, 3].map((dot) => (
+        <span
+          key={dot}
+          className={`w-4 h-4 rounded-full border transition ${
+            value >= dot
+              ? type === 'successes'
+                ? 'bg-green-500 border-green-500'
+                : 'bg-red-500 border-red-500'
+              : 'bg-transparent border-gray-400'
+          }`}
+        />
+      ))}
+    </div>
+  )
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <ProfileSection
         character={safeCharacterForProfile}
         onUpdateCharacter={handleUpdateProfile}
+        onUpdateStats={handleUpdateStats}
+        isLoading={isLoading}
       />
+
+      <div className="bg-gray-800 rounded-lg p-4 mt-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-white text-lg font-bold">Повышение уровня</h2>
+
+            <p className="text-gray-400 text-sm mt-1">
+              Текущий уровень: {character.level}. Выберите способ увеличения HP.
+            </p>
+
+            <p className="text-gray-500 text-xs mt-1">
+              Фиксированное значение сейчас даёт +5 HP. Бросок кубика выполняется на сервере: 1d8.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={() => void handleLevelUpFixed()}
+              disabled={isLoading}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm text-white transition"
+            >
+              + уровень: фикс +5 HP
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleLevelUpRoll()}
+              disabled={isLoading}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm text-white transition"
+            >
+              + уровень: бросить 1d8
+            </button>
+          </div>
+        </div>
+      </div>      
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Бонус мастерства</div>
-          <div className="text-white text-xl font-bold">
-            +{proficiencyBonus}
-          </div>
+          <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
         </div>
 
         <div className="bg-gray-800 p-4 rounded text-center">
@@ -700,7 +572,7 @@ export function CharacterSheet() {
             {inspiration ? 'Есть' : 'Нет'}
           </div>
           <button
-            className="mt-3 bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm transition opacity-60 cursor-not-allowed"
+            className="mt-3 bg-yellow-600 px-3 py-1 rounded text-sm opacity-60 cursor-not-allowed"
             disabled
           >
             {inspiration ? 'Снять' : 'Выдать'}
@@ -709,16 +581,12 @@ export function CharacterSheet() {
 
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Скорость</div>
-          <div className="text-white text-xl font-bold">
-            {speed} фт.
-          </div>
+          <div className="text-white text-xl font-bold">{speed} фт.</div>
         </div>
 
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Кости хитов</div>
-          <div className="text-white text-xl font-bold">
-            {hitDice.dice}
-          </div>
+          <div className="text-white text-xl font-bold">{hitDice.dice}</div>
           <div className="text-gray-300 text-sm mt-1">
             Использовано: {hitDice.used} / {hitDice.total}
           </div>
@@ -790,11 +658,7 @@ export function CharacterSheet() {
               key={stat}
               className="bg-gray-800 rounded-lg p-4 flex justify-between items-center"
             >
-              <div>
-                <div className="text-white font-medium">
-                  {statLabels[stat]}
-                </div>
-              </div>
+              <div className="text-white font-medium">{statLabels[stat]}</div>
 
               <div className="text-right">
                 <div
@@ -834,7 +698,7 @@ export function CharacterSheet() {
 
               <div className="flex items-center gap-3">
                 <button
-                  className={`px-3 py-1 rounded text-sm transition opacity-60 cursor-not-allowed ${
+                  className={`px-3 py-1 rounded text-sm opacity-60 cursor-not-allowed ${
                     skill.proficient
                       ? 'bg-yellow-600 text-white'
                       : 'bg-gray-700 text-gray-200'
@@ -860,12 +724,8 @@ export function CharacterSheet() {
       </div>
 
       <div className="bg-gray-800 rounded-lg p-4 text-center mt-4">
-        <div className="text-gray-400 text-sm">
-          Пассивное восприятие
-        </div>
-        <div className="text-white text-xl font-bold">
-          {passivePerception}
-        </div>
+        <div className="text-gray-400 text-sm">Пассивное восприятие</div>
+        <div className="text-white text-xl font-bold">{passivePerception}</div>
       </div>
 
       <h2 className="text-white text-xl font-bold mt-8 mb-4">
@@ -910,6 +770,7 @@ export function CharacterSheet() {
               className="w-24 bg-gray-700 text-white rounded-lg p-2 text-center"
               min="0"
             />
+
             <button
               onClick={() => void handleSetTempHp()}
               className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg text-sm transition"
@@ -935,7 +796,7 @@ export function CharacterSheet() {
 
             <button
               type="button"
-              className="mt-2 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm transition opacity-60 cursor-not-allowed"
+              className="mt-2 bg-gray-700 px-3 py-1 rounded text-sm opacity-60 cursor-not-allowed"
               disabled
             >
               Сбросить
@@ -958,16 +819,14 @@ export function CharacterSheet() {
         </div>
       </div>
 
-      {character && (
-        <AttackSection
-          attacks={character.attacks}
-          proficiencyBonus={proficiencyBonus}
-          finalStats={finalStats}
-          onAddAttack={handleAddAttack}
-          onDeleteAttack={handleDeleteAttack}
-          onUpdateAttack={handleUpdateAttack}
-        />
-      )}
+      <AttackSection
+        attacks={character.attacks ?? []}
+        proficiencyBonus={proficiencyBonus}
+        finalStats={finalStats}
+        onAddAttack={handleAddAttack}
+        onDeleteAttack={handleDeleteAttack}
+        onUpdateAttack={handleUpdateAttack}
+      />
 
       <SpellSection
         spells={spells}
@@ -992,7 +851,9 @@ export function CharacterSheet() {
             className="bg-gray-800 rounded-lg p-4 flex justify-between items-center gap-4"
           >
             <div>
-              <div className="text-gray-400 text-sm">{slotLabels[slot] || slot}</div>
+              <div className="text-gray-400 text-sm">
+                {slotLabels[slot] || slot}
+              </div>
 
               <div className="text-white font-semibold">
                 {item ? item.name : 'Пусто'}
@@ -1012,7 +873,7 @@ export function CharacterSheet() {
             {item && (
               <button
                 onClick={() => void handleUnequipItem(item.itemId)}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition opacity-60 cursor-not-allowed"
+                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
               >
                 Снять
               </button>
@@ -1042,6 +903,7 @@ export function CharacterSheet() {
             <div key={item.id} className="bg-gray-800 rounded-lg p-4 min-w-0">
               <div className="text-white font-semibold flex items-center gap-2 flex-wrap">
                 {item.name}
+
                 {isItemEquipped(item.id) && getEquippedSlot(item.id) && (
                   <span className="text-green-400 text-xs">
                     ({slotLabels[getEquippedSlot(item.id)!]})
@@ -1063,7 +925,7 @@ export function CharacterSheet() {
                 {item.allowedSlots.map((slot) => (
                   <button
                     key={slot}
-                    onClick={() => void handleEquipItem(item, slot)}
+                    onClick={() => void handleEquipItem(item)}
                     className="px-3 py-1 rounded text-sm transition bg-purple-600 hover:bg-purple-700"
                   >
                     Надеть в {slotLabels[slot] || slot}

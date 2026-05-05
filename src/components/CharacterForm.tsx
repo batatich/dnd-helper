@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useCharacterStore } from '../stores/characterStore'
 import type { Character, Stats } from '../types/characters'
 import { calculateStartingDerivedStats } from '../utils/createCharacter'
@@ -20,6 +20,14 @@ type CharacterFormData = {
   avatarUrl: string
 }
 
+type AbilityRollResult = {
+  dice: number[]
+  dropped: number
+  total: number
+}
+
+type AbilityRolls = Record<keyof Stats, AbilityRollResult>
+
 const defaultBaseStats: Stats = {
   strength: 10,
   dexterity: 10,
@@ -29,15 +37,104 @@ const defaultBaseStats: Stats = {
   charisma: 10,
 }
 
+const statLabels: Record<keyof Stats, string> = {
+  strength: '💪 Сила',
+  dexterity: '🏃 Ловкость',
+  constitution: '🛡️ Телосложение',
+  intelligence: '📚 Интеллект',
+  wisdom: '🕯️ Мудрость',
+  charisma: '🗣️ Харизма',
+}
+
+const statKeys = Object.keys(defaultBaseStats) as (keyof Stats)[]
+
+function getCharacterStats(character?: Character | null): Stats {
+  const characterWithMaybeStats = character as Character & {
+    stats?: Stats | null
+  }
+
+  const stats = character?.baseStats ?? characterWithMaybeStats?.stats
+
+  return {
+    strength: Number(stats?.strength ?? 10),
+    dexterity: Number(stats?.dexterity ?? 10),
+    constitution: Number(stats?.constitution ?? 10),
+    intelligence: Number(stats?.intelligence ?? 10),
+    wisdom: Number(stats?.wisdom ?? 10),
+    charisma: Number(stats?.charisma ?? 10),
+  }
+}
+
+function clampLevel(value: number) {
+  if (Number.isNaN(value)) return 1
+
+  return Math.min(20, Math.max(1, value))
+}
+
+function clampAbilityScore(value: number) {
+  if (Number.isNaN(value)) return 1
+
+  return Math.min(30, Math.max(1, value))
+}
+
+function getModifier(stat: number) {
+  return Math.floor((stat - 10) / 2)
+}
+
+function formatModifier(modifier: number) {
+  return modifier >= 0 ? `+${modifier}` : String(modifier)
+}
+
+function rollD6() {
+  return Math.floor(Math.random() * 6) + 1
+}
+
+function rollAbilityScore(): AbilityRollResult {
+  const dice = [rollD6(), rollD6(), rollD6(), rollD6()]
+  const dropped = Math.min(...dice)
+  const total = dice.reduce((sum, value) => sum + value, 0) - dropped
+
+  return {
+    dice,
+    dropped,
+    total,
+  }
+}
+
+function rollAbilityScores() {
+  const stats = {} as Stats
+  const rolls = {} as AbilityRolls
+
+  for (const stat of statKeys) {
+    const result = rollAbilityScore()
+
+    stats[stat] = result.total
+    rolls[stat] = result
+  }
+
+  return {
+    stats,
+    rolls,
+  }
+}
+
 export function CharacterForm({ character, onClose }: CharacterFormProps) {
-  const { addCharacter, updateCharacter, isLoading } = useCharacterStore()
+  const {
+    addCharacter,
+    updateCharacter,
+    updateCharacterStats,
+    rollCharacterStats,
+    isLoading,
+  } = useCharacterStore()
+
+  const [rolls, setRolls] = useState<AbilityRolls | null>(null)
 
   const [formData, setFormData] = useState<CharacterFormData>({
     name: character?.name || '',
     level: character?.level || 1,
     class: character?.class || 'Воин',
     race: character?.race || 'Человек',
-    baseStats: character?.baseStats || defaultBaseStats,
+    baseStats: getCharacterStats(character),
     description: character?.description || '',
     alignment: character?.alignment || '',
     background: character?.background || '',
@@ -46,32 +143,45 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
 
   const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+
+    const normalizedData = {
+      name: formData.name.trim(),
+      level: clampLevel(formData.level),
+      class: formData.class,
+      race: formData.race,
+      baseStats: formData.baseStats,
+      description: formData.description.trim(),
+      alignment: formData.alignment.trim(),
+      background: formData.background.trim(),
+      avatarUrl: formData.avatarUrl.trim(),
+    }
 
     if (character) {
       await updateCharacter(character.id, {
-        name: formData.name,
-        level: formData.level,
-        class: formData.class,
-        race: formData.race,
-        //baseStats: formData.baseStats,
-        description: formData.description,
-        alignment: formData.alignment,
-        background: formData.background,
-        avatarUrl: formData.avatarUrl,
+        name: normalizedData.name,
+        level: normalizedData.level,
+        class: normalizedData.class,
+        race: normalizedData.race,
+        description: normalizedData.description,
+        alignment: normalizedData.alignment,
+        background: normalizedData.background,
+        avatarUrl: normalizedData.avatarUrl,
       })
+
+      await updateCharacterStats(character.id, normalizedData.baseStats)
     } else {
       await addCharacter({
-        name: formData.name,
-        level: formData.level,
-        class: formData.class,
-        race: formData.race,
-        baseStats: formData.baseStats,
-        description: formData.description,
-        alignment: formData.alignment,
-        background: formData.background,
-        avatarUrl: formData.avatarUrl,
+        name: normalizedData.name,
+        level: normalizedData.level,
+        class: normalizedData.class,
+        race: normalizedData.race,
+        baseStats: normalizedData.baseStats,
+        description: normalizedData.description,
+        alignment: normalizedData.alignment,
+        background: normalizedData.background,
+        avatarUrl: normalizedData.avatarUrl,
       } as Character)
     }
 
@@ -79,20 +189,50 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
   }
 
   const updateStat = (stat: keyof Stats, value: number) => {
+    setRolls(null)
+
     setFormData({
       ...formData,
       baseStats: {
         ...formData.baseStats,
-        [stat]: value,
+        [stat]: clampAbilityScore(value),
       },
     })
+  }
+
+  const handleRollStats = async () => {
+    if (character) {
+      const result = await rollCharacterStats(character.id)
+
+      if (!result) return
+
+      setFormData({
+        ...formData,
+        baseStats: result.stats,
+      })
+
+      setRolls(result.rolls)
+
+      return
+    }
+
+    const result = rollAbilityScores()
+
+    setFormData({
+      ...formData,
+      baseStats: result.stats,
+    })
+
+    setRolls(result.rolls)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-gray-400 text-sm mb-1">Имя персонажа</label>
+          <label className="block text-gray-400 text-sm mb-1">
+            Имя персонажа
+          </label>
           <input
             type="text"
             value={formData.name}
@@ -115,7 +255,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         </div>
 
         <div>
-          <label className="block text-gray-400 text-sm mb-1">Мировоззрение</label>
+          <label className="block text-gray-400 text-sm mb-1">
+            Мировоззрение
+          </label>
           <input
             type="text"
             value={formData.alignment}
@@ -128,7 +270,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         </div>
 
         <div>
-          <label className="block text-gray-400 text-sm mb-1">Предыстория</label>
+          <label className="block text-gray-400 text-sm mb-1">
+            Предыстория
+          </label>
           <input
             type="text"
             value={formData.background}
@@ -140,7 +284,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         </div>
 
         <div>
-          <label className="block text-gray-400 text-sm mb-1">Ссылка на портрет</label>
+          <label className="block text-gray-400 text-sm mb-1">
+            Ссылка на портрет
+          </label>
           <input
             type="text"
             value={formData.avatarUrl}
@@ -160,7 +306,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
             onChange={(e) =>
               setFormData({
                 ...formData,
-                level: Number(e.target.value),
+                level: clampLevel(Number(e.target.value)),
               })
             }
             className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
@@ -173,7 +319,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
           <label className="block text-gray-400 text-sm mb-1">Класс</label>
           <select
             value={formData.class}
-            onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, class: e.target.value })
+            }
             className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
           >
             <option>Воин</option>
@@ -203,35 +351,59 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
       </div>
 
       <div>
-        <h3 className="text-white font-semibold mb-3">Характеристики</h3>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 className="text-white font-semibold">Характеристики</h3>
+            <p className="text-gray-500 text-sm">
+              Можно ввести вручную или сгенерировать через 4d6 с отбрасыванием
+              меньшего кубика.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleRollStats()}
+            disabled={isLoading}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600 rounded-lg transition text-white"
+          >
+            🎲 Сгенерировать 4d6
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {(Object.entries(formData.baseStats) as [keyof Stats, number][]).map(
             ([key, value]) => {
-              const labels: Record<keyof Stats, string> = {
-                strength: '💪 Сила',
-                dexterity: '🏃 Ловкость',
-                constitution: '🛡️ Телосложение',
-                intelligence: '📚 Интеллект',
-                wisdom: '🕯️ Мудрость',
-                charisma: '🗣️ Харизма',
-              }
+              const modifier = getModifier(value)
+              const roll = rolls?.[key]
 
               return (
                 <div key={key} className="bg-gray-800 rounded-lg p-2">
                   <label className="text-gray-400 text-sm block mb-1">
-                    {labels[key]}
+                    {statLabels[key]}
                   </label>
+
                   <input
                     type="number"
                     value={value}
                     onChange={(e) => updateStat(key, Number(e.target.value))}
                     className="w-full bg-gray-700 text-white rounded p-1 text-center"
                     min="1"
-                    max="20"
+                    max="30"
                   />
+
+                  <div className="text-gray-500 text-xs mt-1 text-center">
+                    Мод: {formatModifier(modifier)}
+                  </div>
+
+                  {roll && (
+                    <div className="text-gray-500 text-xs mt-1 text-center">
+                      {roll.dice.join(', ')} | убрать {roll.dropped} | итог{' '}
+                      {roll.total}
+                    </div>
+                  )}
                 </div>
               )
-            }
+            },
           )}
         </div>
       </div>

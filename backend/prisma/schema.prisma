@@ -1,53 +1,82 @@
+// =========================
+// Prisma client генерация
+// =========================
 generator client {
   provider = "prisma-client-js"
 }
 
+// =========================
+// Подключение к базе данных
+// =========================
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// =========================
+// ОСНОВНАЯ СУЩНОСТЬ ПЕРСОНАЖА
+// =========================
 model Character {
-  id                   String   @id @default(uuid())
+  id                   String   @id @default(uuid()) // Уникальный ID персонажа
+
+  // --- БАЗОВАЯ ИНФОРМАЦИЯ ---
   name                 String
   race                 String
   class                String
   level                Int      @default(1)
+
   description          String?
   alignment            String?
   background           String?
   avatarUrl            String?
-  currentHp            Int      @default(0)
-  temporaryHp          Int      @default(0)
+
+  // --- HP ---
+  currentHp            Int      @default(0) // текущее здоровье
+  temporaryHp          Int      @default(0) // временные хп
+
+  // --- ОБЩИЕ ПОЛЯ ---
   speed                Int      @default(30)
   inspiration          Boolean  @default(false)
 
+  // --- МАГИЯ ---
   spellcastingAbility  String?
 
+  // --- DEATH SAVES ---
   deathSaveSuccesses   Int      @default(0)
   deathSaveFailures    Int      @default(0)
 
-  hitDiceTotal         Int?
-  hitDiceUsed          Int      @default(0)
-  hitDiceDice          String?
+  // --- HIT DICE ---
+  hitDiceTotal         Int?     // общее количество костей (обычно = level)
+  hitDiceUsed          Int      @default(0) // сколько уже потрачено
+  hitDiceDice          String?  // тип кости (например "1d8")
 
   /// Для первой версии удобно хранить spell slots как Json
   /// пример: [{ "level": 1, "total": 2, "used": 1 }]
   spellSlots           Json?
 
+  // --- СИСТЕМНЫЕ ПОЛЯ ---
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
+  // --- СВЯЗИ ---
   stats                CharacterStats?
   attacks              CharacterAttack[]
   spells               CharacterSpell[]
   items                CharacterItem[]
+
+  // 🔥 НОВОЕ: история прироста HP
+  hpIncreases          CharacterHpIncrease[]
 }
 
+
+// =========================
+// СТАТЫ ПЕРСОНАЖА
+// =========================
 model CharacterStats {
   id           String   @id @default(uuid())
   characterId  String   @unique
 
+  // Базовые характеристики
   strength     Int
   dexterity    Int
   constitution Int
@@ -55,9 +84,14 @@ model CharacterStats {
   wisdom       Int
   charisma     Int
 
+  // Связь с персонажем
   character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
 
+
+// =========================
+// АТАКИ ПЕРСОНАЖА
+// =========================
 model CharacterAttack {
   id          String   @id @default(uuid())
   characterId String
@@ -72,9 +106,10 @@ model CharacterAttack {
   damageType  String?
   notes       String?
 
-  /// manual | item
+  /// manual | item (откуда появилась атака)
   source      String?
-  /// если атака связана с предметом
+
+  /// если атака создана предметом
   itemId      String?
 
   createdAt   DateTime @default(now())
@@ -85,6 +120,10 @@ model CharacterAttack {
   @@index([characterId])
 }
 
+
+// =========================
+// ЗАКЛИНАНИЯ ПЕРСОНАЖА
+// =========================
 model CharacterSpell {
   id            String   @id @default(uuid())
   characterId   String
@@ -108,6 +147,10 @@ model CharacterSpell {
   @@index([characterId])
 }
 
+
+// =========================
+// ШАБЛОНЫ ПРЕДМЕТОВ (СПРАВОЧНИК)
+// =========================
 model ItemTemplate {
   id             String   @id @default(uuid())
   name           String
@@ -115,7 +158,7 @@ model ItemTemplate {
   slot           String?
   description    String?
 
-  /// Эффекты пока можно хранить как Json
+  /// Эффекты предмета (пока JSON)
   effects        Json?
 
   createdAt      DateTime @default(now())
@@ -124,13 +167,16 @@ model ItemTemplate {
   characterItems CharacterItem[]
 }
 
+
+// =========================
+// ПРЕДМЕТЫ У ПЕРСОНАЖА
+// =========================
 model CharacterItem {
   id             String   @id @default(uuid())
   characterId    String
   itemTemplateId String?
 
-  /// снапшот имени, чтобы предмет у персонажа не ломался,
-  /// если template потом изменится
+  /// снапшот имени (чтобы не ломался при изменении шаблона)
   nameSnapshot   String
 
   quantity       Int      @default(1)
@@ -146,4 +192,33 @@ model CharacterItem {
 
   @@index([characterId])
   @@index([itemTemplateId])
+}
+
+
+// =========================
+// 🔥 НОВАЯ ТАБЛИЦА: ИСТОРИЯ HP
+// =========================
+model CharacterHpIncrease {
+  id           String   @id @default(uuid())
+
+  characterId  String
+  level        Int      // уровень, на котором был прирост
+
+  /// fixed | roll
+  mode         String
+
+  /// фактическая прибавка HP (например 5 или 7)
+  value        Int
+
+  /// тип кости (например "1d8")
+  dice         String
+
+  /// если был бросок — сохраняем результат
+  rolledValue  Int?
+
+  createdAt    DateTime @default(now())
+
+  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
 }

@@ -2,12 +2,14 @@ import { FastifyInstance } from 'fastify'
 import {
   attackParamsSchema,
   characterParamsSchema,
+  characterStatsSchema,
   createAttackSchema,
   createCharacterSchema,
   createItemSchema,
   createSpellSchema,
   hpAmountSchema,
   itemParamsSchema,
+  levelUpSchema,
   setTemporaryHpSchema,
   spellParamsSchema,
   updateAttackSchema,
@@ -67,28 +69,6 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-  // Получить полный character sheet
-  app.get('/characters/:id/sheet', async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    try {
-      return await characterService.getCharacterSheet(paramsParsed.data.id)
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
-      }
-
-      throw error
-    }
-  })
-
   // Создать персонажа
   app.post('/characters', async (request, reply) => {
     const bodyParsed = createCharacterSchema.safeParse(request.body)
@@ -138,42 +118,6 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-    // Обновить базовые характеристики персонажа
-    // Обновить характеристики персонажа
-  app.patch('/characters/:id/stats', async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-    const bodyParsed = updateCharacterStatsSchema.safeParse(request.body)
-
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    if (!bodyParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: bodyParsed.error.flatten(),
-      })
-    }
-
-    try {
-      return await characterService.updateCharacterStats(
-        paramsParsed.data.id,
-        bodyParsed.data
-      )
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({
-          message: error.message,
-        })
-      }
-
-      throw error
-    }
-  })
-
   // Удалить персонажа
   app.delete('/characters/:id', async (request, reply) => {
     const paramsParsed = characterParamsSchema.safeParse(request.params)
@@ -199,8 +143,117 @@ export async function characterRoutes(app: FastifyInstance) {
   })
 
   // =========================================================
+  // STATS
+  // =========================================================
+
+  // Ручное обновление базовых характеристик персонажа.
+  // Фронт отправляет полный набор из 6 статов.
+  app.patch('/characters/:id/stats', async (request, reply) => {
+    const paramsParsed = characterParamsSchema.safeParse(request.params)
+    const bodyParsed = characterStatsSchema.safeParse(request.body)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
+    try {
+      return await characterService.updateCharacterStats(
+        paramsParsed.data.id,
+        bodyParsed.data,
+      )
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof ValidationError) {
+        return reply.status(400).send({ message: error.message })
+      }
+
+      throw error
+    }
+  })
+
+  // Генерация базовых характеристик через 4d6 drop lowest.
+  // Body не нужен: сервер сам кидает кубы для всех 6 статов.
+  app.post('/characters/:id/stats/roll', async (request, reply) => {
+    const paramsParsed = characterParamsSchema.safeParse(request.params)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    try {
+      return await characterService.rollCharacterStats(paramsParsed.data.id)
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof ValidationError) {
+        return reply.status(400).send({ message: error.message })
+      }
+
+      throw error
+    }
+  })
+
+  // =========================================================
   // HP
   // =========================================================
+
+  // Повысить уровень персонажа.
+  // hpMode:
+  // fixed — прибавить фиксированное значение HP, сейчас +5 для 1d8
+  // roll — сервер бросает кость хитов, сейчас 1d8
+  app.post('/characters/:id/level-up', async (request, reply) => {
+    const paramsParsed = characterParamsSchema.safeParse(request.params)
+    const bodyParsed = levelUpSchema.safeParse(request.body)
+
+    if (!paramsParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
+    try {
+      return await characterService.levelUpCharacter(
+        paramsParsed.data.id,
+        bodyParsed.data.hpMode,
+      )
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof ValidationError) {
+        return reply.status(400).send({ message: error.message })
+      }
+
+      throw error
+    }
+  })
 
   // Нанести урон персонажу
   app.post('/characters/:id/hp/damage', async (request, reply) => {
