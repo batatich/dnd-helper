@@ -8,16 +8,29 @@
  * - prisma
  * - http
  * - store
- * 
+ *
  * Только чистые функции.
  */
 
-type HpMode = 'fixed' | 'roll'
+export type HpMode = 'fixed' | 'roll'
 
-type HpRule = {
-  hitDie: number        // например 8 (d8)
-  levelOneBase: number  // максимум кости (например 8)
-  fixedPerLevel: number // среднее значение (например 5)
+export type HpRule = {
+  hitDie: number
+  levelOneBase: number
+  fixedPerLevel: number
+}
+
+type HpIncreaseLike = {
+  value: number
+}
+
+type CharacterForHpCalculation = {
+  level: number
+  hitDiceUsed?: number | null
+  stats?: {
+    constitution?: number | null
+  } | null
+  hpIncreases?: HpIncreaseLike[] | null
 }
 
 // =========================
@@ -34,10 +47,12 @@ const DEFAULT_HP_RULE: HpRule = {
 // ЗАГОТОВКА ПОД КЛАССЫ
 // =========================
 
-export function getHpRuleForCharacter(character: any): HpRule {
-  // 🔥 Пока хардкод
+export function getHpRuleForCharacter(
+  _character: CharacterForHpCalculation,
+): HpRule {
+  // Пока хардкод.
   // В будущем:
-  // switch (character.class) { ... }
+  // switch (character.className или character.class) { ... }
 
   return DEFAULT_HP_RULE
 }
@@ -71,8 +86,8 @@ export function getFixedHpIncrease(rule: HpRule): number {
 // =========================
 
 export function getHpIncrease(
-  character: any,
-  mode: HpMode
+  character: CharacterForHpCalculation,
+  mode: HpMode,
 ): { value: number; rolledValue?: number } {
   const rule = getHpRuleForCharacter(character)
 
@@ -94,21 +109,18 @@ export function getHpIncrease(
 // MAX HP CALCULATION
 // =========================
 
-export function calculateMaxHp(character: any): number {
+export function calculateMaxHp(character: CharacterForHpCalculation): number {
   const rule = getHpRuleForCharacter(character)
 
   const constitution = character.stats?.constitution ?? 10
   const conModifier = getConModifier(constitution)
 
-  // 1 уровень
   const baseHp = rule.levelOneBase + conModifier
 
-  // прибавки с уровней
   const increases =
-    character.hpIncreases?.reduce(
-      (sum: number, inc: any) => sum + inc.value,
-      0
-    ) ?? 0
+    character.hpIncreases?.reduce((sum, increase) => {
+      return sum + increase.value
+    }, 0) ?? 0
 
   return baseHp + increases
 }
@@ -117,7 +129,7 @@ export function calculateMaxHp(character: any): number {
 // HIT DICE CALCULATION
 // =========================
 
-export function calculateHitDice(character: any) {
+export function calculateHitDice(character: CharacterForHpCalculation) {
   const rule = getHpRuleForCharacter(character)
 
   return {

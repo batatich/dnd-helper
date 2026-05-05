@@ -4,6 +4,12 @@ import cors from '@fastify/cors'
 import { prisma } from './lib/prisma'
 
 import { characterRoutes } from './modules/characters/character.routes'
+import { characterHpRoutes } from './modules/character-hp/character-hp.routes'
+import { characterStatsRoutes } from './modules/character-stats/character-stats.routes'
+import { characterAttacksRoutes } from './modules/character-attacks/character-attacks.routes'
+import { characterSpellsRoutes } from './modules/character-spells/character-spells.routes'
+import { characterInventoryRoutes } from './modules/character-inventory/character-inventory.routes'
+
 import { characterRepository } from './modules/characters/character.repository'
 
 import { characterSheetRoutes } from './modules/character-sheet/character-sheet.routes'
@@ -103,6 +109,31 @@ const start = async () => {
     await app.register(characterSheetRoutes, {
       characterSheetService,
     })
+
+    // =========================================================
+    // Маршруты HP персонажа
+    // =========================================================
+    await app.register(characterHpRoutes)
+
+    // =========================================================
+    // Маршруты характеристик персонажа
+    // =========================================================
+    await app.register(characterStatsRoutes)
+
+    // =========================================================
+    // Маршруты атак персонажа
+    // =========================================================
+    await app.register(characterAttacksRoutes)
+
+    // =========================================================
+    // Маршруты заклинаний персонажа
+    // =========================================================
+    await app.register(characterSpellsRoutes)
+
+    // =========================================================
+    // Маршруты инвентаря персонажа
+    // =========================================================
+    await app.register(characterInventoryRoutes)
 
     // =========================================================
     // Основные маршруты персонажей

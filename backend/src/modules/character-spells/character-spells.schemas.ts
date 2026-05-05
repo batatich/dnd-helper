@@ -1,0 +1,47 @@
+import { z } from 'zod'
+
+// =========================================================
+// Character Spells
+// =========================================================
+
+export const spellParamsSchema = z.object({
+  id: z.string().uuid(),
+  spellId: z.string().uuid(),
+})
+
+export const createSpellSchema = z.object({
+  name: z.string().min(1),
+  level: z.number().int().min(0).max(9),
+
+  school: z.string().nullable().optional(),
+  castingTime: z.string().nullable().optional(),
+  range: z.string().nullable().optional(),
+  components: z.string().nullable().optional(),
+
+  duration: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+
+  concentration: z.boolean().default(false),
+  ritual: z.boolean().default(false),
+})
+
+export const updateSpellSchema = createSpellSchema.partial()
+
+// =========================================================
+// Spell slots
+// =========================================================
+
+export const spellSlotItemSchema = z.object({
+  level: z.number().int().min(1).max(9),
+  total: z.number().int().min(0),
+  used: z.number().int().min(0),
+})
+
+export const updateSpellSlotsSchema = z.object({
+  spellSlots: z.array(spellSlotItemSchema),
+})
+
+export type CreateSpellInput = z.infer<typeof createSpellSchema>
+export type UpdateSpellInput = z.infer<typeof updateSpellSchema>
+export type SpellSlotItemInput = z.infer<typeof spellSlotItemSchema>
+export type UpdateSpellSlotsInput = z.infer<typeof updateSpellSlotsSchema>

@@ -1,17 +1,27 @@
 import { prisma } from '../../lib/prisma'
 import type {
-  CreateAttackInput,
   CreateCharacterInput,
-  CreateItemInput,
-  CreateSpellInput,
-  UpdateAttackInput,
   UpdateCharacterInput,
-  UpdateItemInput,
+} from './character.schemas'
+
+import type { CharacterStatsInput } from '../character-stats/character-stats.schemas'
+
+import type {
+  CreateAttackInput,
+  UpdateAttackInput,
+} from '../character-attacks/character-attacks.schemas'
+
+import type {
+  CreateSpellInput,
+  SpellSlotItemInput,
   UpdateSpellInput,
   UpdateSpellSlotsInput,
-  CreateCharacterStatsInput,
-  UpdateCharacterStatsInput,
-} from './character.schemas'
+} from '../character-spells/character-spells.schemas'
+
+import type {
+  CreateItemInput,
+  UpdateItemInput,
+} from '../character-inventory/character-inventory.schemas'
 
 // =========================================================
 // Include-конфиги
@@ -58,15 +68,6 @@ type CreateHpIncreaseInput = {
   value: number
   dice: string
   rolledValue?: number | null
-}
-
-type CharacterStatsInput = {
-  strength: number
-  dexterity: number
-  constitution: number
-  intelligence: number
-  wisdom: number
-  charisma: number
 }
 
 type UpdateLevelAndHpStateInput = {
