@@ -4,6 +4,7 @@ import type {
 } from './character.schemas'
 import { ValidationError } from '../../shared/errors'
 import { characterRepository } from './character.repository'
+import { characterHpRepository } from '../character-hp/character-hp.repository'
 import {
   CharacterNotFoundError,
 } from './errors'
@@ -65,7 +66,7 @@ export const characterService = {
   },
 
     async updateCharacter(id: string, data: UpdateCharacterInput) {
-    const character = await characterRepository.findByIdWithHpData(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -90,7 +91,7 @@ export const characterService = {
     }
 
     // Если уровень понижается — удаляем будущие HP-прибавки.
-    await characterRepository.deleteHpIncreasesAboveLevel(id, data.level)
+    await characterHpRepository.deleteHpIncreasesAboveLevel(id, data.level)
 
     // Оставляем только HP-прибавки, которые подходят под новый уровень.
     const remainingHpIncreases = character.hpIncreases.filter(

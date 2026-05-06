@@ -1,5 +1,6 @@
 import { ValidationError } from '../../shared/errors'
 import { characterRepository } from '../characters/character.repository'
+import { characterInventoryRepository } from './character-inventory.repository'
 import {
   CharacterNotFoundError,
   InvalidItemQuantityError,
@@ -18,7 +19,7 @@ import type {
 
 export const characterInventoryService = {
   async getItemTemplates() {
-    return characterRepository.findAllItemTemplates()
+    return characterInventoryRepository.findAllItemTemplates()
   },
 
   async addItem(characterId: string, data: CreateItemInput) {
@@ -35,7 +36,7 @@ export const characterInventoryService = {
     let resolvedNameSnapshot = data.nameSnapshot
 
     if (data.itemTemplateId) {
-      const template = await characterRepository.findItemTemplateById(
+      const template = await characterInventoryRepository.findItemTemplateById(
         data.itemTemplateId,
       )
 
@@ -59,7 +60,7 @@ export const characterInventoryService = {
     }
 
     if (data.isEquipped && data.slot) {
-      const occupiedItem = await characterRepository.findEquippedItemBySlot(
+      const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
         characterId,
         data.slot,
       )
@@ -69,14 +70,14 @@ export const characterInventoryService = {
       }
     }
 
-    return characterRepository.addItem(characterId, {
+    return characterInventoryRepository.addItem(characterId, {
       ...data,
       nameSnapshot: resolvedNameSnapshot,
     })
   },
 
   async updateItem(characterId: string, itemId: string, data: UpdateItemInput) {
-    const item = await characterRepository.findItemById(itemId)
+    const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
       throw new ItemNotFoundError(itemId)
@@ -90,11 +91,11 @@ export const characterInventoryService = {
       throw new InvalidItemQuantityError(data.quantity)
     }
 
-    return characterRepository.updateItem(itemId, data)
+    return characterInventoryRepository.updateItem(itemId, data)
   },
 
   async deleteItem(characterId: string, itemId: string) {
-    const item = await characterRepository.findItemById(itemId)
+    const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
       throw new ItemNotFoundError(itemId)
@@ -104,11 +105,11 @@ export const characterInventoryService = {
       throw new ItemOwnershipError(characterId, itemId)
     }
 
-    await characterRepository.deleteItem(itemId)
+    await characterInventoryRepository.deleteItem(itemId)
   },
 
   async equipItem(characterId: string, itemId: string) {
-    const item = await characterRepository.findItemById(itemId)
+    const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
       throw new ItemNotFoundError(itemId)
@@ -126,7 +127,7 @@ export const characterInventoryService = {
       throw new ItemSlotMissingError(itemId)
     }
 
-    const occupiedItem = await characterRepository.findEquippedItemBySlot(
+    const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
       characterId,
       item.slot,
     )
@@ -135,11 +136,11 @@ export const characterInventoryService = {
       throw new ItemSlotAlreadyOccupiedError(item.slot, characterId)
     }
 
-    return characterRepository.equipItem(itemId)
+    return characterInventoryRepository.equipItem(itemId)
   },
 
   async unequipItem(characterId: string, itemId: string) {
-    const item = await characterRepository.findItemById(itemId)
+    const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
       throw new ItemNotFoundError(itemId)
@@ -153,6 +154,6 @@ export const characterInventoryService = {
       throw new ItemNotEquippedError(itemId)
     }
 
-    return characterRepository.unequipItem(itemId)
+    return characterInventoryRepository.unequipItem(itemId)
   },
 }

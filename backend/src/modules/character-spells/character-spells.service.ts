@@ -1,4 +1,5 @@
 import { ValidationError } from '../../shared/errors'
+import { characterSpellsRepository } from './character-spells.repository'
 import { characterRepository } from '../characters/character.repository'
 import {
   CharacterNotFoundError,
@@ -24,7 +25,7 @@ export const characterSpellsService = {
       throw new CharacterNotFoundError(characterId)
     }
 
-    return characterRepository.addSpell(characterId, data)
+    return characterSpellsRepository.addSpell(characterId, data)
   },
 
   // Обновить заклинание персонажа
@@ -33,7 +34,7 @@ export const characterSpellsService = {
     spellId: string,
     data: UpdateSpellInput,
   ) {
-    const spell = await characterRepository.findSpellById(spellId)
+    const spell = await characterSpellsRepository.findSpellById(spellId)
 
     if (!spell) {
       throw new SpellNotFoundError(spellId)
@@ -43,12 +44,12 @@ export const characterSpellsService = {
       throw new SpellOwnershipError(characterId, spellId)
     }
 
-    return characterRepository.updateSpell(spellId, data)
+    return characterSpellsRepository.updateSpell(spellId, data)
   },
 
   // Удалить заклинание персонажа
   async deleteSpell(characterId: string, spellId: string) {
-    const spell = await characterRepository.findSpellById(spellId)
+    const spell = await characterSpellsRepository.findSpellById(spellId)
 
     if (!spell) {
       throw new SpellNotFoundError(spellId)
@@ -58,7 +59,7 @@ export const characterSpellsService = {
       throw new SpellOwnershipError(characterId, spellId)
     }
 
-    await characterRepository.deleteSpell(spellId)
+    await characterSpellsRepository.deleteSpell(spellId)
   },
 
   // =========================================================
@@ -84,7 +85,7 @@ export const characterSpellsService = {
       }
     }
 
-    return characterRepository.updateSpellSlots(characterId, {
+    return characterSpellsRepository.updateSpellSlots(characterId, {
       spellSlots,
     })
   },

@@ -11,6 +11,10 @@ import { characterSpellsRoutes } from './modules/character-spells/character-spel
 import { characterInventoryRoutes } from './modules/character-inventory/character-inventory.routes'
 
 import { characterRepository } from './modules/characters/character.repository'
+import { characterAttacksRepository } from './modules/character-attacks/character-attacks.repository'
+import { characterSpellsRepository } from './modules/character-spells/character-spells.repository'
+import { characterStatsRepository as characterStatsDbRepository } from './modules/character-stats/character-stats.repository'
+import { characterInventoryRepository as characterInventoryDbRepository } from './modules/character-inventory/character-inventory.repository'
 
 import { characterSheetRoutes } from './modules/character-sheet/character-sheet.routes'
 import { CharacterSheetService } from './modules/character-sheet/character-sheet.service'
@@ -33,22 +37,22 @@ const characterForSheetRepository = {
 
 const characterStatsRepository = {
   findByCharacterId: (characterId: string) =>
-    characterRepository.findStatsByCharacterId(characterId),
+    characterStatsDbRepository.findStatsByCharacterId(characterId),
 }
 
 const characterAttackRepository = {
   findByCharacterId: (characterId: string) =>
-    characterRepository.findAttacksByCharacterId(characterId),
+    characterAttacksRepository.findAttacksByCharacterId(characterId),
 }
 
 const characterSpellRepository = {
   findByCharacterId: (characterId: string) =>
-    characterRepository.findSpellsByCharacterId(characterId),
+    characterSpellsRepository.findSpellsByCharacterId(characterId),
 }
 
 const characterItemRepository = {
   findByCharacterId: (characterId: string) =>
-    characterRepository.findItemsByCharacterId(characterId),
+    characterInventoryDbRepository.findItemsByCharacterId(characterId),
 }
 
 // =========================================================

@@ -1,4 +1,5 @@
 import { ValidationError } from '../../shared/errors'
+import { characterHpRepository } from './character-hp.repository'
 import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 
@@ -23,7 +24,7 @@ export const characterHpService = {
   // - сервер сохраняет историю HP-прибавки
   // - после level up currentHp становится равен новому maxHp
   async levelUpCharacter(id: string, hpMode: 'fixed' | 'roll') {
-    const character = await characterRepository.findByIdWithHpData(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -35,7 +36,7 @@ export const characterHpService = {
 
     const nextLevel = character.level + 1
 
-    const existingHpIncrease = await characterRepository.findHpIncreaseByLevel(
+    const existingHpIncrease = await characterHpRepository.findHpIncreaseByLevel(
       id,
       nextLevel,
     )
@@ -53,7 +54,7 @@ export const characterHpService = {
       level: nextLevel,
     })
 
-    await characterRepository.createHpIncrease(id, {
+    await characterHpRepository.createHpIncrease(id, {
       level: nextLevel,
       mode: hpMode,
       value: hpIncrease.value,
@@ -62,7 +63,7 @@ export const characterHpService = {
     })
 
     const updatedCharacterForCalculation =
-      await characterRepository.findByIdWithHpData(id)
+      await characterHpRepository.findByIdWithHpData(id)
 
     if (!updatedCharacterForCalculation) {
       throw new CharacterNotFoundError(id)
@@ -73,7 +74,7 @@ export const characterHpService = {
       level: nextLevel,
     })
 
-    return characterRepository.updateLevelAndHpState(id, {
+    return characterHpRepository.updateLevelAndHpState(id, {
       level: nextLevel,
       currentHp: maxHp,
       temporaryHp: character.temporaryHp,
@@ -89,7 +90,7 @@ export const characterHpService = {
   // 2. Остаток урона снимается с current HP.
   // 3. currentHp не может стать ниже 0.
   async damageCharacter(id: string, amount: number) {
-    const character = await characterRepository.findById(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -111,7 +112,7 @@ export const characterHpService = {
 
     currentHp = Math.max(0, currentHp - remainingDamage)
 
-    return characterRepository.updateHpState(id, {
+    return characterHpRepository.updateHpState(id, {
       currentHp,
       temporaryHp: tempHp,
     })
@@ -124,7 +125,7 @@ export const characterHpService = {
   // - currentHp не может стать выше maxHp
   // - maxHp считается на сервере
   async healCharacter(id: string, amount: number) {
-    const character = await characterRepository.findByIdWithHpData(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -136,7 +137,7 @@ export const characterHpService = {
 
     const maxHp = calculateMaxHp(character)
 
-    return characterRepository.updateHpState(id, {
+    return characterHpRepository.updateHpState(id, {
       currentHp: Math.min(character.currentHp + amount, maxHp),
       temporaryHp: character.temporaryHp,
     })
@@ -158,7 +159,7 @@ export const characterHpService = {
       throw new ValidationError('Temporary HP cannot be negative')
     }
 
-    return characterRepository.updateHpState(id, {
+    return characterHpRepository.updateHpState(id, {
       currentHp: character.currentHp,
       temporaryHp: amount,
     })

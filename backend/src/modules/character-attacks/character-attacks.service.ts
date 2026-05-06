@@ -1,3 +1,4 @@
+import { characterAttacksRepository } from './character-attacks.repository'
 import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 import type {
@@ -14,7 +15,7 @@ export const characterAttacksService = {
       throw new CharacterNotFoundError(characterId)
     }
 
-    return characterRepository.addAttack(characterId, data)
+    return characterAttacksRepository.addAttack(characterId, data)
   },
 
   // Обновить атаку персонажа
@@ -29,7 +30,7 @@ export const characterAttacksService = {
       throw new CharacterNotFoundError(characterId)
     }
 
-    characterRepository.updateAttack(attackId, data)
+    return characterAttacksRepository.updateAttack(attackId, data)
   },
 
   // Удалить атаку персонажа
@@ -40,6 +41,6 @@ export const characterAttacksService = {
       throw new CharacterNotFoundError(characterId)
     }
 
-    return characterRepository.deleteAttack(attackId)
+    return characterAttacksRepository.deleteAttack(attackId)
   },
 }

@@ -5,6 +5,8 @@ import {
   type AbilityScores,
 } from '../calculation/stats.rules'
 import { characterRepository } from '../characters/character.repository'
+import { characterHpRepository } from '../character-hp/character-hp.repository'
+import { characterStatsRepository } from './character-stats.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 
 export const characterStatsService = {
@@ -19,13 +21,13 @@ export const characterStatsService = {
   // 4. Если currentHp стал выше нового maxHp — обрезаем currentHp.
   // 5. Возвращаем обновлённого персонажа вместе с данными листа.
   async updateCharacterStats(id: string, stats: AbilityScores) {
-    const character = await characterRepository.findByIdWithHpData(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
     }
 
-    const updatedStats = await characterRepository.upsertStats(id, stats)
+    const updatedStats = await characterStatsRepository.upsertStats(id, stats)
 
     const maxHp = calculateMaxHp({
       ...character,
@@ -34,7 +36,7 @@ export const characterStatsService = {
     })
 
     if (character.currentHp > maxHp) {
-      await characterRepository.updateHpState(id, {
+      await characterHpRepository.updateHpState(id, {
         currentHp: maxHp,
         temporaryHp: character.temporaryHp,
       })
@@ -54,7 +56,7 @@ export const characterStatsService = {
   // фронт НЕ кидает кубы сам.
   // Фронт только вызывает endpoint, а сервер возвращает результат.
   async rollCharacterStats(id: string) {
-    const character = await characterRepository.findByIdWithHpData(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -62,7 +64,7 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const updatedStats = await characterRepository.upsertStats(
+    const updatedStats = await characterStatsRepository.upsertStats(
       id,
       result.stats,
     )
@@ -74,7 +76,7 @@ export const characterStatsService = {
     })
 
     if (character.currentHp > maxHp) {
-      await characterRepository.updateHpState(id, {
+      await characterHpRepository.updateHpState(id, {
         currentHp: maxHp,
         temporaryHp: character.temporaryHp,
       })
