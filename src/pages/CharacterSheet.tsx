@@ -4,7 +4,9 @@ import { Link, useParams } from 'react-router-dom'
 import { AttackSection } from '../components/AttackSection'
 import { ProfileSection } from '../components/ProfileSection'
 import { SpellSection } from '../components/SpellSection'
+
 import { CharacterHeader } from '../components/character_sheet/CharacterHeader'
+import { CharacterSummaryBar } from '../components/character_sheet/CharacterSummaryBar'
 
 import { useCharacterStore } from '../stores/characterStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
@@ -574,12 +576,21 @@ export function CharacterSheet() {
       <CharacterHeader
         character={character}
       />
-      
+
       <ProfileSection
         character={profileCharacter}
         onUpdateCharacter={handleUpdateProfile}
         onUpdateStats={handleUpdateStats}
         isLoading={isLoading}
+      />
+
+      <CharacterSummaryBar
+        armorClass={sheet.derived.armorClass}
+        initiative={sheet.derived.initiative}
+        speed={speed}
+        proficiencyBonus={sheet.derived.proficiencyBonus}
+        inspiration={inspiration}
+        onToggleInspiration={() => handleSetInspiration(!inspiration)}
       />
 
       <div className="bg-gray-800 rounded-lg p-4 mt-6">
@@ -619,30 +630,6 @@ export function CharacterSheet() {
       </div>      
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-        <div className="bg-gray-800 p-4 rounded text-center">
-          <div className="text-gray-400 text-sm">Бонус мастерства</div>
-          <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
-        </div>
-
-        <div className="bg-gray-800 p-4 rounded text-center">
-          <div className="text-gray-400 text-sm">Вдохновение</div>
-          <div className="text-white text-xl font-bold">
-            {inspiration ? 'Есть' : 'Нет'}
-          </div>
-          <button
-            type="button"
-            onClick={() => void handleSetInspiration(!inspiration)}
-            disabled={isLoading}
-            className="mt-3 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
-          >
-            {inspiration ? 'Снять' : 'Выдать'}
-          </button>
-        </div>
-
-        <div className="bg-gray-800 p-4 rounded text-center">
-          <div className="text-gray-400 text-sm">Скорость</div>
-          <div className="text-white text-xl font-bold">{speed} фт.</div>
-        </div>
 
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Кости хитов</div>
