@@ -106,13 +106,20 @@ export const characterService = {
       hpIncreases: remainingHpIncreases,
     })
 
-    // После понижения currentHp не может быть выше нового maxHp.
+    // После понижения уровня нужно обновить не только профиль,
+    // но и HP-состояние персонажа.
+    // Обычный characterRepository.update больше не принимает currentHp / hitDice.
+    await characterHpRepository.updateLevelAndHpState(id, {
+      level: data.level,
+      currentHp: Math.min(character.currentHp, maxHp),
+      temporaryHp: character.temporaryHp,
+      hitDiceTotal: data.level,
+      hitDiceDice: '1d8',
+    })
+
     return characterRepository.update(id, {
       ...data,
       level: data.level,
-      currentHp: Math.min(data.currentHp ?? character.currentHp, maxHp),
-      hitDiceTotal: data.level,
-      hitDiceDice: '1d8',
     })
   },
 

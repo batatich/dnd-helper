@@ -101,14 +101,17 @@ export const characterRepository = {
       data: {
         name: data.name,
         race: data.race,
-        class: data.class,
+        className: data.className,
         level: data.level ?? 1,
         description: data.description ?? null,
         alignment: data.alignment ?? null,
         background: data.background ?? null,
 
         // Пустую строку превращаем в null, чтобы не хранить мусор.
-        avatarUrl: data.avatarUrl?.trim() ? data.avatarUrl : null,
+        avatarUrl:
+          typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
+            ? data.avatarUrl
+            : null,
 
         currentHp: data.currentHp ?? 0,
         temporaryHp: data.temporaryHp ?? 0,
@@ -120,9 +123,9 @@ export const characterRepository = {
         deathSaveSuccesses: data.deathSaveSuccesses ?? 0,
         deathSaveFailures: data.deathSaveFailures ?? 0,
 
-        hitDiceTotal: data.hitDiceTotal ?? null,
+        hitDiceTotal: data.hitDiceTotal ?? 1,
         hitDiceUsed: data.hitDiceUsed ?? 0,
-        hitDiceDice: data.hitDiceDice ?? null,
+        hitDiceDice: data.hitDiceDice ?? '1d8',
 
         // В Prisma это Json?, поэтому можно хранить массив объектов напрямую.
         spellSlots: [],
@@ -150,43 +153,21 @@ export const characterRepository = {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.race !== undefined && { race: data.race }),
-        ...(data.class !== undefined && { class: data.class }),
+        ...(data.className !== undefined && { className: data.className }),
         ...(data.level !== undefined && { level: data.level }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.alignment !== undefined && { alignment: data.alignment }),
         ...(data.background !== undefined && { background: data.background }),
 
         ...(data.avatarUrl !== undefined && {
-          avatarUrl: data.avatarUrl.trim() ? data.avatarUrl : null,
-        }),
-
-        ...(data.currentHp !== undefined && { currentHp: data.currentHp }),
-        ...(data.temporaryHp !== undefined && {
-          temporaryHp: data.temporaryHp,
+          avatarUrl:
+            typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
+              ? data.avatarUrl
+              : null,
         }),
         ...(data.speed !== undefined && { speed: data.speed }),
-        ...(data.inspiration !== undefined && { inspiration: data.inspiration }),
 
-        ...(data.spellcastingAbility !== undefined && {
-          spellcastingAbility: data.spellcastingAbility,
-        }),
-
-        ...(data.deathSaveSuccesses !== undefined && {
-          deathSaveSuccesses: data.deathSaveSuccesses,
-        }),
-        ...(data.deathSaveFailures !== undefined && {
-          deathSaveFailures: data.deathSaveFailures,
-        }),
-
-        ...(data.hitDiceTotal !== undefined && {
-          hitDiceTotal: data.hitDiceTotal,
-        }),
-        ...(data.hitDiceUsed !== undefined && {
-          hitDiceUsed: data.hitDiceUsed,
-        }),
-        ...(data.hitDiceDice !== undefined && {
-          hitDiceDice: data.hitDiceDice,
-        }),
+        ...(data.spellcastingAbility !== undefined && { spellcastingAbility: data.spellcastingAbility}),
       },
       include: characterBaseInclude,
     })

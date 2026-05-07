@@ -19,7 +19,7 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/character/:id" element={<CharacterSheet />} />
+            <Route path="/characters/:id" element={<CharacterSheet />} />
             <Route path="/world" element={<WorldBuilder />} />
             <Route path="/notes" element={<Notes />} />
             <Route path="/about" element={<About />} />

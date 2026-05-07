@@ -22,7 +22,7 @@ model Character {
   // --- БАЗОВАЯ ИНФОРМАЦИЯ ---
   name                 String
   race                 String
-  class                String
+  className            String
   level                Int      @default(1)
 
   description          String?

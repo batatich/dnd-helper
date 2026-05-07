@@ -1,8 +1,6 @@
 import { create } from 'zustand'
-import {
-  getCharacterSheet,
-  type CharacterSheet,
-} from '../api/characterSheetApi'
+import { getCharacterSheet } from '../api/characterSheetApi'
+import type { CharacterSheet } from '../types/characterSheet'
 
 // =========================================================
 // CharacterSheetStore

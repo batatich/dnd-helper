@@ -13,80 +13,50 @@ export type DerivedStats = {
   initiative: number
 }
 
-export type Character = {
-  id: string
-  name: string
-  race: string
-  class: string
-  level: number
-  description: string
-  alignment: string
-  background: string
-  avatarUrl: string
-  skills: Skill[]
-  currentHp: number
-  temporaryHp: number
+export type DeathSaves = {
+  successes: number
+  failures: number
+}
 
-  inspiration: boolean
-  speed: number
-  hitDice: {
+export type HitDice = {
   total: number
   used: number
   dice: string
 }
-  spells: Spell[]
-  spellcastingAbility?: keyof Stats
-  spellSlots: SpellSlot[]
 
-  attacks: Attack[]
-
-  baseStats: Stats
-  derivedStats: DerivedStats
-
-  savingThrowProficiencies: (keyof Stats)[]
-  deathSaves: {
-  successes: number;
-  failures: number;
-  };
-
-  inventory: string[] // список ID предметов
-  equippedItems: Record<string, string | null> // слот -> предмет
-
-  createdAt: string
-  updatedAt: string
-  isSynced?: boolean
+export type SpellSlot = {
+  level: number
+  total: number
+  used: number
 }
 
-export const standardSkills: Skill[] = [
-  // Сила
-  { name: 'Атлетика', attribute: 'strength', proficient: false },
-  // Ловкость
-  { name: 'Акробатика', attribute: 'dexterity', proficient: false },
-  { name: 'Ловкость рук', attribute: 'dexterity', proficient: false },
-  { name: 'Скрытность', attribute: 'dexterity', proficient: false },
-  // Интеллект
-  { name: 'Магия', attribute: 'intelligence', proficient: false },
-  { name: 'История', attribute: 'intelligence', proficient: false },
-  { name: 'Расследование', attribute: 'intelligence', proficient: false },
-  { name: 'Природа', attribute: 'intelligence', proficient: false },
-  { name: 'Религия', attribute: 'intelligence', proficient: false },
-  // Мудрость
-  { name: 'Уход за животными', attribute: 'wisdom', proficient: false },
-  { name: 'Проницательность', attribute: 'wisdom', proficient: false },
-  { name: 'Медицина', attribute: 'wisdom', proficient: false },
-  { name: 'Восприятие', attribute: 'wisdom', proficient: false },
-  { name: 'Выживание', attribute: 'wisdom', proficient: false },
-  // Харизма
-  { name: 'Обман', attribute: 'charisma', proficient: false },
-  { name: 'Запугивание', attribute: 'charisma', proficient: false },
-  { name: 'Выступление', attribute: 'charisma', proficient: false },
-  { name: 'Убеждение', attribute: 'charisma', proficient: false }
-];
 export type Skill = {
   name: string
   attribute: keyof Stats
   proficient: boolean
 }
+
+export const standardSkills: Skill[] = [
+  { name: 'Акробатика', attribute: 'dexterity', proficient: false },
+  { name: 'Анализ', attribute: 'intelligence', proficient: false },
+  { name: 'Атлетика', attribute: 'strength', proficient: false },
+  { name: 'Внимание', attribute: 'wisdom', proficient: false },
+  { name: 'Выживание', attribute: 'wisdom', proficient: false },
+  { name: 'Выступление', attribute: 'charisma', proficient: false },
+  { name: 'Запугивание', attribute: 'charisma', proficient: false },
+  { name: 'История', attribute: 'intelligence', proficient: false },
+  { name: 'Ловкость рук', attribute: 'dexterity', proficient: false },
+  { name: 'Магия', attribute: 'intelligence', proficient: false },
+  { name: 'Медицина', attribute: 'wisdom', proficient: false },
+  { name: 'Обман', attribute: 'charisma', proficient: false },
+  { name: 'Природа', attribute: 'intelligence', proficient: false },
+  { name: 'Проницательность', attribute: 'wisdom', proficient: false },
+  { name: 'Религия', attribute: 'intelligence', proficient: false },
+  { name: 'Скрытность', attribute: 'dexterity', proficient: false },
+  { name: 'Убеждение', attribute: 'charisma', proficient: false },
+  { name: 'Уход за животными', attribute: 'wisdom', proficient: false },
+]
+
 export type Attack = {
   id: string
   name: string
@@ -98,10 +68,13 @@ export type Attack = {
   damageType: string
   notes: string
   source: 'manual' | 'item'
-  itemId?: string
+  itemId?: string | null
 }
+
 export type NewAttack = Omit<Attack, 'id'>
+
 export type AttackUpdate = Partial<NewAttack>
+
 export type Spell = {
   id: string
   name: string
@@ -115,10 +88,64 @@ export type Spell = {
   ritual: boolean
   description: string
 }
+
 export type NewSpell = Omit<Spell, 'id'>
+
 export type SpellUpdate = Partial<NewSpell>
-export type SpellSlot = {
+
+export type SpellcastingAbility = keyof Stats
+
+export type Character = {
+  id: string
+
+  name: string
+  race: string
+  className: string
   level: number
-  total: number
-  used: number
+
+  description: string | null
+  alignment: string | null
+  background: string | null
+  avatarUrl: string | null
+
+  currentHp: number
+  temporaryHp: number
+  inspiration: boolean
+  speed: number
+
+  spellcastingAbility: SpellcastingAbility | null
+
+  deathSaves: DeathSaves
+  hitDice: HitDice
+
+  baseStats: Stats
+  derivedStats: DerivedStats
+
+  skills: Skill[]
+  savingThrowProficiencies: (keyof Stats)[]
+
+  attacks: Attack[]
+  spells: Spell[]
+  spellSlots: SpellSlot[]
+
+  /**
+   * Временный старый формат.
+   * Позже заменим на CharacterItem[] из src/types/items.ts.
+   */
+  inventory: unknown[]
+
+  /**
+   * Временный старый формат.
+   * Позже заменим на нормальную структуру экипировки / CharacterItem[].
+   */
+  equippedItems: Record<string, string | null>
+
+  createdAt: string | Date
+  updatedAt: string | Date
+
+  /**
+   * Старое фронтовое поле синхронизации.
+   * Можно удалить позже, когда полностью уйдём от localStorage-модели.
+   */
+  isSynced?: boolean
 }

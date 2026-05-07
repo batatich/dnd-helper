@@ -25,7 +25,6 @@ const createEmptyAttack = (): NewAttack => ({
   notes: '',
   source: 'manual',
 })
-const getModifier = (value: number) => Math.floor((value - 10) / 2)
 
 
 
@@ -205,8 +204,6 @@ const abilityLabels: Record<NewAttack['ability'], string> = {
 
 export function AttackSection({
   attacks,
-  proficiencyBonus,
-  finalStats,
   onAddAttack,
   onDeleteAttack,
   onUpdateAttack,
@@ -329,10 +326,7 @@ export function AttackSection({
 
       <div className="space-y-3">
         {attacks.map((attack) => {
-          const modifier = getModifier(finalStats[attack.ability])
-          const attackBonus =
-            modifier + (attack.proficient ? proficiencyBonus : 0)
-
+          
           const damage =
             `${attack.damageDice}` +
             (attack.damageBonus !== 0

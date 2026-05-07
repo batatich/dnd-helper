@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useCharacterStore } from '../stores/characterStore'
-import { CharacterForm } from '../components/CharacterForm'
-import type { Character } from '../types/characters'
 
-const defaultBaseStats = {
+import { CharacterForm } from '../components/CharacterForm'
+import { useCharacterStore } from '../stores/characterStore'
+import type { Character, Stats } from '../types/characters'
+
+const defaultBaseStats: Stats = {
   strength: 10,
   dexterity: 10,
   constitution: 10,
@@ -24,7 +25,9 @@ export function CharactersList() {
   } = useCharacterStore()
 
   const [showForm, setShowForm] = useState(false)
-  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null)
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(
+    null
+  )
 
   useEffect(() => {
     void fetchCharacters()
@@ -43,9 +46,9 @@ export function CharactersList() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Удалить персонажа?')) {
-      await deleteCharacter(id)
-    }
+    if (!window.confirm('Удалить персонажа?')) return
+
+    await deleteCharacter(id)
   }
 
   const handleCloseForm = () => {
@@ -54,11 +57,15 @@ export function CharactersList() {
     setCurrentCharacter(null)
   }
 
+  const validCharacters = characters.filter((character) => character.id)
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-white">📜 Мои персонажи</h1>
+
         <button
+          type="button"
           onClick={handleCreateCharacter}
           className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2"
         >
@@ -78,10 +85,12 @@ export function CharactersList() {
         </div>
       )}
 
-      {!isLoading && characters.length === 0 ? (
+      {!isLoading && validCharacters.length === 0 ? (
         <div className="bg-gray-800 rounded-lg p-12 text-center">
           <p className="text-gray-400 text-lg mb-4">У вас пока нет персонажей</p>
+
           <button
+            type="button"
             onClick={handleCreateCharacter}
             className="bg-yellow-600 hover:bg-yellow-700 px-6 py-3 rounded-lg font-semibold"
           >
@@ -90,54 +99,71 @@ export function CharactersList() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {characters.map((char) => {
-            const stats = char.baseStats ?? defaultBaseStats
+          {validCharacters.map((character) => {
+            const stats = character.baseStats ?? defaultBaseStats
 
             return (
               <div
-                key={char.id}
+                key={character.id}
                 className="bg-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-3">
-                    <h2 className="text-xl font-bold text-white">{char.name}</h2>
-                    <span className="text-yellow-400 text-sm">Ур. {char.level}</span>
+                    <h2 className="text-xl font-bold text-white">
+                      {character.name}
+                    </h2>
+
+                    <span className="text-yellow-400 text-sm">
+                      Ур. {character.level}
+                    </span>
                   </div>
 
                   <p className="text-gray-300 mb-2">
-                    {char.race} • {char.class}
+                    {character.race} • {character.className}
                   </p>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 text-center text-sm">
                     <div className="bg-gray-700 rounded p-1">
                       <div className="text-gray-400">Сила</div>
-                      <div className="text-white font-bold">{stats.strength}</div>
+                      <div className="text-white font-bold">
+                        {stats.strength}
+                      </div>
                     </div>
+
                     <div className="bg-gray-700 rounded p-1">
                       <div className="text-gray-400">Ловк</div>
-                      <div className="text-white font-bold">{stats.dexterity}</div>
+                      <div className="text-white font-bold">
+                        {stats.dexterity}
+                      </div>
                     </div>
+
                     <div className="bg-gray-700 rounded p-1">
                       <div className="text-gray-400">Тело</div>
-                      <div className="text-white font-bold">{stats.constitution}</div>
+                      <div className="text-white font-bold">
+                        {stats.constitution}
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex gap-3 mt-6">
                     <Link
-                      to={`/character/${char.id}`}
+                      to={`/characters/${character.id}`}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-center py-2 rounded-lg transition text-sm"
                     >
                       Открыть
                     </Link>
+
                     <button
-                      onClick={() => handleEdit(char)}
+                      type="button"
+                      onClick={() => handleEdit(character)}
                       className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition text-sm"
                     >
                       ✏️
                     </button>
+
                     <button
-                      onClick={() => void handleDelete(char.id)}
+                      type="button"
+                      onClick={() => void handleDelete(character.id)}
                       className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition text-sm"
                     >
                       🗑️
@@ -156,9 +182,13 @@ export function CharactersList() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-white">
-                  {editingCharacter ? 'Редактировать персонажа' : 'Создать персонажа'}
+                  {editingCharacter
+                    ? 'Редактировать персонажа'
+                    : 'Создать персонажа'}
                 </h2>
+
                 <button
+                  type="button"
                   onClick={handleCloseForm}
                   className="text-gray-400 hover:text-white text-2xl"
                 >

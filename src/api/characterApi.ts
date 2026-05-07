@@ -1,5 +1,5 @@
 import type { Character, NewSpell, NewAttack, Stats } from '../types/characters'
-import { httpClient } from './httpClient.ts'
+import { httpClient } from './httpClient'
 
 // =========================================================
 // Types
@@ -19,23 +19,27 @@ export type HitDice = {
 export type CreateCharacterInput = {
   name: string
   race: string
-  class: string
+  className: string
   level?: number
-  description?: string
-  alignment?: string
-  background?: string
-  avatarUrl?: string
-  currentHp?: number
-  temporaryHp?: number
+  description?: string | null
+  alignment?: string | null
+  background?: string | null
+  avatarUrl?: string | null
   speed?: number
-  inspiration?: boolean
-  spellcastingAbility?: keyof Stats
-  deathSaves?: DeathSaves
-  hitDice?: HitDice
+  spellcastingAbility?: keyof Stats | null
 }
 
-export type UpdateCharacterInput = Partial<CreateCharacterInput> & {
-  baseStats?: Stats
+export type UpdateCharacterInput = {
+  name?: string
+  race?: string
+  className?: string
+  level?: number
+  description?: string | null
+  alignment?: string | null
+  background?: string | null
+  avatarUrl?: string | null
+  speed?: number
+  spellcastingAbility?: keyof Stats | null
 }
 
 export type CreateItemInput = {
@@ -92,27 +96,26 @@ export type RollCharacterStatsResult = {
 function mapCharacterPayloadToBackend(
   data: CreateCharacterInput | UpdateCharacterInput
 ) {
-  const { deathSaves, hitDice, ...rest } = data
-
-  return {
-    ...rest,
-
-    ...(deathSaves
-      ? {
-          deathSaveSuccesses: deathSaves.successes,
-          deathSaveFailures: deathSaves.failures,
-        }
-      : {}),
-
-    ...(hitDice?.total !== undefined ? { hitDiceTotal: hitDice.total } : {}),
-    ...(hitDice?.used !== undefined ? { hitDiceUsed: hitDice.used } : {}),
-    ...(hitDice?.dice !== undefined ? { hitDiceDice: hitDice.dice } : {}),
-  }
+  // Обычный create/update персонажа больше не прокидывает HP, death saves,
+  // hit dice, inspiration и spell slots. Эти поля меняются отдельными backend actions.
+  return removeEmptyValues({
+    name: data.name,
+    race: data.race,
+    className: data.className,
+    level: data.level,
+    description: data.description,
+    alignment: data.alignment,
+    background: data.background,
+    avatarUrl: data.avatarUrl,
+    speed: data.speed,
+    spellcastingAbility: data.spellcastingAbility,
+  })
 }
 
 function mapBackendCharacterToFrontend(data: BackendCharacter): Character {
   return {
     ...data,
+    className: data.className ?? '',
 
     baseStats: data.baseStats ?? data.stats,
 
