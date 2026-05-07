@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react'
+import {
+  CharacterTabs,
+  type CharacterSheetTab,
+} from '../components/character_sheet/CharacterTabs'
 import { Link, useParams } from 'react-router-dom'
 
 import { AttackSection } from '../components/AttackSection'
@@ -99,6 +103,7 @@ export function CharacterSheet() {
     levelUpCharacter,
   } = useCharacterStore()
 
+  const [activeTab, setActiveTab] = useState<CharacterSheetTab>('overview')
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
 
@@ -585,13 +590,19 @@ export function CharacterSheet() {
       />
 
       <CharacterSummaryBar
-        armorClass={sheet.derived.armorClass}
-        initiative={sheet.derived.initiative}
+        armorClass={finalDerivedStats.armorClass}
+        initiative={finalDerivedStats.initiative}
         speed={speed}
-        proficiencyBonus={sheet.derived.proficiencyBonus}
+        proficiencyBonus={proficiencyBonus}
         inspiration={inspiration}
-        onToggleInspiration={() => handleSetInspiration(!inspiration)}
+        onToggleInspiration={() => void handleSetInspiration(!inspiration)}
       />
+      <div className="mt-6">
+        <CharacterTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
+      </div>
 
       <div className="bg-gray-800 rounded-lg p-4 mt-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

@@ -1,7 +1,7 @@
 import type { ReactNode, HTMLAttributes } from 'react'
 
-type Props = React.HTMLAttributes<HTMLDivElement> & {
-  children: React.ReactNode
+type Props = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode
 }
 
 export function Card({ children, className = '', ...props }: Props) {
