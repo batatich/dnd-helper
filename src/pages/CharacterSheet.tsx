@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AttackSection } from '../components/AttackSection'
 import { ProfileSection } from '../components/ProfileSection'
 import { SpellSection } from '../components/SpellSection'
+import { CharacterHeader } from '../components/character_sheet/CharacterHeader'
 
 import { useCharacterStore } from '../stores/characterStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
@@ -570,6 +571,10 @@ export function CharacterSheet() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      <CharacterHeader
+        character={character}
+      />
+      
       <ProfileSection
         character={profileCharacter}
         onUpdateCharacter={handleUpdateProfile}
