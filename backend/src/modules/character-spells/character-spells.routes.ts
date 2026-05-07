@@ -5,6 +5,8 @@ import {
   spellParamsSchema,
   updateSpellSchema,
   updateSpellSlotsSchema,
+  setSpellSlotTotalBodySchema,
+  spellSlotParamsSchema,
 } from './character-spells.schemas'
 import { characterSpellsService } from './character-spells.service'
 import { CharacterNotFoundError } from '../characters/errors'
@@ -13,6 +15,7 @@ import {
   SpellOwnershipError,
 } from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
+import { SpellSlotConflictError } from '../calculation/spell-slots.rules'
 
 
 export async function characterSpellsRoutes(app: FastifyInstance) {
@@ -146,7 +149,7 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await characterSpellsService.updateSpellSlots(
+      return await characterSpellsService.updateCharacterSpellSlots(
         paramsParsed.data.id,
         bodyParsed.data.spellSlots,
       )
@@ -162,4 +165,143 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
       throw error
     }
   })
+
+    // =========================================================
+  // Spell slots: set total
+  // =========================================================
+  // PATCH /characters/:id/spell-slots/:level/total
+  //
+  // Body:
+  // {
+  //   "total": 4
+  // }
+  //
+  // Сервер сам решает, что делать с used:
+  // если used > total, он будет обрезан до total.
+  // =========================================================
+
+  app.patch('/characters/:id/spell-slots/:level/total', async (request, reply) => {
+    const parsedParams = spellSlotParamsSchema.safeParse(request.params)
+
+    if (!parsedParams.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: parsedParams.error.format(),
+      })
+    }
+
+    const parsedBody = setSpellSlotTotalBodySchema.safeParse(request.body)
+
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: parsedBody.error.format(),
+      })
+    }
+
+    try {
+      const result = await characterSpellsService.setSpellSlotTotal(
+        parsedParams.data.id,
+        parsedParams.data.level,
+        parsedBody.data.total,
+      )
+
+      return reply.send(result)
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof SpellSlotConflictError) {
+        return reply.status(409).send({ message: error.message })
+      }
+
+      app.log.error(error)
+
+      return reply.status(500).send({ message: 'Internal server error' })
+    }
+  })
+
+  // =========================================================
+  // Spell slots: use
+  // =========================================================
+  // POST /characters/:id/spell-slots/:level/use
+  //
+  // Использует 1 слот выбранного уровня.
+  // =========================================================
+
+  app.post('/characters/:id/spell-slots/:level/use', async (request, reply) => {
+    const parsedParams = spellSlotParamsSchema.safeParse(request.params)
+
+    if (!parsedParams.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: parsedParams.error.format(),
+      })
+    }
+
+    try {
+      const result = await characterSpellsService.useSpellSlot(
+        parsedParams.data.id,
+        parsedParams.data.level,
+      )
+
+      return reply.send(result)
+    } catch (error) {
+      if (error instanceof CharacterNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof SpellSlotConflictError) {
+        return reply.status(409).send({ message: error.message })
+      }
+
+      app.log.error(error)
+
+      return reply.status(500).send({ message: 'Internal server error' })
+    }
+  })
+
+  // =========================================================
+  // Spell slots: restore
+  // =========================================================
+  // POST /characters/:id/spell-slots/:level/restore
+  //
+  // Восстанавливает 1 слот выбранного уровня.
+  // =========================================================
+
+  app.post(
+    '/characters/:id/spell-slots/:level/restore',
+    async (request, reply) => {
+      const parsedParams = spellSlotParamsSchema.safeParse(request.params)
+
+      if (!parsedParams.success) {
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: parsedParams.error.format(),
+        })
+      }
+
+      try {
+        const result = await characterSpellsService.restoreSpellSlot(
+          parsedParams.data.id,
+          parsedParams.data.level,
+        )
+
+        return reply.send(result)
+      } catch (error) {
+        if (error instanceof CharacterNotFoundError) {
+          return reply.status(404).send({ message: error.message })
+        }
+
+        if (error instanceof SpellSlotConflictError) {
+          return reply.status(409).send({ message: error.message })
+        }
+
+        app.log.error(error)
+
+        return reply.status(500).send({ message: 'Internal server error' })
+      }
+    },
+  )
 }

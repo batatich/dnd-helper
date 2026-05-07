@@ -6,15 +6,12 @@ import { ProfileSection } from '../components/ProfileSection'
 import { SpellSection } from '../components/SpellSection'
 
 import { useCharacterStore } from '../stores/characterStore'
+import { useCharacterSheetStore } from '../stores/characterSheetStore'
 
 import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
 import type { EquipmentSlot, ItemEffect } from '../types/items'
 
-import { getModifier } from '../utils/stats'
-import { calculateSkillBonus, getProficiencyBonus } from '../utils/skills'
-import { calculateSavingThrowBonus } from '../utils/savingThrows'
 import { formatItemEffect } from '../utils/itemEffects'
-import { standardSkills } from '../types/characters'
 
 const defaultStats: Stats = {
   strength: 10,
@@ -59,45 +56,41 @@ type BackendInventoryItem = {
   } | null
 }
 
-
-type ServerDerivedStatsForUi = {
-  armorClass?: number | null
-  initiative?: number | null
-  maxHp?: number | null
-}
-
-type CharacterSheetForUi = Character & {
-  stats?: Partial<Stats> | null
-  derived?: ServerDerivedStatsForUi | null
-  hitDice?: {
-    total?: number | null
-    used?: number | null
-    dice?: string | null
-  } | null
-}
-
 export function CharacterSheet() {
   const { id } = useParams()
 
   const {
     currentSheet,
-    currentCharacter,
-    isLoading,
-    error,
+    isLoading: isSheetLoading,
+    error: sheetError,
     fetchCharacterSheet,
+    clearCurrentSheet,
+    refreshCurrentSheet,
+  } = useCharacterSheetStore()
+
+  const {
+    isLoading: isActionLoading,
     updateCharacter,
     updateCharacterStats,
     damageCharacter,
     healCharacter,
     setTemporaryHp,
+    useHitDie,
+    restoreHitDie,
+    setCharacterInspiration,
+    addDeathSaveSuccess,
+    addDeathSaveFailure,
+    resetDeathSaves,
     addAttack,
     updateAttack,
     deleteAttack,
     addSpell,
     updateSpell,
     deleteSpell,
-    updateSpellSlots,
     updateSpellcastingAbility,
+    setSpellSlotTotal,
+    useSpellSlot,
+    restoreSpellSlot,
     equipItem,
     unequipItem,
     levelUpCharacter,
@@ -110,44 +103,53 @@ export function CharacterSheet() {
     if (!id) return
 
     void fetchCharacterSheet(id)
-  }, [id, fetchCharacterSheet])
 
-  const character = currentSheet ?? currentCharacter
+    return () => {
+      clearCurrentSheet()
+    }
+  }, [id, fetchCharacterSheet, clearCurrentSheet])
+
+  const sheet = currentSheet
 
   const handleUpdateProfile = async (updates: Partial<Character>) => {
-    if (!character) return
+    if (!sheet) return
+
+    const character = sheet.character
 
     await updateCharacter(character.id, {
       name: updates.name?.trim() || character.name,
       race: updates.race?.trim() || character.race,
-      class: updates.class?.trim() || character.class,
+      class: updates.class?.trim() || character.className,
 
-      // level отправляем только если он есть.
-      // Backend сам проверит 1–20 и обработает понижение.
       level: updates.level,
 
-      description: updates.description ?? character.description,
-      alignment: updates.alignment ?? character.alignment,
-      background: updates.background ?? character.background,
-      avatarUrl: updates.avatarUrl ?? character.avatarUrl,
+      description: updates.description ?? character.description ?? '',
+      alignment: updates.alignment ?? character.alignment ?? '',
+      background: updates.background ?? character.background ?? '',
+      avatarUrl: updates.avatarUrl ?? character.avatarUrl ?? '',
 
       currentHp: updates.currentHp ?? character.currentHp,
       temporaryHp: updates.temporaryHp ?? character.temporaryHp,
       speed: updates.speed ?? character.speed,
       inspiration: updates.inspiration ?? character.inspiration,
       spellcastingAbility:
-        updates.spellcastingAbility ?? character.spellcastingAbility,
+        updates.spellcastingAbility ??
+        sheet.magic.spellcastingAbility ??
+        'intelligence',
     })
+
+    await refreshCurrentSheet()
   }
 
   const handleUpdateStats = async (stats: Stats) => {
-    if (!character) return
+    if (!sheet) return
 
-    await updateCharacterStats(character.id, stats)
+    await updateCharacterStats(sheet.character.id, stats)
+    await refreshCurrentSheet()
   }
 
   const handleHpChange = async () => {
-    if (!character) return
+    if (!sheet) return
 
     const value = hpChangeInput.trim()
 
@@ -161,128 +163,170 @@ export function CharacterSheet() {
     }
 
     if (isHeal) {
-      await healCharacter(character.id, amount)
+      await healCharacter(sheet.character.id, amount)
     } else {
-      await damageCharacter(character.id, amount)
+      await damageCharacter(sheet.character.id, amount)
     }
 
+    await refreshCurrentSheet()
     setHpChangeInput('')
   }
 
   const handleSetTempHp = async () => {
-    if (!character) return
+    if (!sheet) return
 
     if (!Number.isFinite(tempHpInput) || tempHpInput < 0) {
       return
     }
 
-    await setTemporaryHp(character.id, tempHpInput)
+    await setTemporaryHp(sheet.character.id, tempHpInput)
+    await refreshCurrentSheet()
+  }
+
+  const handleUseHitDie = async () => {
+    if (!sheet) return
+
+    await useHitDie(sheet.character.id)
+    await refreshCurrentSheet()
+  }
+
+  const handleRestoreHitDie = async () => {
+    if (!sheet) return
+
+    await restoreHitDie(sheet.character.id)
+    await refreshCurrentSheet()
+  }
+
+  const handleSetInspiration = async (nextInspiration: boolean) => {
+    if (!sheet) return
+
+    await setCharacterInspiration(sheet.character.id, nextInspiration)
+    await refreshCurrentSheet()
+  }
+
+  const handleAddDeathSaveSuccess = async () => {
+    if (!sheet) return
+
+    await addDeathSaveSuccess(sheet.character.id)
+    await refreshCurrentSheet()
+  }
+
+  const handleAddDeathSaveFailure = async () => {
+    if (!sheet) return
+
+    await addDeathSaveFailure(sheet.character.id)
+    await refreshCurrentSheet()
+  }
+
+  const handleResetDeathSaves = async () => {
+    if (!sheet) return
+
+    await resetDeathSaves(sheet.character.id)
+    await refreshCurrentSheet()
   }
 
   const handleLevelUpFixed = async () => {
-    if (!character) return
+    if (!sheet) return
 
-    await levelUpCharacter(character.id, 'fixed')
+    await levelUpCharacter(sheet.character.id, 'fixed')
+    await refreshCurrentSheet()
   }
 
   const handleLevelUpRoll = async () => {
-    if (!character) return
+    if (!sheet) return
 
-    await levelUpCharacter(character.id, 'roll')
+    await levelUpCharacter(sheet.character.id, 'roll')
+    await refreshCurrentSheet()
   }
 
   const handleAddAttack = async (attack: NewAttack) => {
-    if (!character) return
+    if (!sheet) return
 
-    await addAttack(character.id, attack)
+    await addAttack(sheet.character.id, attack)
+    await refreshCurrentSheet()
   }
 
   const handleUpdateAttack = async (
     attackId: string,
     attack: Partial<NewAttack>
   ) => {
-    if (!character) return
+    if (!sheet) return
 
-    await updateAttack(character.id, attackId, attack)
+    await updateAttack(sheet.character.id, attackId, attack)
+    await refreshCurrentSheet()
   }
 
   const handleDeleteAttack = async (attackId: string) => {
-    if (!character) return
+    if (!sheet) return
 
-    await deleteAttack(character.id, attackId)
+    await deleteAttack(sheet.character.id, attackId)
+    await refreshCurrentSheet()
   }
 
   const handleAddSpell = async (spell: NewSpell) => {
-    if (!character) return
+    if (!sheet) return
 
-    await addSpell(character.id, spell)
+    await addSpell(sheet.character.id, spell)
+    await refreshCurrentSheet()
   }
 
   const handleUpdateSpell = async (spellId: string, spell: Partial<NewSpell>) => {
-    if (!character) return
+    if (!sheet) return
 
-    await updateSpell(character.id, spellId, spell)
+    await updateSpell(sheet.character.id, spellId, spell)
+    await refreshCurrentSheet()
   }
 
   const handleDeleteSpell = async (spellId: string) => {
-    if (!character) return
+    if (!sheet) return
 
-    await deleteSpell(character.id, spellId)
+    await deleteSpell(sheet.character.id, spellId)
+    await refreshCurrentSheet()
   }
 
   const handleSetSpellcastingAbility = async (ability: keyof Stats) => {
-    if (!character) return
+    if (!sheet) return
 
-    await updateSpellcastingAbility(character.id, ability)
+    await updateSpellcastingAbility(sheet.character.id, ability)
+    await refreshCurrentSheet()
   }
 
   const handleSetSpellSlotsTotal = async (level: number, total: number) => {
-    if (!character) return
+    if (!sheet) return
 
-    const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
-      slot.level === level
-        ? {
-            ...slot,
-            total,
-            used: Math.min(Number(slot.used ?? 0), total),
-          }
-        : slot
-    )
-
-    await updateSpellSlots(character.id, nextSpellSlots)
+    await setSpellSlotTotal(sheet.character.id, level, total)
+    await refreshCurrentSheet()
   }
 
   const handleChangeSpellSlot = async (level: number, delta: number) => {
-    if (!character) return
+    if (!sheet) return
 
-    const nextSpellSlots = (character.spellSlots ?? []).map((slot) =>
-      slot.level === level
-        ? {
-            ...slot,
-            used: Math.max(
-              0,
-              Math.min(Number(slot.total ?? 0), Number(slot.used ?? 0) + delta)
-            ),
-          }
-        : slot
-    )
+    if (delta > 0) {
+      await useSpellSlot(sheet.character.id, level)
+    }
 
-    await updateSpellSlots(character.id, nextSpellSlots)
+    if (delta < 0) {
+      await restoreSpellSlot(sheet.character.id, level)
+    }
+
+    await refreshCurrentSheet()
   }
 
   const handleEquipItem = async (item: InventoryItemForUi) => {
-    if (!character) return
+    if (!sheet) return
 
-    await equipItem(character.id, item.itemId)
+    await equipItem(sheet.character.id, item.itemId)
+    await refreshCurrentSheet()
   }
 
   const handleUnequipItem = async (itemId: string) => {
-    if (!character) return
+    if (!sheet) return
 
-    await unequipItem(character.id, itemId)
+    await unequipItem(sheet.character.id, itemId)
+    await refreshCurrentSheet()
   }
 
-  if (isLoading && !character) {
+  if (isSheetLoading && !sheet) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold text-white">Загрузка персонажа...</h1>
@@ -290,16 +334,16 @@ export function CharacterSheet() {
     )
   }
 
-  if (error && !character) {
+  if (sheetError && !sheet) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold text-white">Ошибка загрузки</h1>
-        <p className="text-red-400 mt-2">{error}</p>
+        <p className="text-red-400 mt-2">{sheetError}</p>
       </div>
     )
   }
 
-  if (!character) {
+  if (!sheet) {
     return (
       <div className="p-8 text-center">
         <h1 className="text-2xl font-bold text-white">Персонаж не найден</h1>
@@ -308,8 +352,99 @@ export function CharacterSheet() {
     )
   }
 
-  const sheetCharacter = character as CharacterSheetForUi
-  const serverDerivedStats = sheetCharacter.derived ?? undefined
+  const isLoading = isSheetLoading || isActionLoading
+
+  const character = sheet.character
+  const derived = sheet.derived
+
+  const baseStats: Stats = {
+    strength: Number(sheet.stats.base?.strength ?? defaultStats.strength),
+    dexterity: Number(sheet.stats.base?.dexterity ?? defaultStats.dexterity),
+    constitution: Number(
+      sheet.stats.base?.constitution ?? defaultStats.constitution
+    ),
+    intelligence: Number(
+      sheet.stats.base?.intelligence ?? defaultStats.intelligence
+    ),
+    wisdom: Number(sheet.stats.base?.wisdom ?? defaultStats.wisdom),
+    charisma: Number(sheet.stats.base?.charisma ?? defaultStats.charisma),
+  }
+
+  const finalStats: Stats = {
+    strength: Number(sheet.stats.final?.strength ?? baseStats.strength),
+    dexterity: Number(sheet.stats.final?.dexterity ?? baseStats.dexterity),
+    constitution: Number(
+      sheet.stats.final?.constitution ?? baseStats.constitution
+    ),
+    intelligence: Number(
+      sheet.stats.final?.intelligence ?? baseStats.intelligence
+    ),
+    wisdom: Number(sheet.stats.final?.wisdom ?? baseStats.wisdom),
+    charisma: Number(sheet.stats.final?.charisma ?? baseStats.charisma),
+  }
+
+  const statModifiers: Stats = {
+    strength: Number(sheet.stats.modifiers.strength),
+    dexterity: Number(sheet.stats.modifiers.dexterity),
+    constitution: Number(sheet.stats.modifiers.constitution),
+    intelligence: Number(sheet.stats.modifiers.intelligence),
+    wisdom: Number(sheet.stats.modifiers.wisdom),
+    charisma: Number(sheet.stats.modifiers.charisma),
+  }
+
+  const finalDerivedStats = {
+    armorClass: Number(derived.armorClass ?? 10),
+    initiative: Number(derived.initiative ?? statModifiers.dexterity),
+    maxHp: Number(derived.maxHp ?? character.currentHp ?? 0),
+  }
+
+  const skillsToDisplay = sheet.skills ?? []
+  const savingThrowsToDisplay = sheet.savingThrows ?? []
+
+  const profileSkills = skillsToDisplay.map((skill) => ({
+    name: skill.name,
+    attribute: skill.ability,
+    proficient: skill.proficient,
+  }))
+
+  const savingThrowProficiencies = savingThrowsToDisplay
+    .filter((savingThrow) => savingThrow.proficient)
+    .map((savingThrow) => savingThrow.ability)
+
+  const deathSaves = sheet.deathSaves ?? {
+    successes: 0,
+    failures: 0,
+  }
+
+  const profileCharacter = {
+    id: character.id,
+    name: character.name ?? '',
+    race: character.race ?? '',
+    class: character.className ?? '',
+    level: character.level ?? 1,
+    alignment: character.alignment ?? '',
+    background: character.background ?? '',
+    description: character.description ?? '',
+    avatarUrl: character.avatarUrl ?? '',
+    currentHp: character.currentHp ?? 0,
+    temporaryHp: character.temporaryHp ?? 0,
+    speed: character.speed ?? 30,
+    inspiration: character.inspiration ?? false,
+    baseStats,
+    derivedStats: finalDerivedStats,
+    attacks: sheet.attacks ?? [],
+    spells: sheet.magic.spells ?? [],
+    spellSlots: sheet.magic.spellSlots ?? [],
+    spellcastingAbility: sheet.magic.spellcastingAbility ?? 'intelligence',
+    inventory: sheet.inventory.items ?? [],
+    equippedItems: sheet.inventory.equippedItems ?? [],
+    hitDice: sheet.progression.hitDice,
+    skills: profileSkills,
+    savingThrowProficiencies,
+    deathSaves,
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+  } as unknown as Character
 
   const slotLabels: Record<string, string> = {
     mainHand: 'Основная рука',
@@ -322,61 +457,7 @@ export function CharacterSheet() {
     boots: 'Обувь',
   }
 
-  const safeBaseStats: Stats = {
-    strength: Number(
-      character.baseStats?.strength ?? sheetCharacter.stats?.strength ?? defaultStats.strength
-    ),
-    dexterity: Number(
-      character.baseStats?.dexterity ?? sheetCharacter.stats?.dexterity ?? defaultStats.dexterity
-    ),
-    constitution: Number(
-      character.baseStats?.constitution ??
-        sheetCharacter.stats?.constitution ??
-        defaultStats.constitution
-    ),
-    intelligence: Number(
-      character.baseStats?.intelligence ??
-        sheetCharacter.stats?.intelligence ??
-        defaultStats.intelligence
-    ),
-    wisdom: Number(
-      character.baseStats?.wisdom ?? sheetCharacter.stats?.wisdom ?? defaultStats.wisdom
-    ),
-    charisma: Number(
-      character.baseStats?.charisma ?? sheetCharacter.stats?.charisma ?? defaultStats.charisma
-    ),
-  }
-
-  const finalStats: Stats = safeBaseStats
-
-  const finalDerivedStats = {
-    armorClass: Number(
-      serverDerivedStats?.armorClass ?? character.derivedStats?.armorClass ?? 10
-    ),
-    initiative: Number(
-      serverDerivedStats?.initiative ??
-        character.derivedStats?.initiative ??
-        getModifier(finalStats.dexterity)
-    ),
-    maxHp: Number(
-      serverDerivedStats?.maxHp ?? character.derivedStats?.maxHp ?? character.currentHp ?? 0
-    ),
-  }
-
-  const safeCharacterForProfile: Character = {
-    ...character,
-    name: character.name ?? '',
-    race: character.race ?? '',
-    class: character.class ?? '',
-    level: character.level ?? 1,
-    alignment: character.alignment ?? '',
-    background: character.background ?? '',
-    description: character.description ?? '',
-    avatarUrl: character.avatarUrl ?? '',
-    baseStats: safeBaseStats,
-  }
-
-  const rawInventory = (character.inventory ?? []) as unknown[]
+  const rawInventory = (sheet.inventory.items ?? []) as unknown[]
 
   const backendInventoryItems = rawInventory.filter(
     (item): item is BackendInventoryItem =>
@@ -402,7 +483,9 @@ export function CharacterSheet() {
         itemId: inventoryItem.id,
         name: inventoryItem.nameSnapshot ?? template?.name ?? 'Предмет',
         type: template?.type ?? parsedNotes.type ?? 'Предмет',
-        effects: Array.isArray(template?.effects) ? (template.effects as ItemEffect[]) : [],
+        effects: Array.isArray(template?.effects)
+          ? (template.effects as ItemEffect[])
+          : [],
         allowedSlots: template?.slot
           ? [template.slot as EquipmentSlot]
           : parsedNotes.allowedSlots ?? [],
@@ -451,49 +534,19 @@ export function CharacterSheet() {
     charisma: 'Харизма',
   }
 
-  const skillsToDisplay =
-    character.skills && character.skills.length > 0
-      ? character.skills
-      : standardSkills
-
-  const savingThrowStats: (keyof Stats)[] = [
-    'strength',
-    'dexterity',
-    'constitution',
-    'intelligence',
-    'wisdom',
-    'charisma',
-  ]
-
-  const perceptionSkill = skillsToDisplay.find(
-    (skill) => skill.name === 'Восприятие'
-  )
-
-  const passivePerception = perceptionSkill
-    ? 10 + calculateSkillBonus(perceptionSkill, finalStats, character.level)
-    : 10
-
-  const currentHp = Number(sheetCharacter.currentHp ?? character.currentHp ?? 0)
-  const temporaryHp = Number(
-    sheetCharacter.temporaryHp ?? character.temporaryHp ?? 0
-  )
-  const deathSaves = character.deathSaves ?? { successes: 0, failures: 0 }
-  const proficiencyBonus = getProficiencyBonus(character.level)
+  const passivePerception = Number(derived.passivePerception ?? 10)
+  const currentHp = Number(character.currentHp ?? 0)
+  const temporaryHp = Number(character.temporaryHp ?? 0)
+  const proficiencyBonus = Number(derived.proficiencyBonus ?? 2)
   const inspiration = character.inspiration ?? false
   const speed = character.speed ?? 30
+  const hitDice = sheet.progression.hitDice
 
-  const hitDice = {
-    total: Number(sheetCharacter.hitDice?.total ?? character.level),
-    used: Number(sheetCharacter.hitDice?.used ?? character.hitDice?.used ?? 0),
-    dice: sheetCharacter.hitDice?.dice ?? `${character.level}d8`,
-  }
-
-  const spells = character.spells ?? []
-  const spellcastingAbility = character.spellcastingAbility ?? 'intelligence'
-  const spellcastingModifier = getModifier(finalStats[spellcastingAbility])
-  const spellAttackBonus = spellcastingModifier + proficiencyBonus
-  const spellSaveDc = 8 + spellcastingModifier + proficiencyBonus
-  const spellSlots = character.spellSlots ?? []
+  const spells = sheet.magic.spells ?? []
+  const spellcastingAbility = sheet.magic.spellcastingAbility ?? 'intelligence'
+  const spellAttackBonus = Number(derived.spellAttackBonus ?? 0)
+  const spellSaveDc = Number(derived.spellSaveDc ?? 0)
+  const spellSlots = sheet.magic.spellSlots ?? []
 
   const renderDeathSaveDots = (
     type: 'successes' | 'failures',
@@ -518,7 +571,7 @@ export function CharacterSheet() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <ProfileSection
-        character={safeCharacterForProfile}
+        character={profileCharacter}
         onUpdateCharacter={handleUpdateProfile}
         onUpdateStats={handleUpdateStats}
         isLoading={isLoading}
@@ -572,8 +625,10 @@ export function CharacterSheet() {
             {inspiration ? 'Есть' : 'Нет'}
           </div>
           <button
-            className="mt-3 bg-yellow-600 px-3 py-1 rounded text-sm opacity-60 cursor-not-allowed"
-            disabled
+            type="button"
+            onClick={() => void handleSetInspiration(!inspiration)}
+            disabled={isLoading}
+            className="mt-3 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
           >
             {inspiration ? 'Снять' : 'Выдать'}
           </button>
@@ -586,9 +641,31 @@ export function CharacterSheet() {
 
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Кости хитов</div>
+
           <div className="text-white text-xl font-bold">{hitDice.dice}</div>
+
           <div className="text-gray-300 text-sm mt-1">
             Использовано: {hitDice.used} / {hitDice.total}
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => void handleUseHitDie()}
+              disabled={isLoading || hitDice.used >= hitDice.total}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+            >
+              Использовать
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleRestoreHitDie()}
+              disabled={isLoading || hitDice.used <= 0}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+            >
+              Восстановить
+            </button>
           </div>
         </div>
       </div>
@@ -605,8 +682,8 @@ export function CharacterSheet() {
               charisma: 'ХАРИЗМА',
             }
 
-            const mod = getModifier(value)
-            const baseValue = character.baseStats[key]
+            const mod = statModifiers[key]
+            const baseValue = baseStats[key]
             const bonus = value - baseValue
 
             return (
@@ -642,23 +719,16 @@ export function CharacterSheet() {
       <h2 className="text-white text-xl font-bold mt-8 mb-4">Спасброски</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {savingThrowStats.map((stat) => {
-          const bonus = calculateSavingThrowBonus(
-            stat,
-            finalStats,
-            character.level,
-            character.savingThrowProficiencies ?? []
-          )
-
-          const isProficient =
-            character.savingThrowProficiencies?.includes(stat)
+        {savingThrowsToDisplay.map((savingThrow) => {
+          const bonus = savingThrow.bonus
+          const isProficient = savingThrow.proficient
 
           return (
             <div
-              key={stat}
+              key={savingThrow.ability}
               className="bg-gray-800 rounded-lg p-4 flex justify-between items-center"
             >
-              <div className="text-white font-medium">{statLabels[stat]}</div>
+              <div className="text-white font-medium">{savingThrow.label}</div>
 
               <div className="text-right">
                 <div
@@ -682,7 +752,7 @@ export function CharacterSheet() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {skillsToDisplay.map((skill) => {
-          const bonus = calculateSkillBonus(skill, finalStats, character.level)
+          const bonus = skill.bonus
 
           return (
             <div
@@ -692,7 +762,7 @@ export function CharacterSheet() {
               <div>
                 <div className="text-white font-medium">{skill.name}</div>
                 <div className="text-gray-400 text-sm">
-                  Характеристика: {statLabels[skill.attribute]}
+                  Характеристика: {statLabels[skill.ability]}
                 </div>
               </div>
 
@@ -787,17 +857,39 @@ export function CharacterSheet() {
             <div className="flex flex-col items-center gap-1">
               <span className="text-xs text-green-400">Успехи</span>
               {renderDeathSaveDots('successes', deathSaves.successes)}
+
+              <button
+                type="button"
+                onClick={() => void handleAddDeathSaveSuccess()}
+                disabled={isLoading || deathSaves.successes >= 3}
+                className="mt-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+              >
+                + успех
+              </button>
             </div>
 
             <div className="flex flex-col items-center gap-1">
               <span className="text-xs text-red-400">Провалы</span>
               {renderDeathSaveDots('failures', deathSaves.failures)}
+
+              <button
+                type="button"
+                onClick={() => void handleAddDeathSaveFailure()}
+                disabled={isLoading || deathSaves.failures >= 3}
+                className="mt-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+              >
+                + провал
+              </button>
             </div>
 
             <button
               type="button"
-              className="mt-2 bg-gray-700 px-3 py-1 rounded text-sm opacity-60 cursor-not-allowed"
-              disabled
+              onClick={() => void handleResetDeathSaves()}
+              disabled={
+                isLoading ||
+                (deathSaves.successes === 0 && deathSaves.failures === 0)
+              }
+              className="mt-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
             >
               Сбросить
             </button>
@@ -820,7 +912,7 @@ export function CharacterSheet() {
       </div>
 
       <AttackSection
-        attacks={character.attacks ?? []}
+        attacks={sheet.attacks ?? []}
         proficiencyBonus={proficiencyBonus}
         finalStats={finalStats}
         onAddAttack={handleAddAttack}

@@ -1,8 +1,8 @@
 import { prisma } from '../../lib/prisma'
+import { Prisma } from '@prisma/client'
 import type {
   CreateSpellInput,
   UpdateSpellInput,
-  UpdateSpellSlotsInput,
 } from './character-spells.schemas'
 
 // =========================================================
@@ -101,16 +101,39 @@ export const characterSpellsRepository = {
   // =========================================================
   // Spell slots
   // =========================================================
+  // Получить spell slots персонажа.
+  // spellSlots, скорее всего, хранится как Json-поле в Character.
+  // =========================================================
 
-  // Обновить весь массив spell slots у персонажа.
-  // В Prisma поле хранится как Json.
-  updateSpellSlots(id: string, data: UpdateSpellSlotsInput) {
-    return prisma.character.update({
-      where: { id },
-      data: {
-        spellSlots: data.spellSlots,
+  findCharacterSpellSlots(characterId: string) {
+    return prisma.character.findUnique({
+      where: {
+        id: characterId,
       },
-      include: characterSheetInclude,
+      select: {
+        id: true,
+        spellSlots: true,
+      },
+    })
+  },
+
+  // =========================================================
+  // Обновить spell slots персонажа.
+  // Сюда уже должен приходить массив, обработанный rules-слоем.
+  // =========================================================
+
+  updateCharacterSpellSlots(characterId: string, spellSlots: unknown[]) {
+    return prisma.character.update({
+      where: {
+        id: characterId,
+      },
+      data: {
+        spellSlots: spellSlots as unknown as Prisma.InputJsonValue,
+      },
+      select: {
+        id: true,
+        spellSlots: true,
+      },
     })
   },
 }

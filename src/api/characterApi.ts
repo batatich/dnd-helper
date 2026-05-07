@@ -175,7 +175,7 @@ export async function getCharacterById(id: string): Promise<Character> {
   const data = await httpClient.get<BackendCharacter>(`/characters/${id}`)
   return mapBackendCharacterToFrontend(data)
 }
-
+// TODO: устарело. Для нового вложенного sheet использовать characterSheetApi.ts
 export async function getCharacterSheet(id: string): Promise<Character> {
   const data = await httpClient.get<BackendCharacter>(`/characters/${id}/sheet`)
   return mapBackendCharacterToFrontend(data)
@@ -289,6 +289,34 @@ export async function levelUpCharacter(
   })
 }
 
+export async function useHitDie(characterId: string) {
+  return httpClient.post(`/characters/${characterId}/hit-dice/use`)
+}
+
+export async function restoreHitDie(characterId: string) {
+  return httpClient.post(`/characters/${characterId}/hit-dice/restore`)
+}
+
+export async function setCharacterInspiration(
+  characterId: string,
+  inspiration: boolean
+) {
+  return httpClient.patch(`/characters/${characterId}/inspiration`, {
+    inspiration,
+  })
+}
+
+export async function addDeathSaveSuccess(characterId: string) {
+  return httpClient.post(`/characters/${characterId}/death-saves/success`)
+}
+
+export async function addDeathSaveFailure(characterId: string) {
+  return httpClient.post(`/characters/${characterId}/death-saves/failure`)
+}
+
+export async function resetDeathSaves(characterId: string) {
+  return httpClient.post(`/characters/${characterId}/death-saves/reset`)
+}
 // =========================================================
 // Inventory
 // =========================================================
@@ -380,6 +408,38 @@ export async function updateSpellcastingAbility(
   return updateCharacter(characterId, {
     spellcastingAbility: ability,
   })
+}
+
+// =========================================================
+// Spell slots actions
+// =========================================================
+// Эти методы НЕ пересобирают весь массив spellSlots на фронте.
+// Они отправляют на backend конкретное действие.
+// =========================================================
+
+export async function setSpellSlotTotal(
+  characterId: string,
+  level: number,
+  total: number
+) {
+  return httpClient.patch(
+    `/characters/${characterId}/spell-slots/${level}/total`,
+    {
+      total,
+    }
+  )
+}
+
+export async function useSpellSlot(characterId: string, level: number) {
+  return httpClient.post(
+    `/characters/${characterId}/spell-slots/${level}/use`
+  )
+}
+
+export async function restoreSpellSlot(characterId: string, level: number) {
+  return httpClient.post(
+    `/characters/${characterId}/spell-slots/${level}/restore`
+  )
 }
 
 // =========================================================

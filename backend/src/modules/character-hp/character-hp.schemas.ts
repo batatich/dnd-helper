@@ -24,6 +24,11 @@ export const levelUpSchema = z.object({
   hpMode: z.enum(['fixed', 'roll']),
 })
 
+export const setInspirationSchema = z.object({
+  inspiration: z.boolean(),
+})
+
 export type HpAmountInput = z.infer<typeof hpAmountSchema>
 export type SetTemporaryHpInput = z.infer<typeof setTemporaryHpSchema>
 export type LevelUpInput = z.infer<typeof levelUpSchema>
+export type SetInspirationInput = z.infer<typeof setInspirationSchema>

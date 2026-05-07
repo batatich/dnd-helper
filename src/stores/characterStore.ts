@@ -18,6 +18,15 @@ import {
   setTemporaryHp as setTemporaryHpRequest,
   levelUpCharacter as levelUpCharacterRequest,
 
+  useHitDie as useHitDieRequest,
+  restoreHitDie as restoreHitDieRequest,
+
+  setCharacterInspiration as setCharacterInspirationRequest,
+
+  addDeathSaveSuccess as addDeathSaveSuccessRequest,
+  addDeathSaveFailure as addDeathSaveFailureRequest,
+  resetDeathSaves as resetDeathSavesRequest,
+
   addAttack as addAttackRequest,
   updateAttack as updateAttackRequest,
   deleteAttack as deleteAttackRequest,
@@ -27,6 +36,9 @@ import {
   deleteSpell as deleteSpellRequest,
   updateSpellSlots as updateSpellSlotsRequest,
   updateSpellcastingAbility as updateSpellcastingAbilityRequest,
+  setSpellSlotTotal as setSpellSlotTotalApi,
+  useSpellSlot as useSpellSlotApi,
+  restoreSpellSlot as restoreSpellSlotApi,
 
   addItem as addItemRequest,
   updateItem as updateItemRequest,
@@ -78,6 +90,15 @@ interface CharacterStore {
   setTemporaryHp: (id: string, amount: number) => Promise<void>
   levelUpCharacter: (id: string, hpMode: 'fixed' | 'roll') => Promise<void>
 
+  useHitDie: (characterId: string) => Promise<void>
+  restoreHitDie: (characterId: string) => Promise<void>
+
+  setCharacterInspiration: (characterId: string, inspiration: boolean) => Promise<void>
+
+  addDeathSaveSuccess: (characterId: string) => Promise<void>
+  addDeathSaveFailure: (characterId: string) => Promise<void>
+  resetDeathSaves: (characterId: string) => Promise<void>
+
   // Attacks
   addAttack: (characterId: string, attack: NewAttack) => Promise<void>
   updateAttack: (
@@ -107,6 +128,15 @@ interface CharacterStore {
     ability: keyof Stats
   ) => Promise<void>
 
+    setSpellSlotTotal: (
+    characterId: string,
+    level: number,
+    total: number
+  ) => Promise<void>
+
+  useSpellSlot: (characterId: string, level: number) => Promise<void>
+
+restoreSpellSlot: (characterId: string, level: number) => Promise<void>
   // Inventory / equipment
   addItem: (characterId: string, item: CreateItemInput) => Promise<void>
   updateItem: (
@@ -488,6 +518,141 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
     }
   },
 
+    useHitDie: async (characterId: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await useHitDieRequest(characterId)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to use hit die:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось использовать кость хитов',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+
+  restoreHitDie: async (characterId: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await restoreHitDieRequest(characterId)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to restore hit die:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось восстановить кость хитов',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+
+  setCharacterInspiration: async (
+    characterId: string,
+    inspiration: boolean
+  ) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await setCharacterInspirationRequest(characterId, inspiration)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to update inspiration:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось обновить вдохновение персонажа',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+  
+  addDeathSaveSuccess: async (characterId: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await addDeathSaveSuccessRequest(characterId)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to add death save success:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось добавить успешный спасбросок от смерти',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+
+  addDeathSaveFailure: async (characterId: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await addDeathSaveFailureRequest(characterId)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to add death save failure:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось добавить проваленный спасбросок от смерти',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+
+  resetDeathSaves: async (characterId: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      await resetDeathSavesRequest(characterId)
+
+      set({ isLoading: false })
+    } catch (error) {
+      console.error('Failed to reset death saves:', error)
+
+      set({
+        error: getErrorMessage(
+          'Не удалось сбросить спасброски от смерти',
+          error
+        ),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
+
   // =========================================================
   // Attacks
   // =========================================================
@@ -638,6 +803,89 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
         ),
         isLoading: false,
       })
+    }
+  },
+
+  // =========================================================
+  // Spell slots actions
+  // =========================================================
+  // Backend сам считает used/total.
+  // Store только вызывает API.
+  // CharacterSheet после этого сам делает refreshCurrentSheet().
+  // =========================================================
+
+  setSpellSlotTotal: async (characterId, level, total) => {
+    set({
+      isLoading: true,
+      error: null,
+    })
+
+    try {
+      await setSpellSlotTotalApi(characterId, level, total)
+
+      set({
+        isLoading: false,
+      })
+    } catch (error) {
+      set({
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Не удалось изменить количество ячеек заклинаний',
+      })
+
+      throw error
+    }
+  },
+
+  useSpellSlot: async (characterId, level) => {
+    set({
+      isLoading: true,
+      error: null,
+    })
+
+    try {
+      await useSpellSlotApi(characterId, level)
+
+      set({
+        isLoading: false,
+      })
+    } catch (error) {
+      set({
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Не удалось использовать ячейку заклинания',
+      })
+
+      throw error
+    }
+  },
+
+  restoreSpellSlot: async (characterId, level) => {
+    set({
+      isLoading: true,
+      error: null,
+    })
+
+    try {
+      await restoreSpellSlotApi(characterId, level)
+
+      set({
+        isLoading: false,
+      })
+    } catch (error) {
+      set({
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Не удалось восстановить ячейку заклинания',
+      })
+
+      throw error
     }
   },
 

@@ -1,4 +1,3 @@
-import { ValidationError } from '../../shared/errors'
 import { characterSpellsRepository } from './character-spells.repository'
 import { characterRepository } from '../characters/character.repository'
 import {
@@ -11,6 +10,12 @@ import type {
   SpellSlotItemInput,
   UpdateSpellInput,
 } from './character-spells.schemas'
+import {
+  normalizeSpellSlots,
+  restoreSpellSlot,
+  setSpellSlotTotal,
+  useSpellSlot,
+} from '../calculation/spell-slots.rules'
 
 export const characterSpellsService = {
   // =========================================================
@@ -62,31 +67,106 @@ export const characterSpellsService = {
     await characterSpellsRepository.deleteSpell(spellId)
   },
 
+    // =========================================================
+  // Spell slots: set total
   // =========================================================
-  // Spell slots
+  // Устанавливает общее количество слотов конкретного уровня.
+  // Если used > total, rules-слой сам обрежет used.
   // =========================================================
 
-  // Обновить spell slots персонажа
-  async updateSpellSlots(
+
+  // =========================================================
+// Spell slots: replace all
+// =========================================================
+// Полностью заменяет массив spell slots.
+// Это старая логика PATCH /characters/:id/spell-slots,
+// но с новым именем метода.
+// =========================================================
+
+async updateCharacterSpellSlots(
+  characterId: string,
+  spellSlots: SpellSlotItemInput[],
+) {
+  const character = await characterRepository.findById(characterId)
+
+  if (!character) {
+    throw new CharacterNotFoundError(characterId)
+  }
+
+  const normalizedSlots = normalizeSpellSlots(spellSlots)
+
+  return characterSpellsRepository.updateCharacterSpellSlots(
+    characterId,
+    normalizedSlots,
+  )
+},
+
+  async setSpellSlotTotal(
     characterId: string,
-    spellSlots: SpellSlotItemInput[],
+    level: number,
+    total: number,
   ) {
-    const character = await characterRepository.findById(characterId)
+    const character =
+      await characterSpellsRepository.findCharacterSpellSlots(characterId)
 
     if (!character) {
       throw new CharacterNotFoundError(characterId)
     }
 
-    for (const slot of spellSlots) {
-      if (slot.used > slot.total) {
-        throw new ValidationError(
-          `Used spell slots cannot exceed total for level ${slot.level}`,
-        )
-      }
+    const currentSlots = normalizeSpellSlots(character.spellSlots)
+    const nextSlots = setSpellSlotTotal(currentSlots, level, total)
+
+    return characterSpellsRepository.updateCharacterSpellSlots(
+      characterId,
+      nextSlots,
+    )
+  },
+
+  // =========================================================
+  // Spell slots: use
+  // =========================================================
+  // Использует 1 слот конкретного уровня.
+  // Если использовать нельзя, rules-слой бросит SpellSlotConflictError.
+  // =========================================================
+
+  async useSpellSlot(characterId: string, level: number) {
+    const character =
+      await characterSpellsRepository.findCharacterSpellSlots(characterId)
+
+    if (!character) {
+      throw new CharacterNotFoundError(characterId)
     }
 
-    return characterSpellsRepository.updateSpellSlots(characterId, {
-      spellSlots,
-    })
+    const currentSlots = normalizeSpellSlots(character.spellSlots)
+    const nextSlots = useSpellSlot(currentSlots, level)
+
+    return characterSpellsRepository.updateCharacterSpellSlots(
+      characterId,
+      nextSlots,
+    )
+  },
+
+  // =========================================================
+  // Spell slots: restore
+  // =========================================================
+  // Восстанавливает 1 слот конкретного уровня.
+  // Если used уже 0, rules-слой бросит SpellSlotConflictError.
+  // =========================================================
+
+  async restoreSpellSlot(characterId: string, level: number) {
+    const character =
+      await characterSpellsRepository.findCharacterSpellSlots(characterId)
+
+    if (!character) {
+      throw new CharacterNotFoundError(characterId)
+    }
+
+    const currentSlots = normalizeSpellSlots(character.spellSlots)
+    const nextSlots = restoreSpellSlot(currentSlots, level)
+
+    return characterSpellsRepository.updateCharacterSpellSlots(
+      characterId,
+      nextSlots,
+    )
   },
 }

@@ -4,10 +4,15 @@ import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 
 import {
+  addDeathSaveFailure,
+  addDeathSaveSuccess,
   calculateHitDice,
   calculateMaxHp,
   getHpIncrease,
   getHpRuleForCharacter,
+  resetDeathSaves,
+  restoreHitDie,
+  useHitDie,
 } from '../calculation/hp.rules'
 
 export const characterHpService = {
@@ -163,5 +168,119 @@ export const characterHpService = {
       currentHp: character.currentHp,
       temporaryHp: amount,
     })
+  },
+
+  // =========================================================
+  // Hit dice
+  // =========================================================
+
+  // Использует 1 кость хитов.
+  async useHitDie(id: string) {
+    const character = await characterHpRepository.findHitDiceByCharacterId(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    try {
+      const nextHitDice = useHitDie({
+        level: character.level,
+        hitDiceUsed: character.hitDiceUsed,
+      })
+
+      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ValidationError(error.message)
+      }
+
+      throw error
+    }
+  },
+
+  // Восстанавливает 1 использованную кость хитов.
+  async restoreHitDie(id: string) {
+    const character = await characterHpRepository.findHitDiceByCharacterId(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    try {
+      const nextHitDice = restoreHitDie({
+        level: character.level,
+        hitDiceUsed: character.hitDiceUsed,
+      })
+
+      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ValidationError(error.message)
+      }
+
+      throw error
+    }
+  },
+
+  // =========================================================
+  // Inspiration
+  // =========================================================
+
+  // Устанавливает вдохновение персонажа.
+  async setInspiration(id: string, inspiration: boolean) {
+    const character = await characterRepository.findById(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    return characterHpRepository.updateInspiration(id, inspiration)
+  },
+
+  // =========================================================
+  // Death saves
+  // =========================================================
+
+  // Добавляет 1 успешный спасбросок от смерти.
+  async addDeathSaveSuccess(id: string) {
+    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    const nextDeathSaves = addDeathSaveSuccess({
+      successes: character.deathSaveSuccesses,
+      failures: character.deathSaveFailures,
+    })
+
+    return characterHpRepository.updateDeathSaves(id, nextDeathSaves)
+  },
+
+  // Добавляет 1 проваленный спасбросок от смерти.
+  async addDeathSaveFailure(id: string) {
+    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    const nextDeathSaves = addDeathSaveFailure({
+      successes: character.deathSaveSuccesses,
+      failures: character.deathSaveFailures,
+    })
+
+    return characterHpRepository.updateDeathSaves(id, nextDeathSaves)
+  },
+
+  // Сбрасывает спасброски от смерти.
+  async resetDeathSaves(id: string) {
+    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+
+    if (!character) {
+      throw new CharacterNotFoundError(id)
+    }
+
+    return characterHpRepository.updateDeathSaves(id, resetDeathSaves())
   },
 }

@@ -132,4 +132,88 @@ export const characterHpRepository = {
       },
     })
   },
+
+    // =========================================================
+  // Hit dice
+  // =========================================================
+  // Получить данные персонажа, нужные для use/restore hit dice.
+  // total считается через level, used хранится в Character.hitDiceUsed.
+  // =========================================================
+
+  findHitDiceByCharacterId(id: string) {
+    return prisma.character.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        level: true,
+        hitDiceUsed: true,
+        hitDiceDice: true,
+      },
+    })
+  },
+
+  // =========================================================
+  // Обновить количество использованных hit dice.
+  // =========================================================
+
+  updateHitDiceUsed(id: string, used: number) {
+    return prisma.character.update({
+      where: { id },
+      data: {
+        hitDiceUsed: used,
+      },
+    })
+  },
+
+    // =========================================================
+    // Inspiration
+    // =========================================================
+    // Обновить состояние вдохновения персонажа.
+    // =========================================================
+
+    updateInspiration(id: string, inspiration: boolean) {
+    return prisma.character.update({
+        where: { id },
+        data: {
+        inspiration,
+        },
+    })
+    },
+
+  // =========================================================
+    // Death saves
+    // =========================================================
+    // Получить только поля death saves.
+    // =========================================================
+
+    findDeathSavesByCharacterId(id: string) {
+    return prisma.character.findUnique({
+        where: { id },
+        select: {
+        id: true,
+        deathSaveSuccesses: true,
+        deathSaveFailures: true,
+        },
+    })
+    },
+
+    // =========================================================
+    // Обновить death saves.
+    // =========================================================
+
+    updateDeathSaves(
+    id: string,
+    data: {
+        successes: number
+        failures: number
+    },
+    ) {
+    return prisma.character.update({
+        where: { id },
+        data: {
+        deathSaveSuccesses: data.successes,
+        deathSaveFailures: data.failures,
+        },
+    })
+    },
 }
