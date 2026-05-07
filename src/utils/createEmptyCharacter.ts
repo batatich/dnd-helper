@@ -6,7 +6,7 @@ export function createEmptyCharacter(): Character {
     id: crypto.randomUUID(),
     name: '',
     race: '',
-    class: '',
+    className: '',
     level: 1,
     description: '',
     alignment: '',

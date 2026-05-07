@@ -29,7 +29,7 @@ export const characterParamsSchema = z.object({
 export const createCharacterSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   race: z.string().min(1, 'Race is required'),
-  class: z.string().min(1, 'Class is required'),
+  className: z.string().min(1, 'Class is required'),
 
   level: z.number().int().min(1).max(20).default(1),
 
@@ -56,7 +56,20 @@ export const createCharacterSchema = z.object({
 })
 
 // Частичное обновление персонажа
-export const updateCharacterSchema = createCharacterSchema.partial()
+export const updateCharacterSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  race: z.string().min(1, 'Race is required').optional(),
+  className: z.string().min(1, 'Class is required').optional(),
+  level: z.number().int().min(1).max(20).optional(),
+
+  description: z.string().nullable().optional(),
+  alignment: z.string().nullable().optional(),
+  background: z.string().nullable().optional(),
+  avatarUrl: z.string().url().or(z.literal('')).nullable().optional(),
+
+  speed: z.number().int().min(0).optional(),
+  spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
+})
 
 // Типы для персонажа
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>

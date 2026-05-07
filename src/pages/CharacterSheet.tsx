@@ -9,7 +9,13 @@ import { useCharacterStore } from '../stores/characterStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
 
 import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
-import type { EquipmentSlot, ItemEffect } from '../types/items'
+import type {
+  CharacterItem,
+  CharacterItemForSheet,
+  EquipmentSlot,
+  ItemEffect,
+} from '../types/items'
+import type { SavingThrowBonus, SkillBonus } from '../types/characterSheet'
 
 import { formatItemEffect } from '../utils/itemEffects'
 
@@ -22,38 +28,152 @@ const defaultStats: Stats = {
   charisma: 10,
 }
 
-type InventoryItemForUi = {
-  id: string
-  itemId: string
-  name: string
-  type: string
-  effects: ItemEffect[]
-  allowedSlots: EquipmentSlot[]
-  isEquipped: boolean
-  equippedSlot: EquipmentSlot | null
+const equipmentSlots: EquipmentSlot[] = [
+  'mainHand',
+  'offHand',
+  'head',
+  'body',
+  'ring1',
+  'ring2',
+  'amulet',
+  'boots',
+]
+
+const slotLabels: Record<EquipmentSlot, string> = {
+  mainHand: 'Основная рука',
+  offHand: 'Вторая рука',
+  head: 'Голова',
+  body: 'Тело',
+  ring1: 'Кольцо 1',
+  ring2: 'Кольцо 2',
+  amulet: 'Амулет',
+  boots: 'Обувь',
 }
 
-type BackendInventoryItem = {
-  id: string
-  nameSnapshot?: string | null
-  quantity?: number | null
-  notes?: string | null
-  isEquipped?: boolean
-  slot?: EquipmentSlot | string | null
-  template?: {
-    id: string
-    name: string
-    type?: string | null
-    slot?: EquipmentSlot | string | null
-    effects?: unknown
-  } | null
-  itemTemplate?: {
-    id: string
-    name: string
-    type?: string | null
-    slot?: EquipmentSlot | string | null
-    effects?: unknown
-  } | null
+const statLabels: Record<keyof Stats, string> = {
+  strength: 'Сила',
+  dexterity: 'Ловкость',
+  constitution: 'Телосложение',
+  intelligence: 'Интеллект',
+  wisdom: 'Мудрость',
+  charisma: 'Харизма',
+}
+
+const statLabelsUppercase: Record<keyof Stats, string> = {
+  strength: 'СИЛА',
+  dexterity: 'ЛОВКОСТЬ',
+  constitution: 'ТЕЛОСЛОЖЕНИЕ',
+  intelligence: 'ИНТЕЛЛЕКТ',
+  wisdom: 'МУДРОСТЬ',
+  charisma: 'ХАРИЗМА',
+}
+
+function isEquipmentSlot(value: unknown): value is EquipmentSlot {
+  return (
+    typeof value === 'string' &&
+    equipmentSlots.includes(value as EquipmentSlot)
+  )
+}
+
+function parseItemNotes(notes: string | null): {
+  type?: string
+  allowedSlots?: EquipmentSlot[]
+  effects?: ItemEffect[]
+  weaponConfig?: CharacterItemForSheet['weaponConfig']
+} {
+  if (!notes) {
+    return {}
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(notes)
+
+    if (!parsed || typeof parsed !== 'object') {
+      return {}
+    }
+
+    const parsedObject = parsed as {
+      type?: unknown
+      allowedSlots?: unknown
+      effects?: unknown
+      weaponConfig?: unknown
+    }
+
+    const allowedSlots = Array.isArray(parsedObject.allowedSlots)
+      ? parsedObject.allowedSlots.filter(isEquipmentSlot)
+      : undefined
+
+    const effects = Array.isArray(parsedObject.effects)
+      ? (parsedObject.effects as ItemEffect[])
+      : undefined
+
+    return {
+      type:
+        typeof parsedObject.type === 'string'
+          ? parsedObject.type
+          : undefined,
+      allowedSlots,
+      effects,
+      weaponConfig:
+        parsedObject.weaponConfig &&
+        typeof parsedObject.weaponConfig === 'object'
+          ? (parsedObject.weaponConfig as CharacterItemForSheet['weaponConfig'])
+          : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+function getTemplateEffects(item: CharacterItem): ItemEffect[] {
+  const template = item.template ?? item.itemTemplate
+
+  if (!template || !Array.isArray(template.effects)) {
+    return []
+  }
+
+  return template.effects
+}
+
+function getTemplateAllowedSlots(item: CharacterItem): EquipmentSlot[] {
+  const template = item.template ?? item.itemTemplate
+
+  if (!template?.slot) {
+    return []
+  }
+
+  return isEquipmentSlot(template.slot) ? [template.slot] : []
+}
+
+function mapCharacterItemToSheetItem(
+  item: CharacterItem
+): CharacterItemForSheet {
+  const template = item.template ?? item.itemTemplate
+  const parsedNotes = parseItemNotes(item.notes)
+
+  const effectsFromTemplate = getTemplateEffects(item)
+  const effectsFromNotes = parsedNotes.effects ?? []
+
+  const allowedSlotsFromTemplate = getTemplateAllowedSlots(item)
+  const allowedSlotsFromNotes = parsedNotes.allowedSlots ?? []
+
+  return {
+    id: item.id,
+    itemId: item.id,
+    name: item.nameSnapshot || template?.name || 'Предмет',
+    type: template?.type ?? parsedNotes.type ?? 'misc',
+    effects:
+      effectsFromTemplate.length > 0 ? effectsFromTemplate : effectsFromNotes,
+    allowedSlots:
+      allowedSlotsFromTemplate.length > 0
+        ? allowedSlotsFromTemplate
+        : allowedSlotsFromNotes,
+    isEquipped: item.isEquipped,
+    equippedSlot: item.slot,
+    quantity: item.quantity,
+    notes: item.notes,
+    weaponConfig: parsedNotes.weaponConfig,
+  }
 }
 
 export function CharacterSheet() {
@@ -119,7 +239,7 @@ export function CharacterSheet() {
     await updateCharacter(character.id, {
       name: updates.name?.trim() || character.name,
       race: updates.race?.trim() || character.race,
-      class: updates.class?.trim() || character.className,
+      className: updates.className?.trim() || character.className,
 
       level: updates.level,
 
@@ -128,10 +248,8 @@ export function CharacterSheet() {
       background: updates.background ?? character.background ?? '',
       avatarUrl: updates.avatarUrl ?? character.avatarUrl ?? '',
 
-      currentHp: updates.currentHp ?? character.currentHp,
-      temporaryHp: updates.temporaryHp ?? character.temporaryHp,
       speed: updates.speed ?? character.speed,
-      inspiration: updates.inspiration ?? character.inspiration,
+
       spellcastingAbility:
         updates.spellcastingAbility ??
         sheet.magic.spellcastingAbility ??
@@ -312,15 +430,15 @@ export function CharacterSheet() {
     await refreshCurrentSheet()
   }
 
-  const handleEquipItem = async (item: InventoryItemForUi) => {
-    if (!sheet) return
+  const handleEquipItem = async (itemId: string | null) => {
+    if (!sheet || !itemId) return
 
-    await equipItem(sheet.character.id, item.itemId)
+    await equipItem(sheet.character.id, itemId)
     await refreshCurrentSheet()
   }
 
-  const handleUnequipItem = async (itemId: string) => {
-    if (!sheet) return
+  const handleUnequipItem = async (itemId: string | null) => {
+    if (!sheet || !itemId) return
 
     await unequipItem(sheet.character.id, itemId)
     await refreshCurrentSheet()
@@ -398,8 +516,8 @@ export function CharacterSheet() {
     maxHp: Number(derived.maxHp ?? character.currentHp ?? 0),
   }
 
-  const skillsToDisplay = sheet.skills ?? []
-  const savingThrowsToDisplay = sheet.savingThrows ?? []
+  const skillsToDisplay: SkillBonus[] = sheet.skills ?? []
+  const savingThrowsToDisplay: SavingThrowBonus[] = sheet.savingThrows ?? []
 
   const profileSkills = skillsToDisplay.map((skill) => ({
     name: skill.name,
@@ -420,7 +538,15 @@ export function CharacterSheet() {
     id: character.id,
     name: character.name ?? '',
     race: character.race ?? '',
+    className: character.className ?? '',
+
+    /**
+     * Временная совместимость с ProfileSection,
+     * если внутри него ещё используется character.class.
+     * После перевода ProfileSection на className это поле можно удалить.
+     */
     class: character.className ?? '',
+
     level: character.level ?? 1,
     alignment: character.alignment ?? '',
     background: character.background ?? '',
@@ -446,56 +572,9 @@ export function CharacterSheet() {
     updatedAt: character.updatedAt,
   } as unknown as Character
 
-  const slotLabels: Record<string, string> = {
-    mainHand: 'Основная рука',
-    offHand: 'Вторая рука',
-    head: 'Голова',
-    body: 'Тело',
-    ring1: 'Кольцо 1',
-    ring2: 'Кольцо 2',
-    amulet: 'Амулет',
-    boots: 'Обувь',
-  }
-
-  const rawInventory = (sheet.inventory.items ?? []) as unknown[]
-
-  const backendInventoryItems = rawInventory.filter(
-    (item): item is BackendInventoryItem =>
-      typeof item === 'object' && item !== null && 'id' in item
+  const inventoryItems: CharacterItemForSheet[] = sheet.inventory.items.map(
+    mapCharacterItemToSheetItem
   )
-
-  const inventoryItems: InventoryItemForUi[] = backendInventoryItems.map(
-    (inventoryItem) => {
-      const template = inventoryItem.template ?? inventoryItem.itemTemplate
-
-      let parsedNotes: { allowedSlots?: EquipmentSlot[]; type?: string } = {}
-
-      try {
-        if (inventoryItem.notes) {
-          parsedNotes = JSON.parse(inventoryItem.notes)
-        }
-      } catch {
-        parsedNotes = {}
-      }
-
-      return {
-        id: inventoryItem.id,
-        itemId: inventoryItem.id,
-        name: inventoryItem.nameSnapshot ?? template?.name ?? 'Предмет',
-        type: template?.type ?? parsedNotes.type ?? 'Предмет',
-        effects: Array.isArray(template?.effects)
-          ? (template.effects as ItemEffect[])
-          : [],
-        allowedSlots: template?.slot
-          ? [template.slot as EquipmentSlot]
-          : parsedNotes.allowedSlots ?? [],
-        isEquipped: inventoryItem.isEquipped ?? false,
-        equippedSlot: inventoryItem.slot as EquipmentSlot | null,
-      }
-    }
-  )
-
-  const equipmentSlots = Object.keys(slotLabels) as EquipmentSlot[]
 
   const equippedEntries = equipmentSlots.map((slot) => {
     const item =
@@ -522,16 +601,7 @@ export function CharacterSheet() {
         inventoryItem.itemId === itemId || inventoryItem.id === itemId
     )
 
-    return item?.equippedSlot ?? null
-  }
-
-  const statLabels: Record<keyof Stats, string> = {
-    strength: 'Сила',
-    dexterity: 'Ловкость',
-    constitution: 'Телосложение',
-    intelligence: 'Интеллект',
-    wisdom: 'Мудрость',
-    charisma: 'Харизма',
+    return isEquipmentSlot(item?.equippedSlot) ? item.equippedSlot : null
   }
 
   const passivePerception = Number(derived.passivePerception ?? 10)
@@ -611,7 +681,7 @@ export function CharacterSheet() {
             </button>
           </div>
         </div>
-      </div>      
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <div className="bg-gray-800 p-4 rounded text-center">
@@ -673,15 +743,6 @@ export function CharacterSheet() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
         {(Object.entries(finalStats) as [keyof Stats, number][]).map(
           ([key, value]) => {
-            const labels: Record<keyof Stats, string> = {
-              strength: 'СИЛА',
-              dexterity: 'ЛОВКОСТЬ',
-              constitution: 'ТЕЛОСЛОЖЕНИЕ',
-              intelligence: 'ИНТЕЛЛЕКТ',
-              wisdom: 'МУДРОСТЬ',
-              charisma: 'ХАРИЗМА',
-            }
-
             const mod = statModifiers[key]
             const baseValue = baseStats[key]
             const bonus = value - baseValue
@@ -695,7 +756,9 @@ export function CharacterSheet() {
                     : 'bg-gray-800'
                 }`}
               >
-                <div className="text-gray-400 text-sm">{labels[key]}</div>
+                <div className="text-gray-400 text-sm">
+                  {statLabelsUppercase[key]}
+                </div>
                 <div className="text-3xl font-bold text-white">{value}</div>
                 <div
                   className={`text-lg ${
@@ -825,8 +888,10 @@ export function CharacterSheet() {
             />
 
             <button
+              type="button"
               onClick={() => void handleHpChange()}
-              className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg text-sm transition"
+              disabled={isLoading}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
             >
               Применить
             </button>
@@ -842,8 +907,10 @@ export function CharacterSheet() {
             />
 
             <button
+              type="button"
               onClick={() => void handleSetTempHp()}
-              className="bg-cyan-600 hover:bg-cyan-700 px-3 py-2 rounded-lg text-sm transition"
+              disabled={isLoading}
+              className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
             >
               Временные
             </button>
@@ -943,9 +1010,7 @@ export function CharacterSheet() {
             className="bg-gray-800 rounded-lg p-4 flex justify-between items-center gap-4"
           >
             <div>
-              <div className="text-gray-400 text-sm">
-                {slotLabels[slot] || slot}
-              </div>
+              <div className="text-gray-400 text-sm">{slotLabels[slot]}</div>
 
               <div className="text-white font-semibold">
                 {item ? item.name : 'Пусто'}
@@ -964,8 +1029,10 @@ export function CharacterSheet() {
 
             {item && (
               <button
+                type="button"
                 onClick={() => void handleUnequipItem(item.itemId)}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+                disabled={isLoading}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
               >
                 Снять
               </button>
@@ -1017,10 +1084,12 @@ export function CharacterSheet() {
                 {item.allowedSlots.map((slot) => (
                   <button
                     key={slot}
-                    onClick={() => void handleEquipItem(item)}
-                    className="px-3 py-1 rounded text-sm transition bg-purple-600 hover:bg-purple-700"
+                    type="button"
+                    onClick={() => void handleEquipItem(item.itemId)}
+                    disabled={isLoading || !item.itemId}
+                    className="px-3 py-1 rounded text-sm transition bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Надеть в {slotLabels[slot] || slot}
+                    Надеть в {slotLabels[slot]}
                   </button>
                 ))}
               </div>

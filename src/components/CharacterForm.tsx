@@ -11,7 +11,7 @@ interface CharacterFormProps {
 type CharacterFormData = {
   name: string
   level: number
-  class: string
+  className: string
   race: string
   baseStats: Stats
   description: string
@@ -132,7 +132,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
   const [formData, setFormData] = useState<CharacterFormData>({
     name: character?.name || '',
     level: character?.level || 1,
-    class: character?.class || 'Воин',
+    className: (character as (Character & { className?: string; class?: string }) | null | undefined)?.className || character?.className || 'Воин',
     race: character?.race || 'Человек',
     baseStats: getCharacterStats(character),
     description: character?.description || '',
@@ -149,7 +149,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     const normalizedData = {
       name: formData.name.trim(),
       level: clampLevel(formData.level),
-      class: formData.class,
+      className: formData.className,
       race: formData.race,
       baseStats: formData.baseStats,
       description: formData.description.trim(),
@@ -162,7 +162,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
       await updateCharacter(character.id, {
         name: normalizedData.name,
         level: normalizedData.level,
-        class: normalizedData.class,
+        className: normalizedData.className,
         race: normalizedData.race,
         description: normalizedData.description,
         alignment: normalizedData.alignment,
@@ -175,7 +175,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
       await addCharacter({
         name: normalizedData.name,
         level: normalizedData.level,
-        class: normalizedData.class,
+        className: normalizedData.className,
         race: normalizedData.race,
         baseStats: normalizedData.baseStats,
         description: normalizedData.description,
@@ -318,9 +318,9 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         <div>
           <label className="block text-gray-400 text-sm mb-1">Класс</label>
           <select
-            value={formData.class}
+            value={formData.className}
             onChange={(e) =>
-              setFormData({ ...formData, class: e.target.value })
+              setFormData({ ...formData, className: e.target.value })
             }
             className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"
           >

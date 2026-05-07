@@ -60,7 +60,7 @@ function createFormFromCharacter(character: Character) {
   return {
     name: character.name ?? '',
     race: character.race ?? '',
-    class: character.class ?? '',
+    className: character.className ?? '',
     level: character.level ?? 1,
     alignment: character.alignment ?? '',
     background: character.background ?? '',
@@ -89,7 +89,7 @@ export function ProfileSection({
     const normalizedForm = {
       name: (form.name ?? '').trim(),
       race: (form.race ?? '').trim(),
-      class: (form.class ?? '').trim(),
+      className: (form.className ?? '').trim(),
       level: clampLevel(Number(form.level)),
       alignment: (form.alignment ?? '').trim(),
       background: (form.background ?? '').trim(),
@@ -129,8 +129,8 @@ export function ProfileSection({
             />
 
             <Input
-              value={form.class}
-              onChange={(e) => setForm({ ...form, class: e.target.value })}
+              value={form.className}
+              onChange={(e) => setForm({ ...form, className: e.target.value })}
               placeholder="Класс"
             />
 
@@ -250,7 +250,7 @@ export function ProfileSection({
               <div className="text-gray-300 mt-2">
                 <span>{character.race || 'Без расы'}</span>
                 {' • '}
-                <span>{character.class || 'Без класса'}</span>
+                <span>{character.className || 'Без класса'}</span>
                 {' • '}
                 <span>Уровень {character.level}</span>
               </div>
