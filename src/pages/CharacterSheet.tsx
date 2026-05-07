@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react'
-import {
-  CharacterTabs,
-  type CharacterSheetTab,
-} from '../components/character_sheet/CharacterTabs'
 import { Link, useParams } from 'react-router-dom'
 
 import { AttackSection } from '../components/AttackSection'
@@ -11,6 +7,10 @@ import { SpellSection } from '../components/SpellSection'
 
 import { CharacterHeader } from '../components/character_sheet/CharacterHeader'
 import { CharacterSummaryBar } from '../components/character_sheet/CharacterSummaryBar'
+import {
+  CharacterTabs,
+  type CharacterSheetTab,
+} from '../components/character_sheet/CharacterTabs'
 
 import { useCharacterStore } from '../stores/characterStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
@@ -202,7 +202,7 @@ export function CharacterSheet() {
     damageCharacter,
     healCharacter,
     setTemporaryHp,
-    useHitDie,
+    useHitDie: UseHitDieAction,
     restoreHitDie,
     setCharacterInspiration,
     addDeathSaveSuccess,
@@ -216,16 +216,16 @@ export function CharacterSheet() {
     deleteSpell,
     updateSpellcastingAbility,
     setSpellSlotTotal,
-    useSpellSlot,
+    useSpellSlot: UseSpellSlotAction,
     restoreSpellSlot,
     equipItem,
     unequipItem,
     levelUpCharacter,
   } = useCharacterStore()
 
-  const [activeTab, setActiveTab] = useState<CharacterSheetTab>('overview')
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
+  const [activeTab, setActiveTab] = useState<CharacterSheetTab>('overview')
 
   useEffect(() => {
     if (!id) return
@@ -312,7 +312,7 @@ export function CharacterSheet() {
   const handleUseHitDie = async () => {
     if (!sheet) return
 
-    await useHitDie(sheet.character.id)
+    await UseHitDieAction(sheet.character.id)
     await refreshCurrentSheet()
   }
 
@@ -428,7 +428,7 @@ export function CharacterSheet() {
     if (!sheet) return
 
     if (delta > 0) {
-      await useSpellSlot(sheet.character.id, level)
+      await UseSpellSlotAction(sheet.character.id, level)
     }
 
     if (delta < 0) {
@@ -648,16 +648,9 @@ export function CharacterSheet() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <CharacterHeader
-        character={character}
-      />
 
-      <ProfileSection
-        character={profileCharacter}
-        onUpdateCharacter={handleUpdateProfile}
-        onUpdateStats={handleUpdateStats}
-        isLoading={isLoading}
-      />
+
+      <CharacterHeader character={character} />
 
       <CharacterSummaryBar
         armorClass={finalDerivedStats.armorClass}
@@ -665,14 +658,22 @@ export function CharacterSheet() {
         speed={speed}
         proficiencyBonus={proficiencyBonus}
         inspiration={inspiration}
-        onToggleInspiration={() => void handleSetInspiration(!inspiration)}
+        onToggleInspiration={() => handleSetInspiration(!inspiration)}
       />
+
       <div className="mt-6">
         <CharacterTabs
           activeTab={activeTab}
           onChange={setActiveTab}
         />
       </div>
+
+      <ProfileSection
+        character={profileCharacter}
+        onUpdateCharacter={handleUpdateProfile}
+        onUpdateStats={handleUpdateStats}
+        isLoading={isLoading}
+      />
 
       <div className="bg-gray-800 rounded-lg p-4 mt-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -711,6 +712,30 @@ export function CharacterSheet() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="bg-gray-800 p-4 rounded text-center">
+          <div className="text-gray-400 text-sm">Бонус мастерства</div>
+          <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
+        </div>
+
+        <div className="bg-gray-800 p-4 rounded text-center">
+          <div className="text-gray-400 text-sm">Вдохновение</div>
+          <div className="text-white text-xl font-bold">
+            {inspiration ? 'Есть' : 'Нет'}
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleSetInspiration(!inspiration)}
+            disabled={isLoading}
+            className="mt-3 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+          >
+            {inspiration ? 'Снять' : 'Выдать'}
+          </button>
+        </div>
+
+        <div className="bg-gray-800 p-4 rounded text-center">
+          <div className="text-gray-400 text-sm">Скорость</div>
+          <div className="text-white text-xl font-bold">{speed} фт.</div>
+        </div>
 
         <div className="bg-gray-800 p-4 rounded text-center">
           <div className="text-gray-400 text-sm">Кости хитов</div>
