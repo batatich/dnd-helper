@@ -1,3 +1,5 @@
+import type { ReactNode, HTMLAttributes } from 'react'
+
 type Props = React.HTMLAttributes<HTMLDivElement> & {
   children: React.ReactNode
 }
