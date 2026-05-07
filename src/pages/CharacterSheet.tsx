@@ -11,6 +11,7 @@ import {
   CharacterTabs,
   type CharacterSheetTab,
 } from '../components/character_sheet/CharacterTabs'
+import { OverviewTab } from '../components/character_sheet/OverviewTab'
 
 import { useCharacterStore } from '../stores/characterStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
@@ -674,6 +675,21 @@ export function CharacterSheet() {
         onUpdateStats={handleUpdateStats}
         isLoading={isLoading}
       />
+      {activeTab === 'overview' && (
+        <OverviewTab
+          currentHp={sheet.character.currentHp}
+          maxHp={sheet.derived.maxHp}
+          temporaryHp={sheet.character.temporaryHp}
+          hitDice={sheet.progression.hitDice}
+          finalStats={sheet.stats.final}
+          modifiers={sheet.stats.modifiers}
+          attacks={sheet.attacks}
+          spells={sheet.magic.spells}
+          spellSlots={sheet.magic.spellSlots}
+          skills={sheet.skills}
+          savingThrows={sheet.savingThrows}
+        />
+      )}
 
       <div className="bg-gray-800 rounded-lg p-4 mt-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
