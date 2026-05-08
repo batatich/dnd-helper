@@ -62,6 +62,8 @@ export function OverviewTab({
 }: Props) {
   const visibleAttacks = attacks.slice(0, 3)
   const visibleSpells = spells.slice(0, 3)
+  const hiddenAttacksCount = Math.max(attacks.length - visibleAttacks.length, 0)
+  const hiddenSpellsCount = Math.max(spells.length - visibleSpells.length, 0)
   const visibleSkills = skills.slice(0, 6)
   const visibleSavingThrows = savingThrows.slice(0, 6)
 
@@ -215,6 +217,12 @@ export function OverviewTab({
                   </div>
                 </div>
               ))}
+
+              {hiddenAttacksCount > 0 && (
+                <div className="text-xs text-gray-500">
+                  Ещё атак: {hiddenAttacksCount}
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-sm text-gray-400">
@@ -244,12 +252,19 @@ export function OverviewTab({
                   </div>
                 </div>
               ))}
+
+            {hiddenSpellsCount > 0 && (
+              <div className="text-xs text-gray-500">
+                Ещё заклинаний: {hiddenSpellsCount}
+              </div>
+            )}
             </div>
           ) : (
             <div className="text-sm text-gray-400">
               Заклинания пока не добавлены.
             </div>
           )}
+
         </Card>
 
         <Card>
