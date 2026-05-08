@@ -4,6 +4,7 @@ import {
   createItemSchema,
   itemParamsSchema,
   updateItemSchema,
+  equipItemSchema,
 } from './character-inventory.schemas'
 import { characterInventoryService } from './character-inventory.service'
 import {
@@ -168,6 +169,7 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
   // Экипировать предмет
   app.post('/characters/:id/items/:itemId/equip', async (request, reply) => {
     const paramsParsed = itemParamsSchema.safeParse(request.params)
+    const bodyParsed = equipItemSchema.safeParse(request.body ?? {})
 
     if (!paramsParsed.success) {
       return reply.status(400).send({
@@ -176,10 +178,18 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
       })
     }
 
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
+      })
+    }
+
     try {
       return await characterInventoryService.equipItem(
         paramsParsed.data.id,
         paramsParsed.data.itemId,
+        bodyParsed.data,
       )
     } catch (error) {
       if (error instanceof ItemNotFoundError) {
@@ -200,6 +210,10 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
 
       if (error instanceof ItemSlotAlreadyOccupiedError) {
         return reply.status(409).send({ message: error.message })
+      }
+
+      if (error instanceof ValidationError) {
+        return reply.status(400).send({ message: error.message })
       }
 
       throw error

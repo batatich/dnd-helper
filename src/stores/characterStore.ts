@@ -3,7 +3,6 @@ import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
 import {
   getCharacters,
   getCharacterById,
-  getCharacterSheet,
 
   createCharacter as createCharacterRequest,
   updateCharacter as updateCharacterRequest,
@@ -52,6 +51,8 @@ import {
   type UpdateItemInput,
 } from '../api/characterApi'
 
+import { getCharacterSheet } from '../api/characterSheetApi'
+import type { CharacterSheet } from '../types/characterSheet'
 // =========================================================
 // Types
 // =========================================================
@@ -66,7 +67,7 @@ interface CharacterStore {
   // Основное состояние store
   characters: Character[]
   currentCharacter: Character | null
-  currentSheet: Character | null
+  currentSheet: CharacterSheet | null
   isLoading: boolean
   error: string | null
 
@@ -183,6 +184,71 @@ const getErrorMessage = (fallback: string, error: unknown): string => {
   return fallback
 }
 
+const mapSheetToLegacyCharacter = (sheet: CharacterSheet): Character => {
+  const equippedItems = sheet.inventory.equippedItems.reduce<
+    Record<string, string | null>
+  >((acc, item) => {
+    if (item.equippedSlot) {
+      acc[item.equippedSlot] = item.id
+    }
+
+    return acc
+  }, {})
+
+  return {
+    id: sheet.character.id,
+
+    name: sheet.character.name,
+    race: sheet.character.race,
+    className: sheet.character.className,
+    level: sheet.character.level,
+
+    description: sheet.character.description,
+    alignment: sheet.character.alignment,
+    background: sheet.character.background,
+    avatarUrl: sheet.character.avatarUrl,
+
+    currentHp: sheet.character.currentHp,
+    temporaryHp: sheet.character.temporaryHp,
+    inspiration: sheet.character.inspiration,
+    speed: sheet.character.speed,
+
+    spellcastingAbility: sheet.magic.spellcastingAbility,
+
+    deathSaves: sheet.deathSaves,
+    hitDice: sheet.progression.hitDice,
+
+    baseStats: sheet.stats.base,
+    derivedStats: {
+      maxHp: sheet.derived.maxHp,
+      armorClass: sheet.derived.armorClass,
+      initiative: sheet.derived.initiative,
+    },
+
+    skills: sheet.skills.map((skill) => ({
+      name: skill.name,
+      attribute: skill.ability,
+      proficient: skill.proficient,
+    })),
+
+    savingThrowProficiencies: sheet.savingThrows
+      .filter((savingThrow) => savingThrow.proficient)
+      .map((savingThrow) => savingThrow.ability),
+
+    attacks: sheet.attacks,
+    spells: sheet.magic.spells,
+    spellSlots: sheet.magic.spellSlots,
+
+    inventory: sheet.inventory.items,
+    equippedItems,
+
+    createdAt: sheet.character.createdAt,
+    updatedAt: sheet.character.updatedAt,
+
+    isSynced: true,
+  }
+}
+
 // =========================================================
 // Store
 // =========================================================
@@ -253,11 +319,12 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
 
     try {
       const sheet = await getCharacterSheet(id)
+      const character = mapSheetToLegacyCharacter(sheet)
 
       set((state) => ({
         currentSheet: sheet,
-        currentCharacter: sheet,
-        characters: mergeCharacterIntoList(state.characters, sheet),
+        currentCharacter: character,
+        characters: mergeCharacterIntoList(state.characters, character),
         isLoading: false,
       }))
     } catch (error) {
@@ -303,12 +370,14 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
         )
       }
 
-      const freshCharacter = await getCharacterSheet(createdCharacter.id)
+      const freshSheet = await getCharacterSheet(createdCharacter.id)
+
+      const freshCharacter = mapSheetToLegacyCharacter(freshSheet)
 
       set((state) => ({
         characters: mergeCharacterIntoList(state.characters, freshCharacter),
         currentCharacter: freshCharacter,
-        currentSheet: freshCharacter,
+        currentSheet: freshSheet,
         isLoading: false,
       }))
     } catch (error) {
@@ -337,10 +406,7 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
           state.currentCharacter?.id === id
             ? updatedCharacter
             : state.currentCharacter,
-        currentSheet:
-          state.currentSheet?.id === id
-            ? updatedCharacter
-            : state.currentSheet,
+        currentSheet: state.currentSheet,
         isLoading: false,
       }))
     } catch (error) {
@@ -365,7 +431,7 @@ export const useCharacterStore = create<CharacterStore>((set, get) => ({
         currentCharacter:
           state.currentCharacter?.id === id ? null : state.currentCharacter,
         currentSheet:
-          state.currentSheet?.id === id ? null : state.currentSheet,
+          state.currentSheet?.character.id === id ? null : state.currentSheet,
         isLoading: false,
       }))
     } catch (error) {

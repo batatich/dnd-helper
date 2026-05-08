@@ -4,57 +4,97 @@ import { z } from 'zod'
 // Character Inventory / Items
 // =========================================================
 
-// Параметры маршрута для операций над предметом
+// Единый список слотов экипировки.
+// Должен совпадать с frontend EquipmentSlot.
+export const equipmentSlotSchema = z.enum([
+  'mainHand',
+  'offHand',
+  'head',
+  'body',
+  'ring1',
+  'ring2',
+  'amulet',
+  'boots',
+])
+
+// Параметры маршрута для операций над предметом персонажа.
 export const itemParamsSchema = z.object({
   id: z.string().uuid(),
   itemId: z.string().uuid(),
 })
 
-// Схема создания предмета персонажа
+// =========================================================
+// Create item
+// =========================================================
+//
 // В Prisma nameSnapshot обязателен.
-// Но для удобства API можно разрешить не передавать его,
+// Но для удобства API разрешаем не передавать nameSnapshot,
 // если предмет создаётся на основе ItemTemplate.
-// Тогда backend сможет сам заполнить nameSnapshot из template.
+// Тогда service/repository сможет сам заполнить nameSnapshot из template.
+//
+// Правило:
+// - itemTemplateId есть → можно не передавать nameSnapshot
+// - itemTemplateId нет → nameSnapshot обязателен
 export const createItemSchema = z
   .object({
-    itemTemplateId: z.string().uuid().optional(),
+    itemTemplateId: z.string().uuid().nullable().optional(),
 
-    // Для кастомного предмета nameSnapshot обязателен.
-    // Для template-предмета можно позволить не передавать его с клиента.
     nameSnapshot: z.string().min(1).optional(),
 
-    quantity: z.number().int().min(1).optional(),
+    quantity: z.number().int().min(1).default(1),
+
+    // Лучше не экипировать предмет через create как основной сценарий.
+    // Для этого есть отдельный equip action.
+    // Но оставляем поле как переходную совместимость.
     isEquipped: z.boolean().optional(),
-    slot: z.string().min(1).optional(),
-    notes: z.string().optional(),
+
+    slot: equipmentSlotSchema.nullable().optional(),
+
+    notes: z.string().nullable().optional(),
   })
   .refine((data) => Boolean(data.itemTemplateId || data.nameSnapshot), {
     message: 'itemTemplateId or nameSnapshot is required',
     path: ['nameSnapshot'],
   })
 
-// Схема частичного обновления предмета
+// =========================================================
+// Update item
+// =========================================================
+//
+// Это частичное обновление данных предмета.
+// Экипировку лучше менять через equip/unequip actions,
+// но isEquipped пока оставлен для обратной совместимости.
 export const updateItemSchema = z.object({
   nameSnapshot: z.string().min(1).optional(),
+
   quantity: z.number().int().min(1).optional(),
+
   isEquipped: z.boolean().optional(),
 
   // nullable нужен, чтобы можно было явно снять предмет со слота
-  slot: z.string().min(1).nullable().optional(),
-  notes: z.string().optional(),
+  slot: equipmentSlotSchema.nullable().optional(),
+
+  notes: z.string().nullable().optional(),
 })
 
-// Отдельные action-схемы для equip / unequip
+// =========================================================
+// Equip / unequip actions
+// =========================================================
+//
+// Если предмет имеет один допустимый слот, backend может выбрать его сам.
+// Если допустимых слотов несколько, frontend должен передать slot.
+// Окончательная проверка допустимости слота всё равно должна быть в service/rules.
 export const equipItemSchema = z.object({
-  isEquipped: z.literal(true).optional(),
-  slot: z.string().min(1).optional(),
+  slot: equipmentSlotSchema.optional(),
 })
 
-export const unequipItemSchema = z.object({
-  isEquipped: z.literal(false).optional(),
-})
+export const unequipItemSchema = z.object({})
 
-// Типы для inventory
+// =========================================================
+// Types
+// =========================================================
+
+export type EquipmentSlotInput = z.infer<typeof equipmentSlotSchema>
 export type ItemParamsInput = z.infer<typeof itemParamsSchema>
 export type CreateItemInput = z.infer<typeof createItemSchema>
 export type UpdateItemInput = z.infer<typeof updateItemSchema>

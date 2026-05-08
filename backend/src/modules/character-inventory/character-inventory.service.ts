@@ -1,6 +1,5 @@
 import { ValidationError } from '../../shared/errors'
 import { characterRepository } from '../characters/character.repository'
-import { characterInventoryRepository } from './character-inventory.repository'
 import {
   CharacterNotFoundError,
   InvalidItemQuantityError,
@@ -12,10 +11,85 @@ import {
   ItemSlotMissingError,
   ItemTemplateNotFoundError,
 } from '../characters/errors'
+import { characterInventoryRepository } from './character-inventory.repository'
 import type {
   CreateItemInput,
+  EquipItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
+
+type EquipmentSlot =
+  | 'mainHand'
+  | 'offHand'
+  | 'head'
+  | 'body'
+  | 'ring1'
+  | 'ring2'
+  | 'amulet'
+  | 'boots'
+
+const equipmentSlots: EquipmentSlot[] = [
+  'mainHand',
+  'offHand',
+  'head',
+  'body',
+  'ring1',
+  'ring2',
+  'amulet',
+  'boots',
+]
+
+function isEquipmentSlot(value: unknown): value is EquipmentSlot {
+  return (
+    typeof value === 'string' &&
+    equipmentSlots.includes(value as EquipmentSlot)
+  )
+}
+
+function normalizeAllowedSlotsFromValue(value: unknown): EquipmentSlot[] {
+  if (!value) {
+    return []
+  }
+
+  if (isEquipmentSlot(value)) {
+    return [value]
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(isEquipmentSlot)
+  }
+
+  return []
+}
+
+function resolveAllowedSlots(input: {
+  templateSlot?: string | null
+}): EquipmentSlot[] {
+  return normalizeAllowedSlotsFromValue(input.templateSlot)
+}
+
+function resolveEquipSlot(input: {
+  requestedSlot?: EquipmentSlot
+  allowedSlots: EquipmentSlot[]
+}): EquipmentSlot {
+  const { requestedSlot, allowedSlots } = input
+
+  if (requestedSlot) {
+    if (allowedSlots.length > 0 && !allowedSlots.includes(requestedSlot)) {
+      throw new ValidationError(
+        `Item cannot be equipped in slot "${requestedSlot}"`,
+      )
+    }
+
+    return requestedSlot
+  }
+
+  if (allowedSlots.length === 1) {
+    return allowedSlots[0]
+  }
+
+  throw new ItemSlotMissingError()
+}
 
 export const characterInventoryService = {
   async getItemTemplates() {
@@ -60,17 +134,18 @@ export const characterInventoryService = {
     }
 
     if (data.isEquipped && data.slot) {
-      const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
-        characterId,
-        data.slot,
-      )
+      const occupiedItem =
+        await characterInventoryRepository.findEquippedItemBySlot(
+          characterId,
+          data.slot,
+        )
 
       if (occupiedItem) {
         throw new ItemSlotAlreadyOccupiedError(data.slot, characterId)
       }
     }
 
-    return characterInventoryRepository.addItem(characterId, {
+    return characterInventoryRepository.createItem(characterId, {
       ...data,
       nameSnapshot: resolvedNameSnapshot,
     })
@@ -105,10 +180,14 @@ export const characterInventoryService = {
       throw new ItemOwnershipError(characterId, itemId)
     }
 
-    await characterInventoryRepository.deleteItem(itemId)
+    return characterInventoryRepository.deleteItem(itemId)
   },
 
-  async equipItem(characterId: string, itemId: string) {
+  async equipItem(
+    characterId: string,
+    itemId: string,
+    data: EquipItemInput = {},
+  ) {
     const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
@@ -123,20 +202,26 @@ export const characterInventoryService = {
       throw new ItemAlreadyEquippedError(itemId)
     }
 
-    if (!item.slot) {
-      throw new ItemSlotMissingError(itemId)
-    }
+    const allowedSlots = resolveAllowedSlots({
+      templateSlot: item.itemTemplate?.slot ?? null,
+    })
 
-    const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
-      characterId,
-      item.slot,
-    )
+    const slot = resolveEquipSlot({
+      requestedSlot: data.slot,
+      allowedSlots,
+    })
+
+    const occupiedItem =
+      await characterInventoryRepository.findEquippedItemBySlot(
+        characterId,
+        slot,
+      )
 
     if (occupiedItem && occupiedItem.id !== itemId) {
-      throw new ItemSlotAlreadyOccupiedError(item.slot, characterId)
+      throw new ItemSlotAlreadyOccupiedError(slot, characterId)
     }
 
-    return characterInventoryRepository.equipItem(itemId)
+    return characterInventoryRepository.equipItem(itemId, slot)
   },
 
   async unequipItem(characterId: string, itemId: string) {

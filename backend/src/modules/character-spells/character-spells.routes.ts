@@ -4,7 +4,6 @@ import {
   createSpellSchema,
   spellParamsSchema,
   updateSpellSchema,
-  updateSpellSlotsSchema,
   setSpellSlotTotalBodySchema,
   spellSlotParamsSchema,
 } from './character-spells.schemas'
@@ -119,47 +118,6 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
 
       if (error instanceof SpellOwnershipError) {
         return reply.status(403).send({ message: error.message })
-      }
-
-      throw error
-    }
-  })
-
-  // =========================================================
-  // Spell slots
-  // =========================================================
-
-  // Обновить spell slots персонажа
-  app.patch('/characters/:id/spell-slots', async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-    const bodyParsed = updateSpellSlotsSchema.safeParse(request.body)
-
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    if (!bodyParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: bodyParsed.error.flatten(),
-      })
-    }
-
-    try {
-      return await characterSpellsService.updateCharacterSpellSlots(
-        paramsParsed.data.id,
-        bodyParsed.data.spellSlots,
-      )
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
-      }
-
-      if (error instanceof ValidationError) {
-        return reply.status(400).send({ message: error.message })
       }
 
       throw error

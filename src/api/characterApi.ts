@@ -178,11 +178,6 @@ export async function getCharacterById(id: string): Promise<Character> {
   const data = await httpClient.get<BackendCharacter>(`/characters/${id}`)
   return mapBackendCharacterToFrontend(data)
 }
-// TODO: устарело. Для нового вложенного sheet использовать characterSheetApi.ts
-export async function getCharacterSheet(id: string): Promise<Character> {
-  const data = await httpClient.get<BackendCharacter>(`/characters/${id}/sheet`)
-  return mapBackendCharacterToFrontend(data)
-}
 
 export async function createCharacter(
   data: CreateCharacterInput
@@ -367,41 +362,40 @@ export function unequipItem(
 export async function addSpell(
   characterId: string,
   data: NewSpell
-): Promise<Character> {
+): Promise<void> {
   await httpClient.post(`/characters/${characterId}/spells`, data)
-  return getCharacterSheet(characterId)
 }
 
 export async function updateSpell(
   characterId: string,
   spellId: string,
   data: UpdateSpellInput
-): Promise<Character> {
+): Promise<void> {
   await httpClient.patch(
     `/characters/${characterId}/spells/${spellId}`,
     removeEmptyValues(data)
   )
-
-  return getCharacterSheet(characterId)
 }
 
 export async function deleteSpell(
   characterId: string,
   spellId: string
-): Promise<Character> {
+): Promise<void> {
   await httpClient.delete(`/characters/${characterId}/spells/${spellId}`)
-  return getCharacterSheet(characterId)
 }
 
+/**
+ * Устаревший метод.
+ * Лучше больше не использовать: вместо него есть действия
+ * setSpellSlotTotal / useSpellSlot / restoreSpellSlot.
+ */
 export async function updateSpellSlots(
   characterId: string,
   spellSlots: SpellSlotInput[]
-): Promise<Character> {
+): Promise<void> {
   await httpClient.patch(`/characters/${characterId}/spell-slots`, {
     spellSlots,
   })
-
-  return getCharacterSheet(characterId)
 }
 
 export async function updateSpellcastingAbility(
@@ -412,7 +406,6 @@ export async function updateSpellcastingAbility(
     spellcastingAbility: ability,
   })
 }
-
 // =========================================================
 // Spell slots actions
 // =========================================================
@@ -452,32 +445,27 @@ export async function restoreSpellSlot(characterId: string, level: number) {
 export async function addAttack(
   characterId: string,
   data: NewAttack
-): Promise<Character> {
+): Promise<void> {
   await httpClient.post(
     `/characters/${characterId}/attacks`,
     removeEmptyValues(data)
   )
-
-  return getCharacterSheet(characterId)
 }
 
 export async function updateAttack(
   characterId: string,
   attackId: string,
   data: Partial<NewAttack>
-): Promise<Character> {
+): Promise<void> {
   await httpClient.patch(
     `/characters/${characterId}/attacks/${attackId}`,
     removeEmptyValues(data)
   )
-
-  return getCharacterSheet(characterId)
 }
 
 export async function deleteAttack(
   characterId: string,
   attackId: string
-): Promise<Character> {
+): Promise<void> {
   await httpClient.delete(`/characters/${characterId}/attacks/${attackId}`)
-  return getCharacterSheet(characterId)
 }

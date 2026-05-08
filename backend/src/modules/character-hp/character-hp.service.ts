@@ -1,6 +1,5 @@
 import { ValidationError } from '../../shared/errors'
 import { characterHpRepository } from './character-hp.repository'
-import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 
 import {
@@ -10,6 +9,7 @@ import {
   calculateMaxHp,
   getHpIncrease,
   getHpRuleForCharacter,
+  HitDiceConflictError,
   resetDeathSaves,
   restoreHitDie,
   useHitDie,
@@ -59,33 +59,36 @@ export const characterHpService = {
       level: nextLevel,
     })
 
-    await characterHpRepository.createHpIncrease(id, {
-      level: nextLevel,
-      mode: hpMode,
-      value: hpIncrease.value,
-      dice: `1d${hpRule.hitDie}`,
-      rolledValue: hpIncrease.rolledValue ?? null,
-    })
-
-    const updatedCharacterForCalculation =
-      await characterHpRepository.findByIdWithHpData(id)
-
-    if (!updatedCharacterForCalculation) {
-      throw new CharacterNotFoundError(id)
-    }
+    const nextHpIncreases = [
+      ...(character.hpIncreases ?? []),
+      {
+        value: hpIncrease.value,
+      },
+    ]
 
     const maxHp = calculateMaxHp({
-      ...updatedCharacterForCalculation,
+      ...character,
       level: nextLevel,
+      hpIncreases: nextHpIncreases,
     })
 
-    return characterHpRepository.updateLevelAndHpState(id, {
-      level: nextLevel,
-      currentHp: maxHp,
-      temporaryHp: character.temporaryHp,
-      hitDiceTotal: hitDice.total,
-      hitDiceDice: hitDice.dice,
-    })
+    return characterHpRepository.levelUpWithHpIncrease(
+      id,
+      {
+        level: nextLevel,
+        mode: hpMode,
+        value: hpIncrease.value,
+        dice: `1d${hpRule.hitDie}`,
+        rolledValue: hpIncrease.rolledValue ?? null,
+      },
+      {
+        level: nextLevel,
+        currentHp: maxHp,
+        temporaryHp: character.temporaryHp,
+        hitDiceTotal: hitDice.total,
+        hitDiceDice: hitDice.dice,
+      },
+    )
   },
 
   // Наносит урон персонажу.
@@ -101,7 +104,7 @@ export const characterHpService = {
       throw new CharacterNotFoundError(id)
     }
 
-    if (amount < 0) {
+    if (amount <= 0) {
       throw new ValidationError('Damage amount cannot be negative')
     }
 
@@ -136,7 +139,7 @@ export const characterHpService = {
       throw new CharacterNotFoundError(id)
     }
 
-    if (amount < 0) {
+    if (amount <= 0) {
       throw new ValidationError('Heal amount cannot be negative')
     }
 
@@ -154,7 +157,7 @@ export const characterHpService = {
   // temporary HP не лечит персонажа.
   // Это отдельный буфер здоровья.
   async setTempHp(id: string, amount: number) {
-    const character = await characterRepository.findById(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -182,20 +185,22 @@ export const characterHpService = {
       throw new CharacterNotFoundError(id)
     }
 
+    let nextHitDice
+
     try {
-      const nextHitDice = useHitDie({
+      nextHitDice = useHitDie({
         level: character.level,
         hitDiceUsed: character.hitDiceUsed,
       })
-
-      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof HitDiceConflictError) {
         throw new ValidationError(error.message)
       }
 
       throw error
     }
+
+    return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
   },
 
   // Восстанавливает 1 использованную кость хитов.
@@ -206,20 +211,22 @@ export const characterHpService = {
       throw new CharacterNotFoundError(id)
     }
 
+    let nextHitDice
+
     try {
-      const nextHitDice = restoreHitDie({
+      nextHitDice = restoreHitDie({
         level: character.level,
         hitDiceUsed: character.hitDiceUsed,
       })
-
-      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof HitDiceConflictError) {
         throw new ValidationError(error.message)
       }
 
       throw error
     }
+
+    return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
   },
 
   // =========================================================
@@ -228,7 +235,7 @@ export const characterHpService = {
 
   // Устанавливает вдохновение персонажа.
   async setInspiration(id: string, inspiration: boolean) {
-    const character = await characterRepository.findById(id)
+    const character = await characterHpRepository.findByIdWithHpData(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)

@@ -69,9 +69,19 @@ export type Attack = {
   notes: string
   source: 'manual' | 'item'
   itemId?: string | null
+
+  /**
+   * Рассчитанные backend-поля.
+   * Frontend их только отображает.
+   */
+  attackBonus: number
+  damageBonusFinal: number
 }
 
-export type NewAttack = Omit<Attack, 'id'>
+export type NewAttack = Omit<
+  Attack,
+  'id' | 'attackBonus' | 'damageBonusFinal'
+>
 
 export type AttackUpdate = Partial<NewAttack>
 

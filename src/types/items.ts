@@ -38,7 +38,7 @@ export type WeaponConfig = {
 
 /**
  * Старый frontend-тип предмета.
- * Пока оставляем, потому что его могут использовать формы и UI.
+ * Пока оставляем для форм, справочника и старых UI-мест.
  */
 export type Item = {
   id: string
@@ -54,9 +54,6 @@ export type Item = {
  *
  * Соответствует Prisma ItemTemplate:
  * id, name, type, slot, description, effects.
- *
- * Важно:
- * effects в Prisma — Json?, поэтому на frontend мы ожидаем ItemEffect[] | null.
  */
 export type ItemTemplate = {
   id: string
@@ -70,11 +67,11 @@ export type ItemTemplate = {
 }
 
 /**
- * Предмет конкретного персонажа.
+ * Сырая сущность предмета персонажа.
  *
- * Соответствует Prisma CharacterItem:
- * id, characterId, itemTemplateId, nameSnapshot,
- * quantity, isEquipped, slot, notes, itemTemplate.
+ * Это ближе к Prisma CharacterItem + itemTemplate.
+ * Не использовать как основной тип для отображения character sheet,
+ * потому что для sheet теперь есть CharacterItemForSheet.
  */
 export type CharacterItem = {
   id: string
@@ -93,29 +90,36 @@ export type CharacterItem = {
   itemTemplate?: ItemTemplate | null
 
   /**
-   * Временная совместимость.
-   * В некоторых местах frontend мог использовать template вместо itemTemplate.
+   * Временная совместимость со старыми местами фронта,
+   * где могло использоваться template вместо itemTemplate.
    */
   template?: ItemTemplate | null
 }
 
 /**
- * UI-ready предмет для листа.
+ * UI-ready предмет из GET /characters/:id/sheet.
  *
- * Это не обязательно Prisma-модель.
- * Такой тип пригодится позже, когда backend начнёт отдавать предметы
- * уже в нормальном виде без JSON.parse(notes).
+ * Должен совпадать с backend CharacterItemDto
+ * из character-sheet.service.ts.
+ *
+ * Важно:
+ * - itemId здесь string, потому что backend кладёт item.id.
+ * - effects уже нормализованы в массив.
+ * - allowedSlots уже нормализованы в массив слотов.
+ * - equippedSlot уже нормализован или null.
+ * - notes остаётся обычной заметкой/сырой строкой, но UI больше не должен
+ *   парсить notes ради type/effects/allowedSlots.
  */
 export type CharacterItemForSheet = {
   id: string
-  itemId: string | null
+  itemId: string
   name: string
   type: ItemType | string | null
   effects: ItemEffect[]
   allowedSlots: EquipmentSlot[]
   isEquipped: boolean
-  equippedSlot: EquipmentSlot | string | null
+  equippedSlot: EquipmentSlot | null
   quantity: number
   notes: string | null
-  weaponConfig?: WeaponConfig
+  weaponConfig?: WeaponConfig | null
 }

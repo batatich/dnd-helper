@@ -16,23 +16,42 @@ import { calculateSavingThrows } from '../calculation/saving-throws.rules'
 // =========================================================
 // 1. Базовые типы character sheet
 // =========================================================
-// CharacterSheetService не должен сам объявлять правила
-// характеристик. AbilityName / AbilityScores берём из
-// calculation/stats.rules.ts.
-//
-// Это важно, чтобы весь backend использовал один общий
-// источник типов и формул для характеристик.
-// =========================================================
 
 type AbilityModifiers = AbilityScores
 
+type AttackType = 'melee' | 'ranged' | 'spell'
+
+type AttackSource = 'manual' | 'item'
+
+type EquipmentSlot =
+  | 'mainHand'
+  | 'offHand'
+  | 'head'
+  | 'body'
+  | 'ring1'
+  | 'ring2'
+  | 'amulet'
+  | 'boots'
+
+type ItemEffectDto = {
+  stat?: AbilityName
+  value?: number
+  armorClassBonus?: number
+  hpBonus?: number
+  initiativeBonus?: number
+}
+
+type WeaponConfigDto = {
+  attackType: 'melee' | 'ranged'
+  ability: AbilityName
+  damageDice: string
+  damageBonus: number
+  damageType: string
+  notes: string
+}
+
 // =========================================================
 // 2. Сущность персонажа для сборки sheet
-// =========================================================
-// Здесь лежат только поля, которые нужны для листа.
-// Это НЕ обязательно Prisma-тип 1-в-1.
-// Это service-contract: какие данные нужны,
-// чтобы собрать готовый CharacterSheetDto.
 // =========================================================
 
 type CharacterEntity = {
@@ -55,33 +74,19 @@ type CharacterEntity = {
   deathSaveSuccesses: number
   deathSaveFailures: number
 
-  // Использование костей хитов.
-  // total и dice считаются сервером,
-  // used хранится как состояние персонажа.
   hitDiceUsed?: number | null
 
-  // Способность заклинателя.
-  // Сейчас может отсутствовать у персонажа.
-  // Тогда spellAttackBonus / spellSaveDc будут null.
   spellcastingAbility?: AbilityName | string | null
-
-  // Spell slots хранятся в Character как JSON/поле.
-  // Service возвращает их в magic.spellSlots.
   spellSlots?: unknown
 
   createdAt: Date
   updatedAt: Date
 
-  // История прироста HP по уровням.
-  // Нужна для расчёта maxHp.
   hpIncreases?: CharacterHpIncreaseEntity[]
 }
 
 // =========================================================
 // 3. История прироста HP
-// =========================================================
-// Каждая запись показывает, сколько HP персонаж получил
-// при повышении конкретного уровня.
 // =========================================================
 
 type CharacterHpIncreaseEntity = {
@@ -97,9 +102,6 @@ type CharacterHpIncreaseEntity = {
 
 // =========================================================
 // 4. Базовые характеристики персонажа
-// =========================================================
-// Это хранимые значения.
-// Они не учитывают предметы и временные эффекты.
 // =========================================================
 
 type CharacterStatsEntity = {
@@ -120,10 +122,6 @@ type DeathSavesDto = {
 // =========================================================
 // 5. Атаки персонажа
 // =========================================================
-// Это сохранённые атаки.
-// Позже сюда можно будет добавить calculatedAttackBonus,
-// calculatedDamageBonus или generated item attacks.
-// =========================================================
 
 type CharacterAttackEntity = {
   id: string
@@ -136,13 +134,48 @@ type CharacterAttackEntity = {
   damageBonus: number | null
   damageType: string | null
   notes: string | null
+
+  source?: string | null
+  itemId?: string | null
+
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+type AttackDto = {
+  id: string
+  characterId: string
+  name: string
+  attackType: AttackType
+  ability: AbilityName
+  proficient: boolean
+  damageDice: string
+
+  /**
+   * Базовый бонус урона, который хранится у атаки.
+   */
+  damageBonus: number
+
+  /**
+   * Финальный бонус к броску атаки:
+   * ability modifier + proficiencyBonus, если proficient = true.
+   */
+  attackBonus: number
+
+  /**
+   * Финальный бонус к урону:
+   * damageBonus + ability modifier.
+   */
+  damageBonusFinal: number
+
+  damageType: string
+  notes: string
+  source: AttackSource
+  itemId: string | null
 }
 
 // =========================================================
 // 6. Заклинания персонажа
-// =========================================================
-// Это сохранённые spell-записи.
-// Spell slots возвращаются отдельно через magic.spellSlots.
 // =========================================================
 
 type CharacterSpellEntity = {
@@ -156,16 +189,43 @@ type CharacterSpellEntity = {
   components: string | null
   duration: string | null
   description: string | null
+
+  concentration?: boolean | null
+  ritual?: boolean | null
+
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+type SpellDto = {
+  id: string
+  characterId: string
+  name: string
+  level: number
+  school: string
+  castingTime: string
+  range: string
+  components: string
+  duration: string
+  concentration: boolean
+  ritual: boolean
+  description: string
 }
 
 // =========================================================
 // 7. Предметы персонажа
 // =========================================================
-// itemTemplate пока unknown, потому что эффекты предметов
-// ещё не типизированы как полноценная backend-модель.
-// Когда будем переносить item effects, это нужно заменить
-// на нормальный ItemTemplateEntity.
-// =========================================================
+
+type ItemTemplateEntity = {
+  id: string
+  name: string
+  type: string | null
+  slot: string | null
+  description: string | null
+  effects: unknown
+  createdAt?: Date
+  updatedAt?: Date
+}
 
 type CharacterItemEntity = {
   id: string
@@ -176,18 +236,25 @@ type CharacterItemEntity = {
   slot: string | null
   notes: string | null
   itemTemplateId: string | null
-  itemTemplate?: unknown
+  itemTemplate?: ItemTemplateEntity | null
+}
+
+type CharacterItemDto = {
+  id: string
+  itemId: string
+  name: string
+  type: string | null
+  effects: ItemEffectDto[]
+  allowedSlots: EquipmentSlot[]
+  isEquipped: boolean
+  equippedSlot: EquipmentSlot | null
+  quantity: number
+  notes: string | null
+  weaponConfig?: WeaponConfigDto
 }
 
 // =========================================================
 // 8. Repository-контракты
-// =========================================================
-// Service не знает Prisma напрямую.
-// Он просит данные через repository-интерфейсы.
-//
-// findByIdForSheet — предпочтительный метод.
-// Он должен подтягивать hpIncreases.
-// findById — fallback для совместимости.
 // =========================================================
 
 type CharacterRepository = {
@@ -214,9 +281,6 @@ type CharacterItemRepository = {
 // =========================================================
 // 9. DTO готового character sheet
 // =========================================================
-// Это уже не Prisma-сущность, а готовый ответ API.
-// Именно эту структуру должен получать frontend.
-// =========================================================
 
 type CharacterProfileDto = {
   id: string
@@ -240,80 +304,47 @@ type CharacterProfileDto = {
 }
 
 type CharacterStatsDto = {
-  // Хранимые базовые характеристики.
   base: AbilityScores
-
-  // Итоговые характеристики.
-  // Сейчас равны base.
-  // Позже сюда будут применяться item effects.
   final: AbilityScores
-
-  // Модификаторы от итоговых характеристик.
   modifiers: AbilityModifiers
 }
 
 type CharacterDerivedDto = {
-  // Максимальное HP считается сервером.
   maxHp: number
-
-  // Броня.
-  // Сейчас: 10 + DEX modifier.
-  // Позже: armor/shield/item effects.
   armorClass: number
-
-  // Инициатива.
-  // Сейчас: DEX modifier.
   initiative: number
-
-  // Пассивная внимательность / восприятие.
-  // Теперь считается через skills.rules.ts.
   passivePerception: number
-
-  // Бонус мастерства по уровню.
   proficiencyBonus: number
-
-  // Spell values.
-  // null означает, что у персонажа нет выбранной spellcasting ability.
   spellAttackBonus: number | null
   spellSaveDc: number | null
 }
 
 type CharacterSheetDto = {
-  // Базовый профиль персонажа.
   character: CharacterProfileDto
 
-  // Характеристики и модификаторы.
   stats: CharacterStatsDto
 
-  // Производные значения.
   derived: CharacterDerivedDto
 
   deathSaves: DeathSavesDto
-  // Навыки.
-  // Считаются backend-ом через calculation/skills.rules.ts.
+
   skills: SkillBonus[]
 
-  // Спасброски.
-  // Считаются backend-ом через calculation/saving-throws.rules.ts.
   savingThrows: SavingThrowBonus[]
 
-  // Боевой блок.
-  attacks: CharacterAttackEntity[]
+  attacks: AttackDto[]
 
-  // Магический блок.
   magic: {
-    spells: CharacterSpellEntity[]
+    spells: SpellDto[]
     spellSlots: unknown[]
     spellcastingAbility: AbilityName | null
   }
 
-  // Инвентарь.
   inventory: {
-    items: CharacterItemEntity[]
-    equippedItems: CharacterItemEntity[]
+    items: CharacterItemDto[]
+    equippedItems: CharacterItemDto[]
   }
 
-  // Развитие персонажа.
   progression: {
     hitDice: ReturnType<typeof calculateHitDice>
     hpIncreases: CharacterHpIncreaseEntity[]
@@ -322,20 +353,6 @@ type CharacterSheetDto = {
 
 // =========================================================
 // 10. CharacterSheetService
-// =========================================================
-// Главная задача:
-// собрать готовый character sheet из нескольких источников.
-//
-// Service отвечает за:
-// - получение данных через repositories
-// - безопасную сборку DTO
-// - вызов calculation rules
-//
-// Service НЕ должен:
-// - работать с Prisma напрямую
-// - знать HTTP/Fastify
-// - хранить правила навыков/спасбросков внутри себя
-// - отдавать frontend неполный набор, который тот должен склеивать сам
 // =========================================================
 
 export class CharacterSheetService {
@@ -346,28 +363,6 @@ export class CharacterSheetService {
     private readonly spellRepository: CharacterSpellRepository,
     private readonly itemRepository: CharacterItemRepository,
   ) {}
-
-  // =======================================================
-  // Public API
-  // =======================================================
-  // Получить полный character sheet.
-  //
-  // Это главный метод для:
-  // GET /characters/:id/sheet
-  //
-  // Возвращает вложенную структуру:
-  // {
-  //   character,
-  //   stats,
-  //   derived,
-  //   skills,
-  //   savingThrows,
-  //   attacks,
-  //   magic,
-  //   inventory,
-  //   progression
-  // }
-  // =======================================================
 
   async getCharacterSheet(characterId: string): Promise<CharacterSheetDto> {
     const character = await this.getCharacterForSheet(characterId)
@@ -384,32 +379,23 @@ export class CharacterSheetService {
       this.itemRepository.findByCharacterId(characterId),
     ])
 
-    const equippedItems = this.getEquippedItems(items)
+    const inventoryItems = items.map((item) => this.toCharacterItemDto(item))
+    const equippedItems = inventoryItems.filter((item) => item.isEquipped)
 
     const baseStats = this.toAbilityScores(baseStatsEntity)
 
-    // Сейчас finalStats равны baseStats.
-    // Позже именно здесь будет применяться логика item effects:
-    // finalStats = applyItemEffects(baseStats, equippedItems)
     const finalStats = this.calculateFinalStats(baseStats, equippedItems)
 
-    // Модификаторы теперь считаются общим calculation helper-ом.
     const modifiers = getAbilityModifiers(finalStats)
 
     const proficiencyBonus = this.calculateProficiencyBonus(character.level)
 
-    // Пока skillStates не подключены к БД.
-    // Поэтому все proficiencies будут false.
-    // Позже сюда можно будет передать CharacterSkillState[].
     const skills = calculateSkillBonuses({
       modifiers,
       proficiencyBonus,
       skillStates: [],
     })
 
-    // Пока savingThrowStates не подключены к БД.
-    // Поэтому все proficiencies будут false.
-    // Позже сюда можно будет передать CharacterSavingThrowState[].
     const savingThrows = calculateSavingThrows({
       modifiers,
       proficiencyBonus,
@@ -430,10 +416,20 @@ export class CharacterSheetService {
       maxHp: calculateMaxHp(characterForHpCalculation),
       proficiencyBonus,
       passivePerception: calculatePassivePerception(skills),
+      equippedItems,
     })
 
     const hitDice = calculateHitDice(characterForHpCalculation)
 
+    const manualAttacks = attacks.map((attack) =>
+      this.toAttackDto(attack, modifiers, proficiencyBonus),
+    )
+    const generatedWeaponAttacks = this.createGeneratedWeaponAttacks(
+      character.id,
+      equippedItems,
+      modifiers,
+      proficiencyBonus,
+    )
     return {
       character: this.toCharacterProfileDto(character),
 
@@ -453,10 +449,10 @@ export class CharacterSheetService {
       skills,
       savingThrows,
 
-      attacks,
+      attacks: [...manualAttacks, ...generatedWeaponAttacks],
 
       magic: {
-        spells,
+        spells: spells.map((spell) => this.toSpellDto(spell)),
         spellSlots: this.normalizeSpellSlots(character.spellSlots),
         spellcastingAbility: this.normalizeAbilityName(
           character.spellcastingAbility,
@@ -464,10 +460,9 @@ export class CharacterSheetService {
       },
 
       inventory: {
-        items,
+        items: inventoryItems,
         equippedItems,
       },
-
       progression: {
         hitDice,
         hpIncreases,
@@ -477,13 +472,6 @@ export class CharacterSheetService {
 
   // =======================================================
   // Character loading
-  // =======================================================
-  // Здесь выбираем правильный repository-метод.
-  //
-  // findByIdForSheet — предпочтительный метод.
-  // Он должен подтягивать hpIncreases.
-  //
-  // findById — fallback для совместимости.
   // =======================================================
 
   private getCharacterForSheet(
@@ -498,14 +486,6 @@ export class CharacterSheetService {
 
   // =======================================================
   // Stats loading
-  // =======================================================
-  // Получаем базовые характеристики.
-  //
-  // Если stats ещё нет в БД, возвращаем безопасные 10.
-  // Это временная защита от падения sheet.
-  //
-  // В целевой модели CharacterStats должны создаваться
-  // вместе с персонажем, и этот fallback станет не нужен.
   // =======================================================
 
   private async getStats(characterId: string): Promise<CharacterStatsEntity> {
@@ -530,9 +510,6 @@ export class CharacterSheetService {
 
   // =======================================================
   // DTO builders
-  // =======================================================
-  // Эти функции не считают игровые правила.
-  // Они только приводят данные к понятному API-ответу.
   // =======================================================
 
   private toCharacterProfileDto(
@@ -560,6 +537,89 @@ export class CharacterSheetService {
     }
   }
 
+  private toAttackDto(
+    attack: CharacterAttackEntity,
+    modifiers: AbilityModifiers,
+    proficiencyBonus: number,
+  ): AttackDto {
+    const ability = this.normalizeAttackAbility(attack.ability)
+    const abilityModifier = modifiers[ability]
+
+    const baseDamageBonus = attack.damageBonus ?? 0
+
+    const attackBonus =
+      abilityModifier + (attack.proficient ? proficiencyBonus : 0)
+
+    const damageBonusFinal = baseDamageBonus + abilityModifier
+
+    return {
+      id: attack.id,
+      characterId: attack.characterId,
+      name: attack.name,
+      attackType: this.normalizeAttackType(attack.attackType),
+      ability,
+      proficient: attack.proficient,
+      damageDice: attack.damageDice ?? '',
+      damageBonus: baseDamageBonus,
+      attackBonus,
+      damageBonusFinal,
+      damageType: attack.damageType ?? '',
+      notes: attack.notes ?? '',
+      source: this.normalizeAttackSource(attack.source),
+      itemId: attack.itemId ?? null,
+    }
+  }
+
+  private toSpellDto(spell: CharacterSpellEntity): SpellDto {
+    return {
+      id: spell.id,
+      characterId: spell.characterId,
+      name: spell.name,
+      level: spell.level,
+      school: spell.school ?? '',
+      castingTime: spell.castingTime ?? '',
+      range: spell.range ?? '',
+      components: spell.components ?? '',
+      duration: spell.duration ?? '',
+      concentration: spell.concentration ?? false,
+      ritual: spell.ritual ?? false,
+      description: spell.description ?? '',
+    }
+  }
+
+  private toCharacterItemDto(item: CharacterItemEntity): CharacterItemDto {
+    const template = item.itemTemplate ?? null
+    const parsedNotes = this.parseItemNotes(item.notes)
+
+    const type = template?.type ?? parsedNotes.type ?? 'misc'
+
+    const effectsFromTemplate = this.normalizeItemEffects(template?.effects)
+    const effectsFromNotes = this.normalizeItemEffects(parsedNotes.effects)
+
+    const allowedSlotsFromTemplate = this.normalizeAllowedSlots(template?.slot)
+    const allowedSlotsFromNotes = this.normalizeAllowedSlots(
+      parsedNotes.allowedSlots,
+    )
+
+    return {
+      id: item.id,
+      itemId: item.id,
+      name: item.nameSnapshot || template?.name || 'Предмет',
+      type,
+      effects:
+        effectsFromTemplate.length > 0 ? effectsFromTemplate : effectsFromNotes,
+      allowedSlots:
+        allowedSlotsFromTemplate.length > 0
+          ? allowedSlotsFromTemplate
+          : allowedSlotsFromNotes,
+      isEquipped: item.isEquipped,
+      equippedSlot: this.normalizeEquipmentSlot(item.slot),
+      quantity: item.quantity,
+      notes: item.notes,
+      weaponConfig: this.normalizeWeaponConfig(parsedNotes.weaponConfig),
+    }
+  }
+
   private toAbilityScores(stats: CharacterStatsEntity): AbilityScores {
     return {
       strength: stats.strength,
@@ -571,64 +631,254 @@ export class CharacterSheetService {
     }
   }
 
+  private createGeneratedWeaponAttacks(
+    characterId: string,
+    equippedItems: CharacterItemDto[],
+    modifiers: AbilityModifiers,
+    proficiencyBonus: number,
+  ): AttackDto[] {
+    return equippedItems
+      .filter((item) => item.weaponConfig)
+      .map((item) => {
+        const weaponConfig = item.weaponConfig!
+
+        const abilityModifier = modifiers[weaponConfig.ability]
+        const baseDamageBonus = weaponConfig.damageBonus
+
+        const attackBonus = abilityModifier + proficiencyBonus
+        const damageBonusFinal = baseDamageBonus + abilityModifier
+
+        return {
+          id: `item-${item.itemId}`,
+          characterId,
+          name: item.name,
+          attackType: weaponConfig.attackType,
+          ability: weaponConfig.ability,
+          proficient: true,
+          damageDice: weaponConfig.damageDice,
+          damageBonus: baseDamageBonus,
+          attackBonus,
+          damageBonusFinal,
+          damageType: weaponConfig.damageType,
+          notes: weaponConfig.notes,
+          source: 'item',
+          itemId: item.itemId,
+        }
+      })
+  }
+
   // =======================================================
   // Inventory helpers
   // =======================================================
-  // Сейчас предметы только разделяются на все / экипированные.
-  // Позже сюда НЕ надо добавлять сложную игровую логику.
-  //
-  // Правила слотов, allowedSlots и item effects лучше вынести
-  // в отдельные inventory.rules.ts / item-effects calculation.
-  // =======================================================
 
-  private getEquippedItems(
-    items: CharacterItemEntity[],
-  ): CharacterItemEntity[] {
-    return items.filter((item) => item.isEquipped)
+  private parseItemNotes(notes: string | null): {
+    type?: string
+    allowedSlots?: unknown
+    effects?: unknown
+    weaponConfig?: unknown
+  } {
+    if (!notes) {
+      return {}
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(notes)
+
+      if (!parsed || typeof parsed !== 'object') {
+        return {}
+      }
+
+      return parsed as {
+        type?: string
+        allowedSlots?: unknown
+        effects?: unknown
+        weaponConfig?: unknown
+      }
+    } catch {
+      return {}
+    }
+  }
+
+  private normalizeEquipmentSlot(slot: unknown): EquipmentSlot | null {
+    if (
+      slot === 'mainHand' ||
+      slot === 'offHand' ||
+      slot === 'head' ||
+      slot === 'body' ||
+      slot === 'ring1' ||
+      slot === 'ring2' ||
+      slot === 'amulet' ||
+      slot === 'boots'
+    ) {
+      return slot
+    }
+
+    return null
+  }
+
+  private normalizeAllowedSlots(value: unknown): EquipmentSlot[] {
+    if (!value) {
+      return []
+    }
+
+    if (typeof value === 'string') {
+      const slot = this.normalizeEquipmentSlot(value)
+      return slot ? [slot] : []
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((slot) => this.normalizeEquipmentSlot(slot))
+        .filter((slot): slot is EquipmentSlot => slot !== null)
+    }
+
+    return []
+  }
+
+  private normalizeItemEffects(value: unknown): ItemEffectDto[] {
+    if (!Array.isArray(value)) {
+      return []
+    }
+
+    return value
+      .map((effect) => this.normalizeItemEffect(effect))
+      .filter((effect): effect is ItemEffectDto => effect !== null)
+  }
+
+  private normalizeItemEffect(effect: unknown): ItemEffectDto | null {
+    if (!effect || typeof effect !== 'object') {
+      return null
+    }
+
+    const rawEffect = effect as {
+      stat?: unknown
+      value?: unknown
+      armorClassBonus?: unknown
+      hpBonus?: unknown
+      initiativeBonus?: unknown
+    }
+
+    const normalized: ItemEffectDto = {}
+
+    const stat =
+      typeof rawEffect.stat === 'string'
+        ? this.normalizeAbilityName(rawEffect.stat)
+        : null
+
+    if (stat) {
+      normalized.stat = stat
+    }
+
+    if (typeof rawEffect.value === 'number') {
+      normalized.value = rawEffect.value
+    }
+
+    if (typeof rawEffect.armorClassBonus === 'number') {
+      normalized.armorClassBonus = rawEffect.armorClassBonus
+    }
+
+    if (typeof rawEffect.hpBonus === 'number') {
+      normalized.hpBonus = rawEffect.hpBonus
+    }
+
+    if (typeof rawEffect.initiativeBonus === 'number') {
+      normalized.initiativeBonus = rawEffect.initiativeBonus
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : null
+  }
+
+  private normalizeWeaponConfig(value: unknown): WeaponConfigDto | undefined {
+    if (!value || typeof value !== 'object') {
+      return undefined
+    }
+
+    const rawConfig = value as {
+      attackType?: unknown
+      ability?: unknown
+      damageDice?: unknown
+      damageBonus?: unknown
+      damageType?: unknown
+      notes?: unknown
+    }
+
+    const attackType =
+      rawConfig.attackType === 'ranged' || rawConfig.attackType === 'melee'
+        ? rawConfig.attackType
+        : 'melee'
+
+    return {
+      attackType,
+      ability: this.normalizeAttackAbility(
+        typeof rawConfig.ability === 'string' ? rawConfig.ability : null,
+      ),
+      damageDice:
+        typeof rawConfig.damageDice === 'string' ? rawConfig.damageDice : '',
+      damageBonus:
+        typeof rawConfig.damageBonus === 'number' ? rawConfig.damageBonus : 0,
+      damageType:
+        typeof rawConfig.damageType === 'string' ? rawConfig.damageType : '',
+      notes: typeof rawConfig.notes === 'string' ? rawConfig.notes : '',
+    }
   }
 
   // =======================================================
   // Calculation: final stats
   // =======================================================
-  // Сейчас итоговые характеристики равны базовым.
-  //
-  // Позже здесь будет точка подключения:
-  // - бонусов предметов
-  // - временных эффектов
-  // - расовых/классовых эффектов
-  //
-  // Пока equippedItems передаются параметром специально:
-  // чтобы было видно, где будет расширение.
-  // =======================================================
 
   private calculateFinalStats(
     baseStats: AbilityScores,
-    _equippedItems: CharacterItemEntity[],
+    equippedItems: CharacterItemDto[],
   ): AbilityScores {
-    return {
+    const finalStats: AbilityScores = {
       ...baseStats,
     }
+
+    for (const item of equippedItems) {
+      for (const effect of item.effects) {
+        if (!effect.stat || typeof effect.value !== 'number') {
+          continue
+        }
+
+        finalStats[effect.stat] += effect.value
+      }
+    }
+
+    return finalStats
+  }
+
+  private calculateItemDerivedBonuses(equippedItems: CharacterItemDto[]): {
+    armorClassBonus: number
+    hpBonus: number
+    initiativeBonus: number
+  } {
+    const bonuses = {
+      armorClassBonus: 0,
+      hpBonus: 0,
+      initiativeBonus: 0,
+    }
+
+    for (const item of equippedItems) {
+      for (const effect of item.effects) {
+        if (typeof effect.armorClassBonus === 'number') {
+          bonuses.armorClassBonus += effect.armorClassBonus
+        }
+
+        if (typeof effect.hpBonus === 'number') {
+          bonuses.hpBonus += effect.hpBonus
+        }
+
+        if (typeof effect.initiativeBonus === 'number') {
+          bonuses.initiativeBonus += effect.initiativeBonus
+        }
+      }
+    }
+
+    return bonuses
   }
 
   // =======================================================
   // Calculation: derived values
-  // =======================================================
-  // Производные значения не должны храниться как истина в БД.
-  // Они собираются сервером при запросе sheet.
-  //
-  // Важно:
-  // skills и savingThrows считаются НЕ здесь,
-  // а в calculation/skills.rules.ts и
-  // calculation/saving-throws.rules.ts.
-  //
-  // Здесь мы только собираем derived DTO:
-  // - maxHp
-  // - armorClass
-  // - initiative
-  // - passivePerception
-  // - proficiencyBonus
-  // - spellAttackBonus
-  // - spellSaveDc
   // =======================================================
 
   private calculateDerived(input: {
@@ -637,6 +887,7 @@ export class CharacterSheetService {
     maxHp: number
     proficiencyBonus: number
     passivePerception: number
+    equippedItems: CharacterItemDto[]
   }): CharacterDerivedDto {
     const {
       character,
@@ -644,6 +895,7 @@ export class CharacterSheetService {
       maxHp,
       proficiencyBonus,
       passivePerception,
+      equippedItems,
     } = input
 
     const spellcastingAbility = this.normalizeAbilityName(
@@ -654,20 +906,21 @@ export class CharacterSheetService {
       ? modifiers[spellcastingAbility]
       : null
 
+    const itemDerivedBonuses = this.calculateItemDerivedBonuses(equippedItems)
+
+    const finalMaxHp = maxHp + itemDerivedBonuses.hpBonus
+
+    const finalArmorClass =
+      10 + modifiers.dexterity + itemDerivedBonuses.armorClassBonus
+
+    const finalInitiative =
+      modifiers.dexterity + itemDerivedBonuses.initiativeBonus
+
     return {
-      maxHp,
-
-      // Базовая броня без брони: 10 + DEX modifier.
-      // Броня, щиты и предметы будут добавлены позже.
-      armorClass: 10 + modifiers.dexterity,
-
-      // Инициатива пока равна DEX modifier.
-      initiative: modifiers.dexterity,
-
-      // Теперь считается через skills.rules.ts:
-      // 10 + bonus навыка Внимательность/Восприятие.
+      maxHp: finalMaxHp,
+      armorClass: finalArmorClass,
+      initiative: finalInitiative,
       passivePerception,
-
       proficiencyBonus,
 
       spellAttackBonus:
@@ -685,19 +938,6 @@ export class CharacterSheetService {
   // =======================================================
   // Calculation: proficiency bonus
   // =======================================================
-  // D&D 5e:
-  // level 1-4   => +2
-  // level 5-8   => +3
-  // level 9-12  => +4
-  // level 13-16 => +5
-  // level 17-20 => +6
-  //
-  // Формула:
-  // ceil(level / 4) + 1
-  //
-  // level дополнительно ограничиваем 1..20,
-  // чтобы расчёт не ломался от некорректных данных.
-  // =======================================================
 
   private calculateProficiencyBonus(level: number): number {
     const safeLevel = Math.min(Math.max(level, 1), 20)
@@ -706,10 +946,39 @@ export class CharacterSheetService {
   }
 
   // =======================================================
-  // Spell helpers
+  // Attack helpers
   // =======================================================
-  // Эти функции приводят spellcastingAbility и spellSlots
-  // к безопасному виду для API-ответа.
+
+  private normalizeAttackType(attackType: string | null): AttackType {
+    if (
+      attackType === 'melee' ||
+      attackType === 'ranged' ||
+      attackType === 'spell'
+    ) {
+      return attackType
+    }
+
+    return 'melee'
+  }
+
+  private normalizeAttackSource(
+    source: string | null | undefined,
+  ): AttackSource {
+    if (source === 'item') {
+      return 'item'
+    }
+
+    return 'manual'
+  }
+
+  private normalizeAttackAbility(
+    ability: string | null | undefined,
+  ): AbilityName {
+    return this.normalizeAbilityName(ability) ?? 'strength'
+  }
+
+  // =======================================================
+  // Spell helpers
   // =======================================================
 
   private normalizeAbilityName(

@@ -27,8 +27,11 @@ export async function characterSheetRoutes(
       const parsed = characterParamsSchema.safeParse(request.params)
 
       if (!parsed.success) {
-        return reply.status(400).send({ message: 'Validation error' })
-      }
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: parsed.error.flatten(),
+        })
+}
 
       try {
         const sheet = await characterSheetService.getCharacterSheet(parsed.data.id)
@@ -37,7 +40,8 @@ export async function characterSheetRoutes(
         if (error instanceof CharacterNotFoundError) {
           return reply.status(404).send({ message: error.message })
         }
-
+        
+        app.log.error(error)
         return reply.status(500).send({ message: 'Internal server error' })
       }
     },

@@ -33,6 +33,12 @@ type CharacterForHpCalculation = {
   hpIncreases?: HpIncreaseLike[] | null
 }
 
+export type HitDiceState = {
+  total: number
+  used: number
+  dice: string
+}
+
 // =========================
 // ВРЕМЕННОЕ ПРАВИЛО (без классов)
 // =========================
@@ -129,7 +135,9 @@ export function calculateMaxHp(character: CharacterForHpCalculation): number {
 // HIT DICE CALCULATION
 // =========================
 
-export function calculateHitDice(character: CharacterForHpCalculation) {
+export function calculateHitDice(
+  character: CharacterForHpCalculation,
+): HitDiceState {
   const rule = getHpRuleForCharacter(character)
 
   return {
@@ -156,11 +164,7 @@ export function calculateHitDice(character: CharacterForHpCalculation) {
 // - restoreHitDie уменьшает used на 1
 // =========================================================
 
-export type HitDiceState = {
-  total: number
-  used: number
-  dice: string
-}
+
 
 export class HitDiceConflictError extends Error {
   constructor(message: string) {

@@ -91,7 +91,7 @@ export const characterHpRepository = {
     })
   },
 
-  // Сохранить HP-прибавку за уровень.
+  // Сохранить HP-прибавку за уровень. Возможно стоит удалить как устаревший метод?
   createHpIncrease(characterId: string, data: CreateHpIncreaseInput) {
     return prisma.characterHpIncrease.create({
       data: {
@@ -105,7 +105,7 @@ export const characterHpRepository = {
     })
   },
 
-  // Обновить уровень и HP-состояние после level-up.
+  // Обновить уровень и HP-состояние после level-up. Возможно стоит удалить как устаревший метод?
   updateLevelAndHpState(id: string, data: UpdateLevelAndHpStateInput) {
     return prisma.character.update({
       where: { id },
@@ -133,7 +133,38 @@ export const characterHpRepository = {
     })
   },
 
-    // =========================================================
+  levelUpWithHpIncrease(
+    id: string,
+    hpIncrease: CreateHpIncreaseInput,
+    hpState: UpdateLevelAndHpStateInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      await tx.characterHpIncrease.create({
+        data: {
+          characterId: id,
+          level: hpIncrease.level,
+          mode: hpIncrease.mode,
+          value: hpIncrease.value,
+          dice: hpIncrease.dice,
+          rolledValue: hpIncrease.rolledValue ?? null,
+        },
+      })
+
+      return tx.character.update({
+        where: { id },
+        data: {
+          level: hpState.level,
+          currentHp: hpState.currentHp,
+          temporaryHp: hpState.temporaryHp,
+          hitDiceTotal: hpState.hitDiceTotal,
+          hitDiceDice: hpState.hitDiceDice,
+        },
+        include: characterSheetInclude,
+      })
+    })
+  },
+
+  // =========================================================
   // Hit dice
   // =========================================================
   // Получить данные персонажа, нужные для use/restore hit dice.
@@ -165,55 +196,55 @@ export const characterHpRepository = {
     })
   },
 
-    // =========================================================
-    // Inspiration
-    // =========================================================
-    // Обновить состояние вдохновения персонажа.
-    // =========================================================
+  // =========================================================
+  // Inspiration
+  // =========================================================
+  // Обновить состояние вдохновения персонажа.
+  // =========================================================
 
-    updateInspiration(id: string, inspiration: boolean) {
-    return prisma.character.update({
-        where: { id },
-        data: {
-        inspiration,
-        },
-    })
-    },
+  updateInspiration(id: string, inspiration: boolean) {
+  return prisma.character.update({
+      where: { id },
+      data: {
+      inspiration,
+      },
+  })
+  },
+
+// =========================================================
+  // Death saves
+  // =========================================================
+  // Получить только поля death saves.
+  // =========================================================
+
+  findDeathSavesByCharacterId(id: string) {
+  return prisma.character.findUnique({
+      where: { id },
+      select: {
+      id: true,
+      deathSaveSuccesses: true,
+      deathSaveFailures: true,
+      },
+  })
+  },
 
   // =========================================================
-    // Death saves
-    // =========================================================
-    // Получить только поля death saves.
-    // =========================================================
+  // Обновить death saves.
+  // =========================================================
 
-    findDeathSavesByCharacterId(id: string) {
-    return prisma.character.findUnique({
-        where: { id },
-        select: {
-        id: true,
-        deathSaveSuccesses: true,
-        deathSaveFailures: true,
-        },
-    })
-    },
-
-    // =========================================================
-    // Обновить death saves.
-    // =========================================================
-
-    updateDeathSaves(
-    id: string,
-    data: {
-        successes: number
-        failures: number
-    },
-    ) {
-    return prisma.character.update({
-        where: { id },
-        data: {
-        deathSaveSuccesses: data.successes,
-        deathSaveFailures: data.failures,
-        },
-    })
-    },
+  updateDeathSaves(
+  id: string,
+  data: {
+      successes: number
+      failures: number
+  },
+  ) {
+  return prisma.character.update({
+      where: { id },
+      data: {
+      deathSaveSuccesses: data.successes,
+      deathSaveFailures: data.failures,
+      },
+  })
+  },
 }

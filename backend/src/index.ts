@@ -52,7 +52,7 @@ const characterSpellRepository = {
 
 const characterItemRepository = {
   findByCharacterId: (characterId: string) =>
-    characterInventoryDbRepository.findItemsByCharacterId(characterId),
+    characterInventoryDbRepository.findByCharacterId(characterId),
 }
 
 // =========================================================
@@ -99,16 +99,9 @@ const start = async () => {
     })
 
     // =========================================================
-    // ВАЖНО:
-    // characterSheetRoutes регистрируем ДО characterRoutes.
-    //
-    // Иначе маршрут:
-    // GET /characters/:id
-    //
-    // может перехватить:
-    // GET /characters/:id/sheet
-    //
-    // и ты снова получишь обычного персонажа без derived.
+    // Регистрируем characterSheetRoutes рядом с остальными character routes.
+    // GET /characters/:id/sheet — отдельный endpoint готового sheet.
+    // Основной characterRoutes оставляем ниже для читаемости структуры.
     // =========================================================
     await app.register(characterSheetRoutes, {
       characterSheetService,
