@@ -80,6 +80,14 @@ type Props = {
   ) => ReactNode
 }
 
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h2 className="text-white text-xl font-bold">
+      {children}
+    </h2>
+  )
+}
+
 export function StatsTab({
   level,
   isLoading,
@@ -153,9 +161,7 @@ export function StatsTab({
                 </div>
               </Card>
       
-              <h2 className="text-white text-xl font-bold mt-8 mb-4">
-                Основные параметры
-              </h2>
+              <SectionTitle>Основные параметры</SectionTitle>
       
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="text-center">
@@ -253,7 +259,7 @@ export function StatsTab({
                 )}
               </div>
       
-              <h2 className="text-white text-xl font-bold mt-8 mb-4">Спасброски</h2>
+              <SectionTitle>Спасброски</SectionTitle>
       
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {savingThrowsToDisplay.map((savingThrow) => {
@@ -285,7 +291,7 @@ export function StatsTab({
                 })}
               </div>
       
-              <h2 className="text-white text-xl font-bold mt-8 mb-4">Навыки</h2>
+              <SectionTitle>Навыки</SectionTitle>
       
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {skillsToDisplay.map((skill) => {
@@ -335,10 +341,7 @@ export function StatsTab({
                 <div className="text-white text-xl font-bold">{passivePerception}</div>
             </Card>
       
-                <h2 className="text-white text-xl font-bold mt-8 mb-4">
-                Боевые параметры
-                </h2>
-      
+                <SectionTitle>Боевые параметры</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="text-center">
                     <div className="text-gray-400 text-sm">Хиты</div>
@@ -444,12 +447,12 @@ export function StatsTab({
                 </div>
               </Card>
       
-              <div className="bg-gray-800 p-4 rounded text-center">
+              <Card className="text-center">
                 <div className="text-gray-400 text-sm">Инициатива</div>
                 <div className="text-white text-xl font-bold">
                   {finalDerivedStats.initiative}
                 </div>
-              </div>
+              </Card>
             </div>
     </div>
   )
