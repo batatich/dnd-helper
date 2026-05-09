@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Stats } from '../../types/characters'
+import { Card } from '../ui/Card'
 
 type HitDice = {
   total: number
@@ -116,7 +117,7 @@ export function StatsTab({
 }: Props) {
   return (
     <div className="mt-6 space-y-6">
-              <div className="bg-gray-800 rounded-lg p-4 mt-6">
+            <Card>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <h2 className="text-white text-lg font-bold">Повышение уровня</h2>
@@ -150,19 +151,19 @@ export function StatsTab({
                     </button>
                   </div>
                 </div>
-              </div>
+              </Card>
       
               <h2 className="text-white text-xl font-bold mt-8 mb-4">
                 Основные параметры
               </h2>
       
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gray-800 p-4 rounded text-center">
-                  <div className="text-gray-400 text-sm">Бонус мастерства</div>
-                  <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
-                </div>
+                <Card className="text-center">
+                    <div className="text-gray-400 text-sm">Бонус мастерства</div>
+                    <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
+                </Card>
       
-                <div className="bg-gray-800 p-4 rounded text-center">
+                <Card className="text-center">
                   <div className="text-gray-400 text-sm">Вдохновение</div>
                   <div className="text-white text-xl font-bold">
                     {inspiration ? 'Есть' : 'Нет'}
@@ -175,14 +176,14 @@ export function StatsTab({
                   >
                     {inspiration ? 'Снять' : 'Выдать'}
                   </button>
-                </div>
+                </Card>
       
-                <div className="bg-gray-800 p-4 rounded text-center">
+                <Card className="text-center">
                   <div className="text-gray-400 text-sm">Скорость</div>
                   <div className="text-white text-xl font-bold">{speed} фт.</div>
-                </div>
+                </Card>
       
-                <div className="bg-gray-800 p-4 rounded text-center">
+                <Card className="text-center">
                   <div className="text-gray-400 text-sm">Кости хитов</div>
       
                   <div className="text-white text-xl font-bold">{hitDice.dice}</div>
@@ -210,7 +211,7 @@ export function StatsTab({
                       Восстановить
                     </button>
                   </div>
-                </div>
+                </Card>
               </div>
       
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
@@ -329,66 +330,66 @@ export function StatsTab({
                 })}
               </div>
       
-              <div className="bg-gray-800 rounded-lg p-4 text-center mt-4">
+            <Card className="text-center">
                 <div className="text-gray-400 text-sm">Пассивное восприятие</div>
                 <div className="text-white text-xl font-bold">{passivePerception}</div>
-              </div>
+            </Card>
       
-            <h2 className="text-white text-xl font-bold mt-8 mb-4">
-              Боевые параметры
-            </h2>
+                <h2 className="text-white text-xl font-bold mt-8 mb-4">
+                Боевые параметры
+                </h2>
       
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-800 p-4 rounded-lg text-center">
-                <div className="text-gray-400 text-sm">Хиты</div>
-                <div className="text-white text-xl font-bold">
-                  {currentHp} / {finalDerivedStats.maxHp}
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="text-center">
+                    <div className="text-gray-400 text-sm">Хиты</div>
+                    <div className="text-white text-xl font-bold">
+                        {currentHp} / {finalDerivedStats.maxHp}
+                    </div>
       
-                {temporaryHp > 0 && (
-                  <div className="text-cyan-400 text-sm mt-1">
-                    Временные хиты: {temporaryHp}
-                  </div>
-                )}
+                    {temporaryHp > 0 && (
+                    <div className="text-cyan-400 text-sm mt-1">
+                        Временные хиты: {temporaryHp}
+                    </div>
+                    )}
       
-                <div className="mt-4 flex items-center gap-2 justify-center">
-                  <input
-                    type="text"
-                    value={hpChangeInput}
-                    onChange={(e) => setHpChangeInput(e.target.value)}
-                    placeholder="+5 лечение / 5 урон"
-                    className="w-32 bg-gray-700 text-white rounded-lg p-2 text-center"
-                  />
+                    <div className="mt-4 flex items-center gap-2 justify-center">
+                        <input
+                            type="text"
+                            value={hpChangeInput}
+                            onChange={(e) => setHpChangeInput(e.target.value)}
+                            placeholder="+5 лечение / 5 урон"
+                            className="w-32 bg-gray-700 text-white rounded-lg p-2 text-center"
+                        />
+            
+                        <button
+                            type="button"
+                            onClick={() => void handleHpChange()}
+                            disabled={isLoading}
+                            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
+                        >
+                            Применить
+                        </button>
+                    </div>
       
-                  <button
-                    type="button"
-                    onClick={() => void handleHpChange()}
-                    disabled={isLoading}
-                    className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
-                  >
-                    Применить
-                  </button>
-                </div>
-      
-                <div className="mt-3 flex items-center gap-2 justify-center">
-                  <input
-                    type="number"
-                    value={tempHpInput}
-                    onChange={(e) => setTempHpInput(Number(e.target.value))}
-                    className="w-24 bg-gray-700 text-white rounded-lg p-2 text-center"
-                    min="0"
-                  />
-      
-                  <button
-                    type="button"
-                    onClick={() => void handleSetTempHp()}
-                    disabled={isLoading}
-                    className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
-                  >
-                    Временные
-                  </button>
-                </div>
-              </div>
+                    <div className="mt-3 flex items-center gap-2 justify-center">
+                        <input
+                            type="number"
+                            value={tempHpInput}
+                            onChange={(e) => setTempHpInput(Number(e.target.value))}
+                            className="w-24 bg-gray-700 text-white rounded-lg p-2 text-center"
+                            min="0"
+                        />
+            
+                        <button
+                            type="button"
+                            onClick={() => void handleSetTempHp()}
+                            disabled={isLoading}
+                            className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
+                        >
+                            Временные
+                        </button>
+                    </div>
+              </Card>
       
               <div className="bg-gray-800 p-4 rounded text-center">
                 <div className="text-gray-400 text-sm mb-3">Спасброски от смерти</div>
@@ -436,12 +437,12 @@ export function StatsTab({
                 </div>
               </div>
       
-              <div className="bg-gray-800 p-4 rounded text-center">
+              <Card className="text-center">
                 <div className="text-gray-400 text-sm">Класс брони</div>
                 <div className="text-white text-xl font-bold">
                   {finalDerivedStats.armorClass}
                 </div>
-              </div>
+              </Card>
       
               <div className="bg-gray-800 p-4 rounded text-center">
                 <div className="text-gray-400 text-sm">Инициатива</div>

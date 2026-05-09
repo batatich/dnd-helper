@@ -66,6 +66,11 @@ export function OverviewTab({
   const hiddenSpellsCount = Math.max(spells.length - visibleSpells.length, 0)
   const visibleSkills = skills.slice(0, 6)
   const visibleSavingThrows = savingThrows.slice(0, 6)
+  const hiddenSkillsCount = Math.max(skills.length - visibleSkills.length, 0)
+  const hiddenSavingThrowsCount = Math.max(
+    savingThrows.length - visibleSavingThrows.length,
+    0
+  )
 
   return (
     <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -162,6 +167,11 @@ export function OverviewTab({
                 </div>
               ))}
             </div>
+            {hiddenSavingThrowsCount > 0 && (
+              <div className="mt-2 text-xs text-gray-500">
+                Ещё спасбросков: {hiddenSavingThrowsCount}
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -191,6 +201,11 @@ export function OverviewTab({
                 </div>
               ))}
             </div>
+              {hiddenSkillsCount > 0 && (
+                <div className="text-xs text-gray-500">
+                  Ещё навыков: {hiddenSkillsCount}
+                </div>
+              )}
           </Card>
         </div>
       </div>
@@ -225,8 +240,14 @@ export function OverviewTab({
               )}
             </div>
           ) : (
-            <div className="text-sm text-gray-400">
-              Атаки пока не добавлены.
+            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/40 p-3">
+              <div className="text-sm text-gray-400">
+                Атаки пока не добавлены.
+              </div>
+
+              <div className="mt-1 text-xs text-gray-500">
+                Добавить их можно во вкладке «Атаки».
+              </div>
             </div>
           )}
         </Card>
@@ -260,8 +281,14 @@ export function OverviewTab({
             )}
             </div>
           ) : (
-            <div className="text-sm text-gray-400">
-              Заклинания пока не добавлены.
+            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/40 p-3">
+              <div className="text-sm text-gray-400">
+                Заклинания пока не добавлены.
+              </div>
+
+              <div className="mt-1 text-xs text-gray-500">
+                Добавить их можно во вкладке «Заклинания».
+              </div>
             </div>
           )}
 
@@ -290,8 +317,14 @@ export function OverviewTab({
               ))}
             </div>
           ) : (
-            <div className="text-sm text-gray-400">
-              Ячейки не настроены.
+            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/40 p-3">
+              <div className="text-sm text-gray-400">
+                Ячейки заклинаний не настроены.
+              </div>
+
+              <div className="mt-1 text-xs text-gray-500">
+                Настроить их можно во вкладке «Заклинания».
+              </div>
             </div>
           )}
         </Card>
