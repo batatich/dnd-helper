@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Stats } from '../../types/characters'
 import { Card } from '../ui/Card'
+import { Button } from '../ui/Button'
 
 type HitDice = {
   total: number
@@ -87,6 +88,23 @@ function SectionTitle({ children }: { children: string }) {
     </h2>
   )
 }
+function StatInfoCard({
+  label,
+  value,
+  children,
+}: {
+  label: string
+  value: string | number
+  children?: ReactNode
+}) {
+  return (
+    <Card className="text-center">
+      <div className="text-gray-400 text-sm">{label}</div>
+      <div className="text-white text-xl font-bold">{value}</div>
+      {children}
+    </Card>
+  )
+}
 
 export function StatsTab({
   level,
@@ -140,23 +158,24 @@ export function StatsTab({
                   </div>
       
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleLevelUpFixed()}
-                      disabled={isLoading}
-                      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm text-white transition"
+                    <Button
+                        type="button"
+                        onClick={() => void handleLevelUpFixed()}
+                        disabled={isLoading}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      + уровень: фикс +5 HP
-                    </button>
+                        + уровень: фикс +5 HP
+                    </Button>
       
-                    <button
-                      type="button"
-                      onClick={() => void handleLevelUpRoll()}
-                      disabled={isLoading}
-                      className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm text-white transition"
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void handleLevelUpRoll()}
+                        disabled={isLoading}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      + уровень: бросить 1d8
-                    </button>
+                        + уровень: бросить 1d8
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -164,30 +183,31 @@ export function StatsTab({
               <SectionTitle>Основные параметры</SectionTitle>
       
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="text-center">
-                    <div className="text-gray-400 text-sm">Бонус мастерства</div>
-                    <div className="text-white text-xl font-bold">+{proficiencyBonus}</div>
-                </Card>
+                <StatInfoCard
+                    label="Бонус мастерства"
+                    value={`+${proficiencyBonus}`}
+                />
       
                 <Card className="text-center">
                   <div className="text-gray-400 text-sm">Вдохновение</div>
                   <div className="text-white text-xl font-bold">
                     {inspiration ? 'Есть' : 'Нет'}
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => void handleSetInspiration(!inspiration)}
                     disabled={isLoading}
-                    className="mt-3 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+                    className="mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {inspiration ? 'Снять' : 'Выдать'}
-                  </button>
+                  </Button>
                 </Card>
       
-                <Card className="text-center">
-                  <div className="text-gray-400 text-sm">Скорость</div>
-                  <div className="text-white text-xl font-bold">{speed} фт.</div>
-                </Card>
+                <StatInfoCard
+                    label="Скорость"
+                    value={`${speed} фт.`}
+                />
       
                 <Card className="text-center">
                   <div className="text-gray-400 text-sm">Кости хитов</div>
@@ -199,23 +219,25 @@ export function StatsTab({
                   </div>
       
                   <div className="mt-3 flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleUseHitDie()}
-                      disabled={isLoading || hitDice.used >= hitDice.total}
-                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+                    <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => void handleUseHitDie()}
+                        disabled={isLoading || hitDice.used >= hitDice.total}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Использовать
-                    </button>
+                        Использовать
+                    </Button>
       
-                    <button
-                      type="button"
-                      onClick={() => void handleRestoreHitDie()}
-                      disabled={isLoading || hitDice.used <= 0}
-                      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void handleRestoreHitDie()}
+                        disabled={isLoading || hitDice.used <= 0}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Восстановить
-                    </button>
+                        Восстановить
+                    </Button>
                   </div>
                 </Card>
               </div>
@@ -364,14 +386,14 @@ export function StatsTab({
                             className="w-32 bg-gray-700 text-white rounded-lg p-2 text-center"
                         />
             
-                        <button
+                        <Button
                             type="button"
                             onClick={() => void handleHpChange()}
                             disabled={isLoading}
-                            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
+                            className="disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Применить
-                        </button>
+                        </Button>
                     </div>
       
                     <div className="mt-3 flex items-center gap-2 justify-center">
@@ -383,14 +405,15 @@ export function StatsTab({
                             min="0"
                         />
             
-                        <button
+                        <Button
                             type="button"
+                            variant="secondary"
                             onClick={() => void handleSetTempHp()}
                             disabled={isLoading}
-                            className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 rounded-lg text-sm transition"
+                            className="disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Временные
-                        </button>
+                        </Button>
                     </div>
               </Card>
       
@@ -402,58 +425,61 @@ export function StatsTab({
                     <span className="text-xs text-green-400">Успехи</span>
                     {renderDeathSaveDots('successes', deathSaves.successes)}
       
-                    <button
-                      type="button"
-                      onClick={() => void handleAddDeathSaveSuccess()}
-                      disabled={isLoading || deathSaves.successes >= 3}
-                      className="mt-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void handleAddDeathSaveSuccess()}
+                        disabled={isLoading || deathSaves.successes >= 3}
+                        className="mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      + успех
-                    </button>
+                        + успех
+                    </Button>
                   </div>
       
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-xs text-red-400">Провалы</span>
                     {renderDeathSaveDots('failures', deathSaves.failures)}
       
-                    <button
-                      type="button"
-                      onClick={() => void handleAddDeathSaveFailure()}
-                      disabled={isLoading || deathSaves.failures >= 3}
-                      className="mt-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
+                    <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => void handleAddDeathSaveFailure()}
+                        disabled={isLoading || deathSaves.failures >= 3}
+                        className="mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      + провал
-                    </button>
+                        + провал
+                    </Button>
                   </div>
       
-                  <button
-                    type="button"
-                    onClick={() => void handleResetDeathSaves()}
-                    disabled={
-                      isLoading ||
-                      (deathSaves.successes === 0 && deathSaves.failures === 0)
-                    }
-                    className="mt-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm transition"
-                  >
-                    Сбросить
-                  </button>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void handleResetDeathSaves()}
+                        disabled={
+                            isLoading ||
+                            (deathSaves.successes === 0 && deathSaves.failures === 0)
+                        }
+                        className="mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Сбросить
+                    пш</Button>
                 </div>
               </div>
       
-              <Card className="text-center">
-                <div className="text-gray-400 text-sm">Класс брони</div>
-                <div className="text-white text-xl font-bold">
-                  {finalDerivedStats.armorClass}
-                </div>
-              </Card>
+            <StatInfoCard
+                label="Класс брони"
+                value={finalDerivedStats.armorClass}
+            />
       
-              <Card className="text-center">
-                <div className="text-gray-400 text-sm">Инициатива</div>
-                <div className="text-white text-xl font-bold">
-                  {finalDerivedStats.initiative}
-                </div>
-              </Card>
-            </div>
+            <StatInfoCard
+                label="Инициатива"
+                value={
+                    finalDerivedStats.initiative >= 0
+                    ? `+${finalDerivedStats.initiative}`
+                    : finalDerivedStats.initiative
+                }
+            />
+        </div>
     </div>
   )
 }
