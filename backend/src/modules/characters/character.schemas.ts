@@ -40,20 +40,9 @@ export const createCharacterSchema = z.object({
   // Разрешаем либо валидный URL, либо пустую строку, либо отсутствие поля
   avatarUrl: z.string().url().optional().or(z.literal('')).optional(),
 
-  currentHp: z.number().int().min(0).default(0),
-  temporaryHp: z.number().int().min(0).default(0),
   speed: z.number().int().min(0).default(30),
-  inspiration: z.boolean().default(false),
-
   spellcastingAbility: spellcastingAbilitySchema.optional(),
-
-  deathSaveSuccesses: z.number().int().min(0).max(3).default(0),
-  deathSaveFailures: z.number().int().min(0).max(3).default(0),
-
-  hitDiceTotal: z.number().int().min(0).optional(),
-  hitDiceUsed: z.number().int().min(0).default(0),
-  hitDiceDice: z.string().optional(),
-})
+}) .strict()
 
 // Частичное обновление персонажа
 export const updateCharacterSchema = z.object({
@@ -69,7 +58,7 @@ export const updateCharacterSchema = z.object({
 
   speed: z.number().int().min(0).optional(),
   spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
-})
+}) .strict()
 
 // Типы для персонажа
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>

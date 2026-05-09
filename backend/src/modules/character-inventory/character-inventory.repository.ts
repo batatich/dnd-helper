@@ -83,14 +83,6 @@ export const characterInventoryRepository = {
 
         quantity: data.quantity ?? 1,
 
-        /**
-         * Создание предмета лучше не использовать как основной способ экипировки.
-         * Но поле оставлено для обратной совместимости.
-         */
-        isEquipped: data.isEquipped ?? false,
-
-        slot: data.slot ?? null,
-
         notes: data.notes ?? null,
       },
       include: characterItemInclude,
@@ -109,14 +101,6 @@ export const characterInventoryRepository = {
 
         ...(data.quantity !== undefined && {
           quantity: data.quantity,
-        }),
-
-        ...(data.isEquipped !== undefined && {
-          isEquipped: data.isEquipped,
-        }),
-
-        ...(data.slot !== undefined && {
-          slot: data.slot,
         }),
 
         ...(data.notes !== undefined && {

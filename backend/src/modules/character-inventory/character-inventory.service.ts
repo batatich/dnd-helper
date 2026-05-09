@@ -129,22 +129,6 @@ export const characterInventoryService = {
       )
     }
 
-    if (data.isEquipped && !data.slot) {
-      throw new ItemSlotMissingError()
-    }
-
-    if (data.isEquipped && data.slot) {
-      const occupiedItem =
-        await characterInventoryRepository.findEquippedItemBySlot(
-          characterId,
-          data.slot,
-        )
-
-      if (occupiedItem) {
-        throw new ItemSlotAlreadyOccupiedError(data.slot, characterId)
-      }
-    }
-
     return characterInventoryRepository.createItem(characterId, {
       ...data,
       nameSnapshot: resolvedNameSnapshot,

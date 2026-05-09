@@ -35,8 +35,9 @@ export const characterAttacksRepository = {
         damageBonus: data.damageBonus ?? null,
         damageType: data.damageType ?? null,
         notes: data.notes ?? null,
-        source: data.source ?? null,
-        itemId: data.itemId ?? null,
+
+        source: 'manual',
+        itemId: null,
       },
     })
   },
@@ -56,8 +57,6 @@ export const characterAttacksRepository = {
         }),
         ...(data.damageType !== undefined && { damageType: data.damageType }),
         ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.source !== undefined && { source: data.source }),
-        ...(data.itemId !== undefined && { itemId: data.itemId }),
       },
     })
   },

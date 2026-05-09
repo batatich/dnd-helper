@@ -14,8 +14,6 @@ import {
   ItemNotEquippedError,
   ItemNotFoundError,
   ItemOwnershipError,
-  ItemSlotAlreadyOccupiedError,
-  ItemSlotMissingError,
   ItemTemplateNotFoundError,
 } from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
@@ -69,14 +67,6 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
         return reply.status(400).send({ message: error.message })
       }
 
-      if (error instanceof ItemSlotMissingError) {
-        return reply.status(400).send({ message: error.message })
-      }
-
-      if (error instanceof ItemSlotAlreadyOccupiedError) {
-        return reply.status(409).send({ message: error.message })
-      }
-
       if (error instanceof ValidationError) {
         return reply.status(400).send({ message: error.message })
       }
@@ -121,14 +111,6 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
 
       if (error instanceof InvalidItemQuantityError) {
         return reply.status(400).send({ message: error.message })
-      }
-
-      if (error instanceof ItemSlotMissingError) {
-        return reply.status(400).send({ message: error.message })
-      }
-
-      if (error instanceof ItemSlotAlreadyOccupiedError) {
-        return reply.status(409).send({ message: error.message })
       }
 
       throw error
@@ -201,14 +183,6 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
       }
 
       if (error instanceof ItemAlreadyEquippedError) {
-        return reply.status(409).send({ message: error.message })
-      }
-
-      if (error instanceof ItemSlotMissingError) {
-        return reply.status(400).send({ message: error.message })
-      }
-
-      if (error instanceof ItemSlotAlreadyOccupiedError) {
         return reply.status(409).send({ message: error.message })
       }
 

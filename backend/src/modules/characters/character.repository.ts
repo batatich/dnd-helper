@@ -59,6 +59,19 @@ type UpdateLevelAndHpStateInput = {
   hitDiceDice: string
 }
 
+type CreateCharacterRepositoryInput = CreateCharacterInput & {
+  currentHp: number
+  temporaryHp: number
+  inspiration: boolean
+
+  deathSaveSuccesses: number
+  deathSaveFailures: number
+
+  hitDiceTotal: number
+  hitDiceUsed: number
+  hitDiceDice: string
+}
+
 export const characterRepository = {
   // =========================================================
   // Characters
@@ -96,7 +109,7 @@ export const characterRepository = {
   // - поля spellcastingAbility / death saves / hit dice / spellSlots
   //   записываются в Character, а не в CharacterStats
   // - stats создаются отдельно как relation create
-  create(data: CreateCharacterInput) {
+  create(data: CreateCharacterRepositoryInput) {
     return prisma.character.create({
       data: {
         name: data.name,
@@ -107,30 +120,27 @@ export const characterRepository = {
         alignment: data.alignment ?? null,
         background: data.background ?? null,
 
-        // Пустую строку превращаем в null, чтобы не хранить мусор.
         avatarUrl:
           typeof data.avatarUrl === 'string' && data.avatarUrl.trim()
             ? data.avatarUrl
             : null,
 
-        currentHp: data.currentHp ?? 0,
-        temporaryHp: data.temporaryHp ?? 0,
+        currentHp: data.currentHp,
+        temporaryHp: data.temporaryHp,
         speed: data.speed ?? 30,
-        inspiration: data.inspiration ?? false,
+        inspiration: data.inspiration,
 
         spellcastingAbility: data.spellcastingAbility ?? null,
 
-        deathSaveSuccesses: data.deathSaveSuccesses ?? 0,
-        deathSaveFailures: data.deathSaveFailures ?? 0,
+        deathSaveSuccesses: data.deathSaveSuccesses,
+        deathSaveFailures: data.deathSaveFailures,
 
-        hitDiceTotal: data.hitDiceTotal ?? 1,
-        hitDiceUsed: data.hitDiceUsed ?? 0,
-        hitDiceDice: data.hitDiceDice ?? '1d8',
+        hitDiceTotal: data.hitDiceTotal,
+        hitDiceUsed: data.hitDiceUsed,
+        hitDiceDice: data.hitDiceDice,
 
-        // В Prisma это Json?, поэтому можно хранить массив объектов напрямую.
         spellSlots: [],
 
-        // Для нового персонажа создаём базовые stats по умолчанию.
         stats: {
           create: {
             strength: 10,

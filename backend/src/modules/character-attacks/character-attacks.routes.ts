@@ -34,10 +34,11 @@ export async function characterAttacksRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await characterAttacksService.addAttack(
+      const attack = await characterAttacksService.addAttack(
         paramsParsed.data.id,
         bodyParsed.data,
       )
+      return reply.status(201).send(attack)
     } catch (error) {
       if (error instanceof CharacterNotFoundError) {
         return reply.status(404).send({ message: error.message })

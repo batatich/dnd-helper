@@ -57,8 +57,14 @@ export const characterService = {
     // 1 уровень = 1 кость хитов 1d8.
     return characterRepository.create({
       ...data,
+
       currentHp: maxHp,
       temporaryHp: 0,
+      inspiration: false,
+
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+
       hitDiceTotal: 1,
       hitDiceUsed: 0,
       hitDiceDice: '1d8',

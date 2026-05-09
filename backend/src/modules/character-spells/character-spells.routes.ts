@@ -8,12 +8,11 @@ import {
   spellSlotParamsSchema,
 } from './character-spells.schemas'
 import { characterSpellsService } from './character-spells.service'
-import { CharacterNotFoundError } from '../characters/errors'
 import {
+  CharacterNotFoundError,
   SpellNotFoundError,
   SpellOwnershipError,
 } from '../characters/errors'
-import { ValidationError } from '../../shared/errors'
 import { SpellSlotConflictError } from '../calculation/spell-slots.rules'
 
 
@@ -42,10 +41,11 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await characterSpellsService.addSpell(
+      const spell = await characterSpellsService.addSpell(
         paramsParsed.data.id,
         bodyParsed.data,
       )
+      return reply.status(201).send(spell)
     } catch (error) {
       if (error instanceof CharacterNotFoundError) {
         return reply.status(404).send({ message: error.message })
@@ -124,7 +124,7 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
     }
   })
 
-    // =========================================================
+  // =========================================================
   // Spell slots: set total
   // =========================================================
   // PATCH /characters/:id/spell-slots/:level/total

@@ -7,7 +7,6 @@ import {
 } from '../characters/errors'
 import type {
   CreateSpellInput,
-  SpellSlotItemInput,
   UpdateSpellInput,
 } from './character-spells.schemas'
 import {
@@ -82,24 +81,6 @@ export const characterSpellsService = {
 // Это старая логика PATCH /characters/:id/spell-slots,
 // но с новым именем метода.
 // =========================================================
-
-async updateCharacterSpellSlots(
-  characterId: string,
-  spellSlots: SpellSlotItemInput[],
-) {
-  const character = await characterRepository.findById(characterId)
-
-  if (!character) {
-    throw new CharacterNotFoundError(characterId)
-  }
-
-  const normalizedSlots = normalizeSpellSlots(spellSlots)
-
-  return characterSpellsRepository.updateCharacterSpellSlots(
-    characterId,
-    normalizedSlots,
-  )
-},
 
   async setSpellSlotTotal(
     characterId: string,

@@ -40,19 +40,7 @@ export const setSpellSlotTotalBodySchema = z.object({
   total: z.number().int().min(0).max(99),
 })
 
-export const spellSlotItemSchema = z.object({
-  level: z.number().int().min(1).max(9),
-  total: z.number().int().min(0),
-  used: z.number().int().min(0),
-})
-
-export const updateSpellSlotsSchema = z.object({
-  spellSlots: z.array(spellSlotItemSchema),
-})
-
 export type CreateSpellInput = z.infer<typeof createSpellSchema>
 export type UpdateSpellInput = z.infer<typeof updateSpellSchema>
-export type SpellSlotItemInput = z.infer<typeof spellSlotItemSchema>
-export type UpdateSpellSlotsInput = z.infer<typeof updateSpellSlotsSchema>
 export type SpellSlotParamsInput = z.infer<typeof spellSlotParamsSchema>
 export type SetSpellSlotTotalInput = z.infer<typeof setSpellSlotTotalBodySchema>

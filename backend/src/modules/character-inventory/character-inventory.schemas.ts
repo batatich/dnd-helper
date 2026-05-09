@@ -43,19 +43,12 @@ export const createItemSchema = z
 
     quantity: z.number().int().min(1).default(1),
 
-    // Лучше не экипировать предмет через create как основной сценарий.
-    // Для этого есть отдельный equip action.
-    // Но оставляем поле как переходную совместимость.
-    isEquipped: z.boolean().optional(),
-
-    slot: equipmentSlotSchema.nullable().optional(),
-
     notes: z.string().nullable().optional(),
   })
   .refine((data) => Boolean(data.itemTemplateId || data.nameSnapshot), {
     message: 'itemTemplateId or nameSnapshot is required',
     path: ['nameSnapshot'],
-  })
+  }).strict()
 
 // =========================================================
 // Update item
@@ -69,13 +62,8 @@ export const updateItemSchema = z.object({
 
   quantity: z.number().int().min(1).optional(),
 
-  isEquipped: z.boolean().optional(),
-
-  // nullable нужен, чтобы можно было явно снять предмет со слота
-  slot: equipmentSlotSchema.nullable().optional(),
-
   notes: z.string().nullable().optional(),
-})
+}).strict()
 
 // =========================================================
 // Equip / unequip actions
