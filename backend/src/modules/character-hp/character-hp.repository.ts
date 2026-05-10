@@ -19,7 +19,7 @@ type CreateHpIncreaseInput = {
   rolledValue?: number | null
 }
 
-type UpdateLevelAndHpStateInput = {
+type LevelUpHpStateInput = {
   level: number
   currentHp: number
   temporaryHp: number
@@ -28,27 +28,29 @@ type UpdateLevelAndHpStateInput = {
 }
 
 // =========================================================
-// Include-конфиги
+// Select configs
 // =========================================================
 
-const characterBaseInclude = {
-  stats: true,
-} as const
+const characterHpStateSelect = {
+  id: true,
+  level: true,
 
-const characterSheetInclude = {
-  stats: true,
-  attacks: true,
-  spells: true,
-  items: {
-    include: {
-      itemTemplate: true,
-    },
-  },
-  hpIncreases: {
-    orderBy: {
-      level: 'asc',
-    },
-  },
+  currentHp: true,
+  temporaryHp: true,
+
+  hitDiceTotal: true,
+  hitDiceUsed: true,
+  hitDiceDice: true,
+
+  inspiration: true,
+
+  deathSaveSuccesses: true,
+  deathSaveFailures: true,
+
+  spellSlots: true,
+
+  createdAt: true,
+  updatedAt: true,
 } as const
 
 export const characterHpRepository = {
@@ -61,7 +63,7 @@ export const characterHpRepository = {
         currentHp: data.currentHp,
         temporaryHp: data.temporaryHp,
       },
-      include: characterBaseInclude,
+      select: characterHpStateSelect,
     })
   },
 
@@ -91,52 +93,10 @@ export const characterHpRepository = {
     })
   },
 
-  // Сохранить HP-прибавку за уровень. Возможно стоит удалить как устаревший метод?
-  createHpIncrease(characterId: string, data: CreateHpIncreaseInput) {
-    return prisma.characterHpIncrease.create({
-      data: {
-        characterId,
-        level: data.level,
-        mode: data.mode,
-        value: data.value,
-        dice: data.dice,
-        rolledValue: data.rolledValue ?? null,
-      },
-    })
-  },
-
-  // Обновить уровень и HP-состояние после level-up. Возможно стоит удалить как устаревший метод?
-  updateLevelAndHpState(id: string, data: UpdateLevelAndHpStateInput) {
-    return prisma.character.update({
-      where: { id },
-      data: {
-        level: data.level,
-        currentHp: data.currentHp,
-        temporaryHp: data.temporaryHp,
-        hitDiceTotal: data.hitDiceTotal,
-        hitDiceDice: data.hitDiceDice,
-      },
-      include: characterSheetInclude,
-    })
-  },
-
-  // Удаляет HP-прибавки выше указанного уровня.
-  // Нужно, когда пользователь вручную понижает level через форму.
-  deleteHpIncreasesAboveLevel(characterId: string, level: number) {
-    return prisma.characterHpIncrease.deleteMany({
-      where: {
-        characterId,
-        level: {
-          gt: level,
-        },
-      },
-    })
-  },
-
   levelUpWithHpIncrease(
     id: string,
     hpIncrease: CreateHpIncreaseInput,
-    hpState: UpdateLevelAndHpStateInput,
+    hpState: LevelUpHpStateInput,
   ) {
     return prisma.$transaction(async (tx) => {
       await tx.characterHpIncrease.create({
@@ -159,16 +119,13 @@ export const characterHpRepository = {
           hitDiceTotal: hpState.hitDiceTotal,
           hitDiceDice: hpState.hitDiceDice,
         },
-        include: characterSheetInclude,
+        select: characterHpStateSelect,
       })
     })
   },
 
   // =========================================================
   // Hit dice
-  // =========================================================
-  // Получить данные персонажа, нужные для use/restore hit dice.
-  // total считается через level, used хранится в Character.hitDiceUsed.
   // =========================================================
 
   findHitDiceByCharacterId(id: string) {
@@ -183,68 +140,59 @@ export const characterHpRepository = {
     })
   },
 
-  // =========================================================
-  // Обновить количество использованных hit dice.
-  // =========================================================
-
   updateHitDiceUsed(id: string, used: number) {
     return prisma.character.update({
       where: { id },
       data: {
         hitDiceUsed: used,
       },
+      select: characterHpStateSelect,
     })
   },
 
   // =========================================================
   // Inspiration
   // =========================================================
-  // Обновить состояние вдохновения персонажа.
-  // =========================================================
 
   updateInspiration(id: string, inspiration: boolean) {
-  return prisma.character.update({
+    return prisma.character.update({
       where: { id },
       data: {
-      inspiration,
+        inspiration,
       },
-  })
+      select: characterHpStateSelect,
+    })
   },
 
-// =========================================================
-  // Death saves
   // =========================================================
-  // Получить только поля death saves.
+  // Death saves
   // =========================================================
 
   findDeathSavesByCharacterId(id: string) {
-  return prisma.character.findUnique({
+    return prisma.character.findUnique({
       where: { id },
       select: {
-      id: true,
-      deathSaveSuccesses: true,
-      deathSaveFailures: true,
+        id: true,
+        deathSaveSuccesses: true,
+        deathSaveFailures: true,
       },
-  })
+    })
   },
-
-  // =========================================================
-  // Обновить death saves.
-  // =========================================================
 
   updateDeathSaves(
-  id: string,
-  data: {
+    id: string,
+    data: {
       successes: number
       failures: number
-  },
+    },
   ) {
-  return prisma.character.update({
+    return prisma.character.update({
       where: { id },
       data: {
-      deathSaveSuccesses: data.successes,
-      deathSaveFailures: data.failures,
+        deathSaveSuccesses: data.successes,
+        deathSaveFailures: data.failures,
       },
-  })
+      select: characterHpStateSelect,
+    })
   },
 }

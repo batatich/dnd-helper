@@ -17,47 +17,24 @@ const characterBaseInclude = {
 // Расширенный include для "собранного" персонажа.
 // Используется там, где нужен более полный character sheet.
 const characterSheetInclude = {
-   stats: true,
-    attacks: true,
-    spells: true,
-    items: {
-      include: {
-        itemTemplate: true,
-      },
+  stats: true,
+  attacks: true,
+  spells: true,
+  items: {
+    include: {
+      itemTemplate: true,
     },
-    hpIncreases: {
-      orderBy: {
-        level: 'asc',
-      },
+  },
+  hpIncreases: {
+    orderBy: {
+      level: 'asc',
     },
+  },
 } as const
 
 // =========================================================
 // Внутренние типы repository
 // =========================================================
-
-// Внутренний тип для обновления HP-состояния персонажа.
-type UpdateHpStateInput = {
-  currentHp: number
-  temporaryHp: number
-}
-type HpIncreaseMode = 'fixed' | 'roll'
-
-type CreateHpIncreaseInput = {
-  level: number
-  mode: HpIncreaseMode
-  value: number
-  dice: string
-  rolledValue?: number | null
-}
-
-type UpdateLevelAndHpStateInput = {
-  level: number
-  currentHp: number
-  temporaryHp: number
-  hitDiceTotal: number
-  hitDiceDice: string
-}
 
 type CreateCharacterRepositoryInput = CreateCharacterInput & {
   currentHp: number
@@ -97,7 +74,7 @@ export const characterRepository = {
 
   // Получить персонажа с полным набором связанных сущностей.
   // Это ближе к character sheet, чем обычный findById.
-  findByIdWithSheet(id: string) {
+  findByIdForSheet(id: string) {
     return prisma.character.findUnique({
       where: { id },
       include: characterSheetInclude,
@@ -164,7 +141,6 @@ export const characterRepository = {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.race !== undefined && { race: data.race }),
         ...(data.className !== undefined && { className: data.className }),
-        ...(data.level !== undefined && { level: data.level }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.alignment !== undefined && { alignment: data.alignment }),
         ...(data.background !== undefined && { background: data.background }),

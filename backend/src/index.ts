@@ -32,7 +32,7 @@ const app = Fastify({
 
 const characterForSheetRepository = {
   findById: (id: string) =>
-    characterRepository.findByIdWithSheet(id) as Promise<any>,
+    characterRepository.findByIdForSheet(id) as Promise<any>,
 }
 
 const characterStatsRepository = {

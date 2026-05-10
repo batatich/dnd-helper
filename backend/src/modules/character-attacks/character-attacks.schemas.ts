@@ -4,8 +4,6 @@ import { z } from 'zod'
 // Character Attacks
 // =========================================================
 
-export const attackSourceSchema = z.enum(['manual', 'item'])
-
 export const attackParamsSchema = z.object({
   id: z.string().uuid(),
   attackId: z.string().uuid(),
@@ -31,7 +29,8 @@ export const createAttackSchema = z.object({
   damageBonus: z.number().int().default(0),
   damageType: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-}) .strict()
+}) 
+.strict()
 
 export const updateAttackSchema = createAttackSchema.partial().strict()
 

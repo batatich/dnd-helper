@@ -6,7 +6,11 @@ import {
   updateAttackSchema,
 } from './character-attacks.schemas'
 import { characterAttacksService } from './character-attacks.service'
-import { CharacterNotFoundError } from '../characters/errors'
+import {
+  AttackNotFoundError,
+  AttackOwnershipError,
+  CharacterNotFoundError,
+} from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
 
 export async function characterAttacksRoutes(app: FastifyInstance) {
@@ -85,6 +89,13 @@ export async function characterAttacksRoutes(app: FastifyInstance) {
       if (error instanceof ValidationError) {
         return reply.status(400).send({ message: error.message })
       }
+      if (error instanceof AttackNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof AttackOwnershipError) {
+        return reply.status(403).send({ message: error.message })
+      }
 
       throw error
     }
@@ -102,10 +113,12 @@ export async function characterAttacksRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await characterAttacksService.deleteAttack(
+      await characterAttacksService.deleteAttack(
         paramsParsed.data.id,
         paramsParsed.data.attackId,
       )
+
+      return reply.status(204).send()
     } catch (error) {
       if (error instanceof CharacterNotFoundError) {
         return reply.status(404).send({ message: error.message })
@@ -113,6 +126,14 @@ export async function characterAttacksRoutes(app: FastifyInstance) {
 
       if (error instanceof ValidationError) {
         return reply.status(400).send({ message: error.message })
+      }
+
+      if (error instanceof AttackNotFoundError) {
+        return reply.status(404).send({ message: error.message })
+      }
+
+      if (error instanceof AttackOwnershipError) {
+        return reply.status(403).send({ message: error.message })
       }
 
       throw error

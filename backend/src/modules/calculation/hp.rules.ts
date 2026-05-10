@@ -75,8 +75,10 @@ export function getConModifier(constitution: number): number {
 // ROLL HIT DIE
 // =========================
 
-export function rollHitDie(hitDie: number): number {
-  return Math.floor(Math.random() * hitDie) + 1
+export function rollHitDie(sides = 8) {
+  const safeSides = Math.max(1, Math.floor(sides))
+
+  return Math.floor(Math.random() * safeSides) + 1
 }
 
 // =========================

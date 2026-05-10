@@ -67,15 +67,4 @@ export const characterAttacksRepository = {
       where: { id: attackId },
     })
   },
-
-  // Удалить все item-атаки, связанные с конкретным предметом.
-  // Это пригодится для логики экипировки/снятия предметов.
-  deleteAttacksByItemId(characterId: string, itemId: string) {
-    return prisma.characterAttack.deleteMany({
-      where: {
-        characterId,
-        itemId,
-      },
-    })
-  },
 }

@@ -1,10 +1,8 @@
-import { ValidationError } from '../../shared/errors'
 import { calculateMaxHp } from '../calculation/hp.rules'
 import {
   rollAbilityScores,
   type AbilityScores,
 } from '../calculation/stats.rules'
-import { characterRepository } from '../characters/character.repository'
 import { characterHpRepository } from '../character-hp/character-hp.repository'
 import { characterStatsRepository } from './character-stats.repository'
 import { CharacterNotFoundError } from '../characters/errors'
@@ -27,22 +25,24 @@ export const characterStatsService = {
       throw new CharacterNotFoundError(id)
     }
 
-    const updatedStats = await characterStatsRepository.upsertStats(id, stats)
-
     const maxHp = calculateMaxHp({
       ...character,
-      stats: updatedStats,
+      stats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    if (character.currentHp > maxHp) {
-      await characterHpRepository.updateHpState(id, {
-        currentHp: maxHp,
-        temporaryHp: character.temporaryHp,
-      })
-    }
+    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
+      id,
+      stats,
+      character.currentHp > maxHp
+        ? {
+            currentHp: maxHp,
+            temporaryHp: character.temporaryHp,
+          }
+        : undefined,
+    )
 
-    return characterRepository.findByIdWithSheet(id)
+    return updatedStats
   },
 
   // Генерация базовых характеристик через 4d6 drop lowest.
@@ -64,28 +64,24 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const updatedStats = await characterStatsRepository.upsertStats(
-      id,
-      result.stats,
-    )
-
     const maxHp = calculateMaxHp({
       ...character,
-      stats: updatedStats,
+      stats: result.stats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    if (character.currentHp > maxHp) {
-      await characterHpRepository.updateHpState(id, {
-        currentHp: maxHp,
-        temporaryHp: character.temporaryHp,
-      })
-    }
-
-    const updatedCharacter = await characterRepository.findByIdWithSheet(id)
+    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
+      id,
+      result.stats,
+      character.currentHp > maxHp
+        ? {
+            currentHp: maxHp,
+            temporaryHp: character.temporaryHp,
+          }
+        : undefined,
+    )
 
     return {
-      character: updatedCharacter,
       stats: updatedStats,
       rolls: result.rolls,
     }

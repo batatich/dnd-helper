@@ -1,5 +1,6 @@
 import { ValidationError } from '../../shared/errors'
 import { characterHpRepository } from './character-hp.repository'
+import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
 
 import {
@@ -105,7 +106,7 @@ export const characterHpService = {
     }
 
     if (amount <= 0) {
-      throw new ValidationError('Damage amount cannot be negative')
+      throw new ValidationError('Damage amount must be positive')
     }
 
     let remainingDamage = amount
@@ -140,7 +141,7 @@ export const characterHpService = {
     }
 
     if (amount <= 0) {
-      throw new ValidationError('Heal amount cannot be negative')
+      throw new ValidationError('Heal amount must be positive')
     }
 
     const maxHp = calculateMaxHp(character)
@@ -235,7 +236,7 @@ export const characterHpService = {
 
   // Устанавливает вдохновение персонажа.
   async setInspiration(id: string, inspiration: boolean) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+    const character = await characterRepository.findById(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)

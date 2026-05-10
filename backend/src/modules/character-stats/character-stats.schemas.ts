@@ -16,7 +16,8 @@ export const abilityScoreSchema = z.number().int().min(1).max(30)
 //
 // Используется для ручной установки статов:
 // PATCH /characters/:id/stats
-export const characterStatsSchema = z.object({
+export const characterStatsSchema = z
+.object({
   strength: abilityScoreSchema,
   dexterity: abilityScoreSchema,
   constitution: abilityScoreSchema,
@@ -24,6 +25,7 @@ export const characterStatsSchema = z.object({
   wisdom: abilityScoreSchema,
   charisma: abilityScoreSchema,
 })
+.strict()
 
 // Создание stats.
 // При создании / полной ручной установке требуем все 6 характеристик.
@@ -31,7 +33,7 @@ export const createCharacterStatsSchema = characterStatsSchema
 
 // Частичное обновление stats.
 // Можно будет использовать позже, если понадобится менять один стат отдельно.
-export const updateCharacterStatsSchema = characterStatsSchema.partial()
+export const updateCharacterStatsSchema = characterStatsSchema.partial().strict()
 
 export type CharacterStatsInput = z.infer<typeof characterStatsSchema>
 export type CreateCharacterStatsInput = z.infer<

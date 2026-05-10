@@ -2,14 +2,11 @@ import type {
   CreateCharacterInput,
   UpdateCharacterInput,
 } from './character.schemas'
-import { ValidationError } from '../../shared/errors'
 import { characterRepository } from './character.repository'
-import { characterHpRepository } from '../character-hp/character-hp.repository'
 import {
   CharacterNotFoundError,
 } from './errors'
 
-import { calculateMaxHp } from '../calculation/hp.rules'
 
 export const characterService = {
   // =========================================================
@@ -22,17 +19,6 @@ export const characterService = {
 
   async getCharacterById(id: string) {
     const character = await characterRepository.findById(id)
-
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
-
-    return character
-  },
-
-  // 🔥 НОВОЕ — получить полный sheet
-  async getCharacterSheet(id: string) {
-    const character = await characterRepository.findByIdWithSheet(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
@@ -71,71 +57,23 @@ export const characterService = {
     })
   },
 
-    async updateCharacter(id: string, data: UpdateCharacterInput) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
+  async updateCharacter(id: string, data: UpdateCharacterInput) {
+    const character = await characterRepository.findById(id)
 
     if (!character) {
       throw new CharacterNotFoundError(id)
     }
 
-    // Если level не меняется — обычное обновление.
-    if (data.level === undefined || data.level === character.level) {
-      return characterRepository.update(id, data)
-    }
-
-    // Уровень должен быть только от 1 до 20.
-    if (data.level < 1 || data.level > 20) {
-      throw new ValidationError('Character level must be between 1 and 20')
-    }
-
-    // Через форму запрещаем повышать уровень.
-    // Для повышения нужен выбор fixed / roll.
-    if (data.level > character.level) {
-      throw new ValidationError(
-        'Use level-up action to increase character level',
-      )
-    }
-
-    // Если уровень понижается — удаляем будущие HP-прибавки.
-    await characterHpRepository.deleteHpIncreasesAboveLevel(id, data.level)
-
-    // Оставляем только HP-прибавки, которые подходят под новый уровень.
-    const remainingHpIncreases = character.hpIncreases.filter(
-      (increase) => increase.level <= data.level!,
-    )
-
-    // Считаем новый maxHp после понижения.
-    const maxHp = calculateMaxHp({
-      ...character,
-      ...data,
-      level: data.level,
-      hpIncreases: remainingHpIncreases,
-    })
-
-    // После понижения уровня нужно обновить не только профиль,
-    // но и HP-состояние персонажа.
-    // Обычный characterRepository.update больше не принимает currentHp / hitDice.
-    await characterHpRepository.updateLevelAndHpState(id, {
-      level: data.level,
-      currentHp: Math.min(character.currentHp, maxHp),
-      temporaryHp: character.temporaryHp,
-      hitDiceTotal: data.level,
-      hitDiceDice: '1d8',
-    })
-
-    return characterRepository.update(id, {
-      ...data,
-      level: data.level,
-    })
+    return characterRepository.update(id, data)
   },
 
-    async deleteCharacter(id: string) {
-      const existingCharacter = await characterRepository.findById(id)
+  async deleteCharacter(id: string) {
+    const existingCharacter = await characterRepository.findById(id)
 
-      if (!existingCharacter) {
-        throw new CharacterNotFoundError(id)
-      }
-
-      await characterRepository.delete(id)
+    if (!existingCharacter) {
+      throw new CharacterNotFoundError(id)
     }
+
+    await characterRepository.delete(id)
+  }
 }

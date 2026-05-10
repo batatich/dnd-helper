@@ -2,9 +2,10 @@ import { FastifyInstance } from 'fastify'
 import { characterParamsSchema } from '../characters/character.schemas'
 import {
   createItemSchema,
-  itemParamsSchema,
-  updateItemSchema,
   equipItemSchema,
+  itemParamsSchema,
+  unequipItemSchema,
+  updateItemSchema,
 } from './character-inventory.schemas'
 import { characterInventoryService } from './character-inventory.service'
 import {
@@ -14,6 +15,8 @@ import {
   ItemNotEquippedError,
   ItemNotFoundError,
   ItemOwnershipError,
+  ItemSlotAlreadyOccupiedError,
+  ItemSlotMissingError,
   ItemTemplateNotFoundError,
 } from '../characters/errors'
 import { ValidationError } from '../../shared/errors'
@@ -113,6 +116,10 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
         return reply.status(400).send({ message: error.message })
       }
 
+      if (error instanceof ValidationError) {
+        return reply.status(400).send({ message: error.message })
+      }
+
       throw error
     }
   })
@@ -186,6 +193,14 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
         return reply.status(409).send({ message: error.message })
       }
 
+      if (error instanceof ItemSlotAlreadyOccupiedError) {
+        return reply.status(409).send({ message: error.message })
+      }
+
+      if (error instanceof ItemSlotMissingError) {
+        return reply.status(400).send({ message: error.message })
+      }
+
       if (error instanceof ValidationError) {
         return reply.status(400).send({ message: error.message })
       }
@@ -197,11 +212,19 @@ export async function characterInventoryRoutes(app: FastifyInstance) {
   // Снять предмет
   app.post('/characters/:id/items/:itemId/unequip', async (request, reply) => {
     const paramsParsed = itemParamsSchema.safeParse(request.params)
+    const bodyParsed = unequipItemSchema.safeParse(request.body ?? {})
 
     if (!paramsParsed.success) {
       return reply.status(400).send({
         message: 'Validation error',
         errors: paramsParsed.error.flatten(),
+      })
+    }
+
+    if (!bodyParsed.success) {
+      return reply.status(400).send({
+        message: 'Validation error',
+        errors: bodyParsed.error.flatten(),
       })
     }
 

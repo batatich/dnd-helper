@@ -74,8 +74,12 @@ function resolveEquipSlot(input: {
 }): EquipmentSlot {
   const { requestedSlot, allowedSlots } = input
 
+  if (allowedSlots.length === 0) {
+    throw new ValidationError('Item cannot be equipped because it has no equipment slot')
+  }
+
   if (requestedSlot) {
-    if (allowedSlots.length > 0 && !allowedSlots.includes(requestedSlot)) {
+    if (!allowedSlots.includes(requestedSlot)) {
       throw new ValidationError(
         `Item cannot be equipped in slot "${requestedSlot}"`,
       )
@@ -150,6 +154,16 @@ export const characterInventoryService = {
       throw new InvalidItemQuantityError(data.quantity)
     }
 
+    if (
+      item.isEquipped &&
+      data.quantity !== undefined &&
+      data.quantity !== 1
+    ) {
+      throw new ValidationError(
+        'Equipped item quantity must be 1. Unequip item before changing quantity.',
+      )
+    }
+
     return characterInventoryRepository.updateItem(itemId, data)
   },
 
@@ -184,6 +198,12 @@ export const characterInventoryService = {
 
     if (item.isEquipped) {
       throw new ItemAlreadyEquippedError(itemId)
+    }
+
+    if (item.quantity !== 1) {
+      throw new ValidationError(
+        'Only single items can be equipped. Split stacked equipment first.',
+      )
     }
 
     const allowedSlots = resolveAllowedSlots({

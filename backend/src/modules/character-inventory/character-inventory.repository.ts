@@ -5,6 +5,13 @@ import type {
   UpdateItemInput,
 } from './character-inventory.schemas'
 
+type CreateCharacterItemRepositoryInput = Omit<
+  CreateItemInput,
+  'nameSnapshot'
+> & {
+  nameSnapshot: string
+}
+
 const characterItemInclude = {
   itemTemplate: true,
 } as const
@@ -26,16 +33,6 @@ export const characterInventoryRepository = {
     return prisma.characterItem.findUnique({
       where: {
         id: itemId,
-      },
-      include: characterItemInclude,
-    })
-  },
-
-  findItemByCharacterId(characterId: string, itemId: string) {
-    return prisma.characterItem.findFirst({
-      where: {
-        id: itemId,
-        characterId,
       },
       include: characterItemInclude,
     })
@@ -68,7 +65,7 @@ export const characterInventoryRepository = {
     })
   },
 
-  createItem(characterId: string, data: CreateItemInput) {
+  createItem(characterId: string, data: CreateCharacterItemRepositoryInput) {
     return prisma.characterItem.create({
       data: {
         characterId,
@@ -79,7 +76,7 @@ export const characterInventoryRepository = {
          * Если nameSnapshot не пришёл, service должен был подставить
          * имя из ItemTemplate до вызова repository.
          */
-        nameSnapshot: data.nameSnapshot ?? 'Предмет',
+        nameSnapshot: data.nameSnapshot,
 
         quantity: data.quantity ?? 1,
 
@@ -143,20 +140,6 @@ export const characterInventoryRepository = {
         slot: null,
       },
       include: characterItemInclude,
-    })
-  },
-
-  unequipItemInSlot(characterId: string, slot: string) {
-    return prisma.characterItem.updateMany({
-      where: {
-        characterId,
-        isEquipped: true,
-        slot,
-      },
-      data: {
-        isEquipped: false,
-        slot: null,
-      },
     })
   },
 }
