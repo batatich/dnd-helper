@@ -137,7 +137,7 @@ export function toCharacterItemDto(
         ? templateAllowedSlots
         : templateSlot,
     isEquipped: item.isEquipped,
-    equippedSlot: normalizeEquipmentSlot(item.slot),
+    equippedSlot: normalizeEquipmentSlot(item.equippedSlot),
     quantity: item.quantity,
     notes: item.notes,
     weaponConfig: hasItemWeaponConfig

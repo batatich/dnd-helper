@@ -192,16 +192,16 @@ export const characterInventoryService = {
      * Если предмет уже экипирован и мы меняем allowedSlots,
      * нельзя оставить его в слоте, который больше не разрешён.
      */
-    if (item.isEquipped && item.slot && data.allowedSlots !== undefined) {
+    if (item.isEquipped && item.equippedSlot && data.allowedSlots !== undefined) {
       const nextAllowedSlots = resolveAllowedSlots({
         itemAllowedSlots: data.allowedSlots,
         templateAllowedSlots: item.itemTemplate?.allowedSlots ?? null,
         templateSlot: item.itemTemplate?.slot ?? null,
       })
 
-      if (!nextAllowedSlots.includes(item.slot as EquipmentSlot)) {
+      if (!nextAllowedSlots.includes(item.equippedSlot as EquipmentSlot)) {
         throw new ValidationError(
-          `Equipped item cannot stay in slot "${item.slot}" with provided allowedSlots`,
+          `Equipped item cannot stay in slot "${item.equippedSlot}" with provided allowedSlots`,
         )
       }
     }
@@ -254,22 +254,21 @@ export const characterInventoryService = {
       templateSlot: item.itemTemplate?.slot ?? null,
     })
 
-    const slot = resolveEquipSlot({
-      requestedSlot: data.slot,
+    const equippedSlot = resolveEquipSlot({
+      requestedSlot: data.equippedSlot,
       allowedSlots,
     })
-
     const occupiedItem =
       await characterInventoryRepository.findEquippedItemBySlot(
         characterId,
-        slot,
+        equippedSlot,
       )
 
     if (occupiedItem && occupiedItem.id !== itemId) {
-      throw new ItemSlotAlreadyOccupiedError(slot, characterId)
+      throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
     }
 
-    return characterInventoryRepository.equipItem(itemId, slot)
+    return characterInventoryRepository.equipItem(itemId, equippedSlot)
   },
 
   async unequipItem(characterId: string, itemId: string) {

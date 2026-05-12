@@ -113,7 +113,7 @@ export type CharacterItemEntity = {
   nameSnapshot: string
   quantity: number
   isEquipped: boolean
-  slot: string | null
+  equippedSlot: string | null
   notes: string | null
   itemTemplateId: string | null
 

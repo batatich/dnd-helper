@@ -1,0 +1,1 @@
+ALTER TABLE "CharacterItem" RENAME COLUMN "slot" TO "equippedSlot";

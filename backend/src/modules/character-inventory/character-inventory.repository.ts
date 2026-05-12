@@ -54,12 +54,12 @@ export const characterInventoryRepository = {
     })
   },
 
-  findEquippedItemBySlot(characterId: string, slot: string) {
+  findEquippedItemBySlot(characterId: string, equippedSlot: string) {
     return prisma.characterItem.findFirst({
       where: {
         characterId,
         isEquipped: true,
-        slot,
+        equippedSlot,
       },
       include: characterItemInclude,
     })
@@ -166,14 +166,14 @@ export const characterInventoryRepository = {
     })
   },
 
-  equipItem(itemId: string, slot: string) {
+  equipItem(itemId: string, equippedSlot: string) {
     return prisma.characterItem.update({
       where: {
         id: itemId,
       },
       data: {
         isEquipped: true,
-        slot,
+        equippedSlot,
       },
       include: characterItemInclude,
     })
@@ -186,7 +186,7 @@ export const characterInventoryRepository = {
       },
       data: {
         isEquipped: false,
-        slot: null,
+        equippedSlot: null,
       },
       include: characterItemInclude,
     })

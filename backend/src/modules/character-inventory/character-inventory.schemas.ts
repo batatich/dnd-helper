@@ -65,10 +65,10 @@ export const itemParamsSchema = z
 // - itemTemplateId нет → nameSnapshot обязателен
 //
 // Важно:
-// - create item НЕ экипирует предмет
-// - isEquipped/slot не принимаем
-// - notes = обычная текстовая заметка игрока
-// - игровые свойства кастомного предмета живут в type/allowedSlots/effects/weaponConfig
+// - isEquipped/equippedSlot не принимаем
+// - update item НЕ принимает equippedSlot
+// - equippedSlot меняется только через equip/unequip
+// Если допустимых слотов несколько, frontend должен передать equippedSlot.
 export const createItemSchema = z
   .object({
     itemTemplateId: z.string().uuid().nullable().optional(),
@@ -104,8 +104,8 @@ export const createItemSchema = z
 //
 // Важно:
 // - update item НЕ принимает isEquipped
-// - update item НЕ принимает slot
-// - slot меняется только через equip/unequip
+// - update item НЕ принимает equippedSlot
+// - equippedSlot меняется только через equip/unequip
 export const updateItemSchema = z
   .object({
     nameSnapshot: z.string().min(1).optional(),
@@ -129,11 +129,11 @@ export const updateItemSchema = z
 // =========================================================
 //
 // Если предмет имеет один допустимый слот, backend может выбрать его сам.
-// Если допустимых слотов несколько, frontend должен передать slot.
+// Если допустимых слотов несколько, frontend должен передать equippedSlot.
 // Окончательная проверка допустимости слота всё равно в service.
 export const equipItemSchema = z
   .object({
-    slot: equipmentSlotSchema.optional(),
+    equippedSlot: equipmentSlotSchema.optional(),
   })
   .strict()
 
