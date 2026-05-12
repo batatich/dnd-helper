@@ -108,7 +108,7 @@ export type ItemTemplate = {
   allowedSlots?: EquipmentSlot[] | null
 
   description?: string | null
-  effects: ItemEffect[] | null
+  effects?: ItemEffect[] | null
   weaponConfig?: WeaponConfig | null
 
   createdAt?: string | Date
@@ -131,7 +131,7 @@ export type CharacterItem = {
   characterId: string
   itemTemplateId: string | null
 
-  nameSnapshot: string
+  nameSnapshot: string | null
   quantity: number
 
   isEquipped: boolean

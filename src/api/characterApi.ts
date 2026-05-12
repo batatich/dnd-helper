@@ -1,4 +1,6 @@
-import type { Character, NewSpell, NewAttack, Stats } from '../types/characters'
+import type { Character, Stats } from '../types/characters'
+import type { NewAttack } from '../types/attacks'
+import type { NewSpell } from '../types/spells'
 import type {
   EquipmentSlot,
   ItemEffect,
@@ -45,7 +47,6 @@ export type UpdateCharacterInput = {
   name?: string
   race?: string
   className?: string
-  level?: number
   description?: string | null
   alignment?: string | null
   background?: string | null
@@ -85,23 +86,7 @@ export type CreateItemInput = {
  */
 export type UpdateItemInput = Partial<CreateItemInput>
 
-type BackendCharacter = Character & {
-  stats?: Stats | null
-  items?: unknown[]
-  deathSaveSuccesses?: number
-  deathSaveFailures?: number
-  hitDiceTotal?: number | null
-  hitDiceUsed?: number | null
-  hitDiceDice?: string | null
-}
-
 export type UpdateSpellInput = Partial<NewSpell>
-
-/**
- * Старый тип для legacy updateSpellSlots().
- * Пока оставляем, чтобы не сломать characterStore до следующего шага.
- * После правки characterStore этот тип и updateSpellSlots можно удалить.
- */
 
 export type AbilityRollResult = {
   dice: number[]
@@ -110,7 +95,6 @@ export type AbilityRollResult = {
 }
 
 export type RollCharacterStatsResult = {
-  character: Character
   stats: Stats
   rolls: Record<keyof Stats, AbilityRollResult>
 }
@@ -119,11 +103,7 @@ export type RollCharacterStatsResult = {
 // Mappers / helpers
 // =========================================================
 
-function mapCharacterPayloadToBackend(
-  data: CreateCharacterInput | UpdateCharacterInput
-) {
-  // Обычный create/update персонажа больше не прокидывает HP, death saves,
-  // hit dice, inspiration и spell slots. Эти поля меняются отдельными backend actions.
+function mapCreateCharacterPayloadToBackend(data: CreateCharacterInput) {
   return removeUndefinedValues({
     name: data.name,
     race: data.race,
@@ -138,51 +118,18 @@ function mapCharacterPayloadToBackend(
   })
 }
 
-function mapBackendCharacterToFrontend(data: BackendCharacter): Character {
-  return {
-    ...data,
-    className: data.className ?? '',
-
-    baseStats: data.baseStats ?? data.stats,
-
-    inventory: (data.inventory ?? data.items ?? []) as Character['inventory'],
-
-    deathSaves: data.deathSaves ?? {
-      successes: data.deathSaveSuccesses ?? 0,
-      failures: data.deathSaveFailures ?? 0,
-    },
-
-    hitDice: data.hitDice ?? {
-      total: data.hitDiceTotal ?? data.level ?? 1,
-      used: data.hitDiceUsed ?? 0,
-      dice: data.hitDiceDice ?? `${data.level ?? 1}d8`,
-    },
-
-    spellSlots: data.spellSlots ?? [],
-
-    attacks: data.attacks ?? [],
-    spells: data.spells ?? [],
-
-    savingThrowProficiencies: data.savingThrowProficiencies ?? [],
-    skills: data.skills ?? [],
-
-    equippedItems: data.equippedItems ?? {
-      mainHand: null,
-      offHand: null,
-      head: null,
-      body: null,
-      ring1: null,
-      ring2: null,
-      amulet: null,
-      boots: null,
-    },
-
-    derivedStats: data.derivedStats ?? {
-      armorClass: 10,
-      initiative: 0,
-      maxHp: data.currentHp ?? 0,
-    },
-  } as Character
+function mapUpdateCharacterPayloadToBackend(data: UpdateCharacterInput) {
+  return removeUndefinedValues({
+    name: data.name,
+    race: data.race,
+    className: data.className,
+    description: data.description,
+    alignment: data.alignment,
+    background: data.background,
+    avatarUrl: data.avatarUrl,
+    speed: data.speed,
+    spellcastingAbility: data.spellcastingAbility,
+  })
 }
 
 /**
@@ -227,65 +174,46 @@ function mapAttackPayloadToBackend(data: Partial<NewAttack>) {
 // Characters
 // =========================================================
 
-export async function getCharacters(): Promise<Character[]> {
-  const data = await httpClient.get<BackendCharacter[]>('/characters')
-  return data.map(mapBackendCharacterToFrontend)
+export function getCharacters(): Promise<Character[]> {
+  return httpClient.get<Character[]>('/characters')
 }
 
-export async function getCharacterById(id: string): Promise<Character> {
-  const data = await httpClient.get<BackendCharacter>(`/characters/${id}`)
-  return mapBackendCharacterToFrontend(data)
+export function getCharacterById(id: string): Promise<Character> {
+  return httpClient.get<Character>(`/characters/${id}`)
 }
 
-export async function createCharacter(
+export function createCharacter(
   data: CreateCharacterInput
 ): Promise<Character> {
-  const created = await httpClient.post<BackendCharacter>(
+  return httpClient.post<Character>(
     '/characters',
-    mapCharacterPayloadToBackend(data)
+    mapCreateCharacterPayloadToBackend(data)
   )
-
-  return mapBackendCharacterToFrontend(created)
 }
 
-export async function updateCharacter(
+export function updateCharacter(
   id: string,
   data: UpdateCharacterInput
 ): Promise<Character> {
-  const updated = await httpClient.patch<BackendCharacter>(
+  return httpClient.patch<Character>(
     `/characters/${id}`,
-    mapCharacterPayloadToBackend(data)
+    mapUpdateCharacterPayloadToBackend(data)
   )
-
-  return mapBackendCharacterToFrontend(updated)
 }
 
-export async function updateCharacterStats(
+export function updateCharacterStats(
   characterId: string,
   baseStats: Stats
-): Promise<Character> {
-  const updated = await httpClient.patch<BackendCharacter>(
-    `/characters/${characterId}/stats`,
-    baseStats
-  )
-
-  return mapBackendCharacterToFrontend(updated)
+): Promise<Stats> {
+  return httpClient.patch<Stats>(`/characters/${characterId}/stats`, baseStats)
 }
 
-export async function rollCharacterStats(
+export function rollCharacterStats(
   characterId: string
 ): Promise<RollCharacterStatsResult> {
-  const result = await httpClient.post<{
-    character: BackendCharacter
-    stats: Stats
-    rolls: Record<keyof Stats, AbilityRollResult>
-  }>(`/characters/${characterId}/stats/roll`)
-
-  return {
-    character: mapBackendCharacterToFrontend(result.character),
-    stats: result.stats,
-    rolls: result.rolls,
-  }
+  return httpClient.post<RollCharacterStatsResult>(
+    `/characters/${characterId}/stats/roll`
+  )
 }
 
 export function deleteCharacter(id: string): Promise<void> {

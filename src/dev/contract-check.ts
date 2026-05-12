@@ -1,4 +1,5 @@
 import type { CharacterSheet } from '../types/characterSheet'
+import type { Character } from '../types/characters'
 import type { ItemTemplate } from '../types/items'
 import type {
   HpState,
@@ -7,37 +8,6 @@ import type {
   CreateCharacterInput,
   UpdateCharacterInput,
 } from '../api/characterApi'
-
-type CharacterProfileResponse = {
-  id: string
-
-  name: string
-  race: string
-  className: string
-  level: number
-
-  description: string | null
-  alignment: string | null
-  background: string | null
-  avatarUrl: string | null
-
-  currentHp: number
-  temporaryHp: number
-  speed: number
-  inspiration: boolean
-
-  spellcastingAbility:
-    | 'strength'
-    | 'dexterity'
-    | 'constitution'
-    | 'intelligence'
-    | 'wisdom'
-    | 'charisma'
-    | null
-
-  createdAt: string | Date
-  updatedAt: string | Date
-}
 
 // =========================================================
 // 1. GET /characters/:id/sheet
@@ -410,7 +380,7 @@ const characterResponse = {
     "spellcastingAbility": null,
     "createdAt": "2026-05-12T19:33:27.938Z",
     "updatedAt": "2026-05-12T19:33:27.938Z"
-} satisfies CharacterProfileResponse
+} satisfies Character
 
 // =========================================================
 // 3. GET /items

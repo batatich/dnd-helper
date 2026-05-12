@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
+import type { Character, Stats } from '../types/characters'
+import type { NewAttack } from '../types/attacks'
+import type { NewSpell } from '../types/spells'
 import type { EquipmentSlot } from '../types/items'
 
 import {
@@ -53,8 +55,7 @@ import {
   type UpdateItemInput,
 } from '../api/characterApi'
 
-import { getCharacterSheet } from '../api/characterSheetApi'
-import type { CharacterSheet } from '../types/characterSheet'
+import { useCharacterSheetStore } from './characterSheetStore'
 
 // =========================================================
 // Types
@@ -64,14 +65,12 @@ interface CharacterStore {
   // Основное состояние store
   characters: Character[]
   currentCharacter: Character | null
-  currentSheet: CharacterSheet | null
   isLoading: boolean
   error: string | null
 
   // Загрузка данных
   fetchCharacters: () => Promise<void>
   fetchCharacterById: (id: string) => Promise<void>
-  fetchCharacterSheet: (id: string) => Promise<void>
 
   // CRUD персонажа
   addCharacter: (character: CreateCharacterInput) => Promise<void>
@@ -150,7 +149,6 @@ interface CharacterStore {
   // Локальные UI helpers
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
-  clearCurrentSheet: () => void
 }
 
 // =========================================================
@@ -180,101 +178,24 @@ const getErrorMessage = (fallback: string, error: unknown): string => {
   return fallback
 }
 
-/**
- * Временный mapper из нового CharacterSheet DTO в старый Character.
- *
- * Нужен, пока часть UI ещё ожидает legacy Character-форму.
- * Истина всё равно остаётся в currentSheet.
- */
-const mapSheetToLegacyCharacter = (sheet: CharacterSheet): Character => {
-  const equippedItems = sheet.inventory.equippedItems.reduce<
-    Record<string, string | null>
-  >((acc, item) => {
-    if (item.equippedSlot) {
-      acc[item.equippedSlot] = item.id
-    }
-
-    return acc
-  }, {})
-
-  return {
-    id: sheet.character.id,
-
-    name: sheet.character.name,
-    race: sheet.character.race,
-    className: sheet.character.className,
-    level: sheet.character.level,
-
-    description: sheet.character.description,
-    alignment: sheet.character.alignment,
-    background: sheet.character.background,
-    avatarUrl: sheet.character.avatarUrl,
-
-    currentHp: sheet.character.currentHp,
-    temporaryHp: sheet.character.temporaryHp,
-    inspiration: sheet.character.inspiration,
-    speed: sheet.character.speed,
-
-    spellcastingAbility: sheet.magic.spellcastingAbility,
-
-    deathSaves: sheet.deathSaves,
-    hitDice: sheet.progression.hitDice,
-
-    baseStats: sheet.stats.base,
-    derivedStats: {
-      maxHp: sheet.derived.maxHp,
-      armorClass: sheet.derived.armorClass,
-      initiative: sheet.derived.initiative,
-    },
-
-    skills: sheet.skills.map((skill) => ({
-      name: skill.name,
-      attribute: skill.ability,
-      proficient: skill.proficient,
-    })),
-
-    savingThrowProficiencies: sheet.savingThrows
-      .filter((savingThrow) => savingThrow.proficient)
-      .map((savingThrow) => savingThrow.ability),
-
-    attacks: sheet.attacks,
-    spells: sheet.magic.spells,
-    spellSlots: sheet.magic.spellSlots,
-
-    inventory: sheet.inventory.items,
-    equippedItems,
-
-    createdAt: sheet.character.createdAt,
-    updatedAt: sheet.character.updatedAt,
-
-    isSynced: true,
-  }
-}
-
 // =========================================================
 // Store
 // =========================================================
 
 export const useCharacterStore = create<CharacterStore>((set) => {
   /**
-   * Единый способ обновить sheet после любого backend action.
-   *
-   * Важно:
-   * - store не патчит sheet руками;
-   * - store не считает derived values;
-   * - backend возвращает готовый sheet;
-   * - legacy currentCharacter обновляется из sheet только как bridge для старого UI.
-   */
+  * Единый способ обновить sheet после любого backend action.
+  *
+  * Важно:
+  * - characterStore не патчит sheet руками;
+  * - characterStore не считает derived values;
+  * - готовый sheet хранится только в characterSheetStore;
+  * - backend возвращает итоговое состояние листа.
+  */
   const refreshCharacterSheet = async (characterId: string) => {
-    const sheet = await getCharacterSheet(characterId)
-    const character = mapSheetToLegacyCharacter(sheet)
+    await useCharacterSheetStore.getState().fetchCharacterSheet(characterId)
 
-    set((state) => ({
-      currentSheet: sheet,
-      currentCharacter: character,
-      characters: mergeCharacterIntoList(state.characters, character),
-      isLoading: false,
-    }))
+    set({ isLoading: false })
   }
 
   return {
@@ -284,7 +205,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
 
     characters: [],
     currentCharacter: null,
-    currentSheet: null,
     isLoading: false,
     error: null,
 
@@ -333,21 +253,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       }
     },
 
-    fetchCharacterSheet: async (id) => {
-      set({ isLoading: true, error: null })
-
-      try {
-        await refreshCharacterSheet(id)
-      } catch (error) {
-        console.error('Failed to fetch character sheet:', error)
-
-        set({
-          error: getErrorMessage('Не удалось загрузить лист персонажа', error),
-          isLoading: false,
-        })
-      }
-    },
-
     // =========================================================
     // Character CRUD
     // =========================================================
@@ -357,6 +262,11 @@ export const useCharacterStore = create<CharacterStore>((set) => {
 
       try {
         const createdCharacter = await createCharacterRequest(character)
+
+        set((state) => ({
+          currentCharacter: createdCharacter,
+          characters: mergeCharacterIntoList(state.characters, createdCharacter),
+        }))
 
         const characterWithStats = character as CreateCharacterInput & {
           baseStats?: Stats
@@ -384,7 +294,16 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       set({ isLoading: true, error: null })
 
       try {
-        await updateCharacterRequest(id, updated)
+        const updatedCharacter = await updateCharacterRequest(id, updated)
+
+        set((state) => ({
+          currentCharacter:
+            state.currentCharacter?.id === id
+              ? updatedCharacter
+              : state.currentCharacter,
+          characters: mergeCharacterIntoList(state.characters, updatedCharacter),
+        }))
+
         await refreshCharacterSheet(id)
       } catch (error) {
         console.error('Failed to update character:', error)
@@ -402,14 +321,18 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       try {
         await deleteCharacterRequest(id)
 
+        const sheetStore = useCharacterSheetStore.getState()
+
+        if (sheetStore.currentSheet?.character.id === id) {
+          sheetStore.clearCurrentSheet()
+        }
+
         set((state) => ({
           characters: state.characters.filter(
             (character) => character.id !== id
           ),
           currentCharacter:
             state.currentCharacter?.id === id ? null : state.currentCharacter,
-          currentSheet:
-            state.currentSheet?.character.id === id ? null : state.currentSheet,
           isLoading: false,
         }))
       } catch (error) {
@@ -944,10 +867,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
 
     clearCurrentCharacter: () => {
       set({ currentCharacter: null })
-    },
-
-    clearCurrentSheet: () => {
-      set({ currentSheet: null })
     },
   }
 })

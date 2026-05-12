@@ -169,7 +169,7 @@ export const useCharacterSheetStore = create<CharacterSheetStore>(
     // Перезагружает sheet по id текущего sheet.
     //
     // Это удобно на переходном этапе:
-    // старые actions пока живут в characterStore,
+    // actions живут в characterStore,
     // а после их выполнения можно обновить currentSheet.
     // =====================================================
 

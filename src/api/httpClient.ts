@@ -6,7 +6,7 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
 
 async function request<T>(
   path: string,
-  options: RequestOptions = {},
+  options: RequestOptions = {}
 ): Promise<T> {
   // Content-Type добавляем только тогда, когда реально есть body.
   // Это важно для Fastify:
