@@ -1,3 +1,5 @@
+import type { CharacterItemForSheet } from './items'
+
 export type Stats = {
   strength: number
   dexterity: number
@@ -36,6 +38,13 @@ export type Skill = {
   proficient: boolean
 }
 
+/**
+ * Legacy frontend skill list.
+ *
+ * Важно:
+ * сейчас skills как итоговые бонусы уже должны приходить из backend sheet.
+ * Этот список можно оставить только для старых UI-мест, форм или fallback.
+ */
 export const standardSkills: Skill[] = [
   { name: 'Акробатика', attribute: 'dexterity', proficient: false },
   { name: 'Анализ', attribute: 'intelligence', proficient: false },
@@ -59,6 +68,7 @@ export const standardSkills: Skill[] = [
 
 export type Attack = {
   id: string
+  characterId?: string
   name: string
   attackType: 'melee' | 'ranged' | 'spell'
   ability: keyof Stats
@@ -67,7 +77,21 @@ export type Attack = {
   damageBonus: number
   damageType: string
   notes: string
+
+  /**
+   * Источник атаки.
+   *
+   * manual — создана пользователем.
+   * item — сгенерирована backend-ом от экипированного предмета.
+   *
+   * Frontend не должен сам отправлять source при создании атаки.
+   */
   source: 'manual' | 'item'
+
+  /**
+   * itemId есть только у item-based/generated attacks.
+   * Frontend не должен сам отправлять itemId при создании ручной атаки.
+   */
   itemId?: string | null
 
   /**
@@ -78,15 +102,40 @@ export type Attack = {
   damageBonusFinal: number
 }
 
+/**
+ * Payload для создания ручной атаки.
+ *
+ * Важно:
+ * frontend НЕ отправляет:
+ * - id
+ * - source
+ * - itemId
+ * - attackBonus
+ * - damageBonusFinal
+ *
+ * Эти поля выставляет или рассчитывает backend.
+ */
 export type NewAttack = Omit<
   Attack,
-  'id' | 'attackBonus' | 'damageBonusFinal'
+  | 'id'
+  | 'characterId'
+  | 'source'
+  | 'itemId'
+  | 'attackBonus'
+  | 'damageBonusFinal'
 >
 
+/**
+ * Payload для обновления ручной атаки.
+ *
+ * Тоже не содержит source/itemId/calculated fields.
+ */
 export type AttackUpdate = Partial<NewAttack>
 
 export type Spell = {
   id: string
+  characterId?: string
+
   name: string
   level: number
   school: string
@@ -105,6 +154,16 @@ export type SpellUpdate = Partial<NewSpell>
 
 export type SpellcastingAbility = keyof Stats
 
+/**
+ * Legacy Character type.
+ *
+ * Сейчас это переходный тип:
+ * - часть UI всё ещё ожидает Character как "почти весь лист";
+ * - настоящая backend-истина теперь лежит в CharacterSheet;
+ * - characterStore временно маппит CharacterSheet -> Character.
+ *
+ * Позже этот тип можно будет сузить до профиля персонажа.
+ */
 export type Character = {
   id: string
 
@@ -131,7 +190,19 @@ export type Character = {
   baseStats: Stats
   derivedStats: DerivedStats
 
+  /**
+   * Legacy skills.
+   *
+   * Для актуального листа лучше использовать sheet.skills,
+   * где backend уже вернул bonus/proficient/expertise.
+   */
   skills: Skill[]
+
+  /**
+   * Legacy saving throw proficiencies.
+   *
+   * Для актуального листа лучше использовать sheet.savingThrows.
+   */
   savingThrowProficiencies: (keyof Stats)[]
 
   attacks: Attack[]
@@ -139,14 +210,21 @@ export type Character = {
   spellSlots: SpellSlot[]
 
   /**
-   * Временный старый формат.
-   * Позже заменим на CharacterItem[] из src/types/items.ts.
+   * Inventory из backend sheet.
+   *
+   * Это уже не string[] и не unknown[].
+   * UI не должен парсить notes, чтобы получить type/effects/allowedSlots.
    */
-  inventory: unknown[]
+  inventory: CharacterItemForSheet[]
 
   /**
-   * Временный старый формат.
-   * Позже заменим на нормальную структуру экипировки / CharacterItem[].
+   * Legacy bridge для старого UI.
+   *
+   * Новый источник истины:
+   * sheet.inventory.equippedItems
+   *
+   * Здесь пока оставляем Record, потому что часть UI может ожидать:
+   * equippedItems.mainHand = itemId
    */
   equippedItems: Record<string, string | null>
 

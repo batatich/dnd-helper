@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
+import type { EquipmentSlot } from '../types/items'
+
 import {
   getCharacters,
   getCharacterById,
@@ -33,11 +35,11 @@ import {
   addSpell as addSpellRequest,
   updateSpell as updateSpellRequest,
   deleteSpell as deleteSpellRequest,
-  updateSpellSlots as updateSpellSlotsRequest,
   updateSpellcastingAbility as updateSpellcastingAbilityRequest,
-  setSpellSlotTotal as setSpellSlotTotalApi,
-  useSpellSlot as useSpellSlotApi,
-  restoreSpellSlot as restoreSpellSlotApi,
+
+  setSpellSlotTotal as setSpellSlotTotalRequest,
+  useSpellSlot as useSpellSlotRequest,
+  restoreSpellSlot as restoreSpellSlotRequest,
 
   addItem as addItemRequest,
   updateItem as updateItemRequest,
@@ -53,15 +55,10 @@ import {
 
 import { getCharacterSheet } from '../api/characterSheetApi'
 import type { CharacterSheet } from '../types/characterSheet'
+
 // =========================================================
 // Types
 // =========================================================
-
-interface SpellSlotInput {
-  level: number
-  total: number
-  used: number
-}
 
 interface CharacterStore {
   // Основное состояние store
@@ -94,7 +91,10 @@ interface CharacterStore {
   useHitDie: (characterId: string) => Promise<void>
   restoreHitDie: (characterId: string) => Promise<void>
 
-  setCharacterInspiration: (characterId: string, inspiration: boolean) => Promise<void>
+  setCharacterInspiration: (
+    characterId: string,
+    inspiration: boolean
+  ) => Promise<void>
 
   addDeathSaveSuccess: (characterId: string) => Promise<void>
   addDeathSaveFailure: (characterId: string) => Promise<void>
@@ -118,26 +118,20 @@ interface CharacterStore {
   ) => Promise<void>
   deleteSpell: (characterId: string, spellId: string) => Promise<void>
 
-  // Spell slots
-  updateSpellSlots: (
-    characterId: string,
-    spellSlots: SpellSlotInput[]
-  ) => Promise<void>
-
   updateSpellcastingAbility: (
     characterId: string,
-    ability: keyof Stats
+    ability: keyof Stats | null
   ) => Promise<void>
 
-    setSpellSlotTotal: (
+  // Spell slots actions
+  setSpellSlotTotal: (
     characterId: string,
     level: number,
     total: number
   ) => Promise<void>
-
   useSpellSlot: (characterId: string, level: number) => Promise<void>
+  restoreSpellSlot: (characterId: string, level: number) => Promise<void>
 
-restoreSpellSlot: (characterId: string, level: number) => Promise<void>
   // Inventory / equipment
   addItem: (characterId: string, item: CreateItemInput) => Promise<void>
   updateItem: (
@@ -146,7 +140,11 @@ restoreSpellSlot: (characterId: string, level: number) => Promise<void>
     item: UpdateItemInput
   ) => Promise<void>
   deleteItem: (characterId: string, itemId: string) => Promise<void>
-  equipItem: (characterId: string, itemId: string) => Promise<void>
+  equipItem: (
+    characterId: string,
+    itemId: string,
+    equippedSlot?: EquipmentSlot
+  ) => Promise<void>
   unequipItem: (characterId: string, itemId: string) => Promise<void>
 
   // Локальные UI helpers
@@ -159,7 +157,6 @@ restoreSpellSlot: (characterId: string, level: number) => Promise<void>
 // Helpers
 // =========================================================
 
-// Обновляет персонажа в списке или добавляет его, если его там ещё нет.
 const mergeCharacterIntoList = (
   characters: Character[],
   character: Character
@@ -175,7 +172,6 @@ const mergeCharacterIntoList = (
   )
 }
 
-// Превращает неизвестную ошибку в нормальный текст.
 const getErrorMessage = (fallback: string, error: unknown): string => {
   if (error instanceof Error && error.message.trim()) {
     return error.message
@@ -184,6 +180,12 @@ const getErrorMessage = (fallback: string, error: unknown): string => {
   return fallback
 }
 
+/**
+ * Временный mapper из нового CharacterSheet DTO в старый Character.
+ *
+ * Нужен, пока часть UI ещё ожидает legacy Character-форму.
+ * Истина всё равно остаётся в currentSheet.
+ */
 const mapSheetToLegacyCharacter = (sheet: CharacterSheet): Character => {
   const equippedItems = sheet.inventory.equippedItems.reduce<
     Record<string, string | null>
@@ -253,816 +255,699 @@ const mapSheetToLegacyCharacter = (sheet: CharacterSheet): Character => {
 // Store
 // =========================================================
 
-export const useCharacterStore = create<CharacterStore>((set, get) => ({
-  // =========================================================
-  // Initial state
-  // =========================================================
+export const useCharacterStore = create<CharacterStore>((set) => {
+  /**
+   * Единый способ обновить sheet после любого backend action.
+   *
+   * Важно:
+   * - store не патчит sheet руками;
+   * - store не считает derived values;
+   * - backend возвращает готовый sheet;
+   * - legacy currentCharacter обновляется из sheet только как bridge для старого UI.
+   */
+  const refreshCharacterSheet = async (characterId: string) => {
+    const sheet = await getCharacterSheet(characterId)
+    const character = mapSheetToLegacyCharacter(sheet)
 
-  characters: [],
-  currentCharacter: null,
-  currentSheet: null,
-  isLoading: false,
-  error: null,
+    set((state) => ({
+      currentSheet: sheet,
+      currentCharacter: character,
+      characters: mergeCharacterIntoList(state.characters, character),
+      isLoading: false,
+    }))
+  }
 
-  // =========================================================
-  // Loading
-  // =========================================================
+  return {
+    // =========================================================
+    // Initial state
+    // =========================================================
 
-  // Загружает список персонажей с backend.
-  // Здесь больше нет localStorage.
-  fetchCharacters: async () => {
-    set({ isLoading: true, error: null })
+    characters: [],
+    currentCharacter: null,
+    currentSheet: null,
+    isLoading: false,
+    error: null,
 
-    try {
-      const characters = await getCharacters()
+    // =========================================================
+    // Loading
+    // =========================================================
 
-      set({
-        characters,
-        isLoading: false,
-      })
-    } catch (error) {
-      console.error('Failed to fetch characters:', error)
+    fetchCharacters: async () => {
+      set({ isLoading: true, error: null })
 
-      set({
-        error: getErrorMessage('Не удалось загрузить персонажей', error),
-        isLoading: false,
-      })
-    }
-  },
+      try {
+        const characters = await getCharacters()
 
-  // Загружает одного персонажа с backend.
-  fetchCharacterById: async (id) => {
-    set({ isLoading: true, error: null })
+        set({
+          characters,
+          isLoading: false,
+        })
+      } catch (error) {
+        console.error('Failed to fetch characters:', error)
 
-    try {
-      const character = await getCharacterById(id)
-
-      set((state) => ({
-        currentCharacter: character,
-        characters: mergeCharacterIntoList(state.characters, character),
-        isLoading: false,
-      }))
-    } catch (error) {
-      console.error('Failed to fetch character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось загрузить персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Загружает готовый character sheet с backend.
-  // Это будущий основной источник данных для CharacterSheet.tsx.
-  fetchCharacterSheet: async (id) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      const sheet = await getCharacterSheet(id)
-      const character = mapSheetToLegacyCharacter(sheet)
-
-      set((state) => ({
-        currentSheet: sheet,
-        currentCharacter: character,
-        characters: mergeCharacterIntoList(state.characters, character),
-        isLoading: false,
-      }))
-    } catch (error) {
-      console.error('Failed to fetch character sheet:', error)
-
-      set({
-        error: getErrorMessage('Не удалось загрузить лист персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // Character CRUD
-  // =========================================================
-
-  // Создаёт персонажа через backend.
-  //
-  // Важно:
-  // POST /characters создаёт самого персонажа.
-  // Но базовые характеристики у нас сохраняются отдельным endpoint:
-  // PATCH /characters/:id/stats
-  //
-  // Поэтому после создания персонажа:
-  // 1. создаём персонажа
-  // 2. если из формы пришли baseStats — сохраняем их отдельно
-  // 3. загружаем свежий sheet
-  // 4. кладём свежие данные в store
-  addCharacter: async (character) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      const createdCharacter = await createCharacterRequest(character)
-
-      const characterWithStats = character as CreateCharacterInput & {
-        baseStats?: Stats
+        set({
+          error: getErrorMessage('Не удалось загрузить персонажей', error),
+          isLoading: false,
+        })
       }
+    },
 
-      if (characterWithStats.baseStats) {
-        await updateCharacterStatsRequest(
-          createdCharacter.id,
-          characterWithStats.baseStats
-        )
+    fetchCharacterById: async (id) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        const character = await getCharacterById(id)
+
+        set((state) => ({
+          currentCharacter: character,
+          characters: mergeCharacterIntoList(state.characters, character),
+          isLoading: false,
+        }))
+      } catch (error) {
+        console.error('Failed to fetch character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось загрузить персонажа', error),
+          isLoading: false,
+        })
       }
-
-      const freshSheet = await getCharacterSheet(createdCharacter.id)
-
-      const freshCharacter = mapSheetToLegacyCharacter(freshSheet)
-
-      set((state) => ({
-        characters: mergeCharacterIntoList(state.characters, freshCharacter),
-        currentCharacter: freshCharacter,
-        currentSheet: freshSheet,
-        isLoading: false,
-      }))
-    } catch (error) {
-      console.error('Failed to create character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось создать персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Обновляет базовые данные персонажа через backend.
-  updateCharacter: async (id, updated) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      const updatedCharacter = await updateCharacterRequest(id, updated)
-
-      set((state) => ({
-        characters: mergeCharacterIntoList(
-          state.characters,
-          updatedCharacter
-        ),
-        currentCharacter:
-          state.currentCharacter?.id === id
-            ? updatedCharacter
-            : state.currentCharacter,
-        currentSheet: state.currentSheet,
-        isLoading: false,
-      }))
-    } catch (error) {
-      console.error('Failed to update character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Удаляет персонажа через backend.
-  deleteCharacter: async (id) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await deleteCharacterRequest(id)
-
-      set((state) => ({
-        characters: state.characters.filter((character) => character.id !== id),
-        currentCharacter:
-          state.currentCharacter?.id === id ? null : state.currentCharacter,
-        currentSheet:
-          state.currentSheet?.character.id === id ? null : state.currentSheet,
-        isLoading: false,
-      }))
-    } catch (error) {
-      console.error('Failed to delete character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось удалить персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // Stats
-  // =========================================================
-
-  // Ручное обновление базовых характеристик.
-  // Store НЕ считает модификаторы сам.
-  // Он отправляет stats на backend, а потом обновляет sheet.
-  updateCharacterStats: async (id, stats) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateCharacterStatsRequest(id, stats)
-      await get().fetchCharacterSheet(id)
-    } catch (error) {
-      console.error('Failed to update character stats:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось обновить характеристики персонажа',
-          error
-        ),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Генерация статов через 4d6 drop lowest.
-  // Store НЕ кидает кубы сам.
-  // Backend генерирует значения, сохраняет stats и возвращает подробные rolls.
-  rollCharacterStats: async (id) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      const result = await rollCharacterStatsRequest(id)
-
-      // После генерации подтягиваем свежий sheet,
-      // чтобы UI получил новые stats и derived modifiers.
-      await get().fetchCharacterSheet(id)
-
-      return result
-    } catch (error) {
-      console.error('Failed to roll character stats:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось сгенерировать характеристики персонажа',
-          error
-        ),
-        isLoading: false,
-      })
-
-      return null
-    }
-  },
-
-  // =========================================================
-  // HP
-  // =========================================================
-
-  // Наносит урон.
-  // Store НЕ считает HP сам: backend меняет HP, потом мы обновляем sheet.
-  damageCharacter: async (id, amount) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await damageCharacterRequest(id, amount)
-      await get().fetchCharacterSheet(id)
-    } catch (error) {
-      console.error('Failed to damage character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось нанести урон персонажу', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Лечит персонажа.
-  // Ограничение по max HP должно быть на backend.
-  healCharacter: async (id, amount) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await healCharacterRequest(id, amount)
-      await get().fetchCharacterSheet(id)
-    } catch (error) {
-      console.error('Failed to heal character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось исцелить персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Устанавливает временные HP.
-  setTemporaryHp: async (id, amount) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await setTemporaryHpRequest(id, amount)
-      await get().fetchCharacterSheet(id)
-    } catch (error) {
-      console.error('Failed to set temporary HP:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить временные HP', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Повышает уровень персонажа.
-  // Store НЕ считает HP и НЕ бросает кубик.
-  // Он только отправляет выбор пользователя на backend:
-  // fixed — сервер прибавит фиксированное значение
-  // roll — сервер сам бросит кость хитов
-  levelUpCharacter: async (id, hpMode) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await levelUpCharacterRequest(id, hpMode)
-
-      // После повышения уровня обязательно подтягиваем свежий sheet.
-      // Именно сервер возвращает актуальные:
-      // - level
-      // - derived.maxHp
-      // - hitDice
-      // - hpIncreases
-      await get().fetchCharacterSheet(id)
-    } catch (error) {
-      console.error('Failed to level up character:', error)
-
-      set({
-        error: getErrorMessage('Не удалось повысить уровень персонажа', error),
-        isLoading: false,
-      })
-    }
-  },
-
-    useHitDie: async (characterId: string) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await useHitDieRequest(characterId)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to use hit die:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось использовать кость хитов',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-
-  restoreHitDie: async (characterId: string) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await restoreHitDieRequest(characterId)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to restore hit die:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось восстановить кость хитов',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-
-  setCharacterInspiration: async (
-    characterId: string,
-    inspiration: boolean
-  ) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await setCharacterInspirationRequest(characterId, inspiration)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to update inspiration:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось обновить вдохновение персонажа',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-  
-  addDeathSaveSuccess: async (characterId: string) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await addDeathSaveSuccessRequest(characterId)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to add death save success:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось добавить успешный спасбросок от смерти',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-
-  addDeathSaveFailure: async (characterId: string) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await addDeathSaveFailureRequest(characterId)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to add death save failure:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось добавить проваленный спасбросок от смерти',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-
-  resetDeathSaves: async (characterId: string) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await resetDeathSavesRequest(characterId)
-
-      set({ isLoading: false })
-    } catch (error) {
-      console.error('Failed to reset death saves:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось сбросить спасброски от смерти',
-          error
-        ),
-        isLoading: false,
-      })
-
-      throw error
-    }
-  },
-
-  // =========================================================
-  // Attacks
-  // =========================================================
-
-  // Создаёт атаку через backend.
-  // Store НЕ генерирует id.
-  addAttack: async (characterId, attack) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await addAttackRequest(characterId, attack)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to add attack:', error)
-
-      set({
-        error: getErrorMessage('Не удалось добавить атаку', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Обновляет атаку через backend.
-  updateAttack: async (characterId, attackId, attack) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateAttackRequest(characterId, attackId, attack)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to update attack:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить атаку', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Удаляет атаку через backend.
-  deleteAttack: async (characterId, attackId) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await deleteAttackRequest(characterId, attackId)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to delete attack:', error)
-
-      set({
-        error: getErrorMessage('Не удалось удалить атаку', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // Spells
-  // =========================================================
-
-  // Создаёт заклинание через backend.
-  addSpell: async (characterId, spell) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await addSpellRequest(characterId, spell)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to add spell:', error)
-
-      set({
-        error: getErrorMessage('Не удалось добавить заклинание', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Обновляет заклинание через backend.
-  updateSpell: async (characterId, spellId, spell) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateSpellRequest(characterId, spellId, spell)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to update spell:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить заклинание', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Удаляет заклинание через backend.
-  deleteSpell: async (characterId, spellId) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await deleteSpellRequest(characterId, spellId)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to delete spell:', error)
-
-      set({
-        error: getErrorMessage('Не удалось удалить заклинание', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // Spell slots
-  // =========================================================
-
-  // Обновляет spell slots через backend.
-  // Store НЕ считает used/total как истину.
-  updateSpellSlots: async (characterId, spellSlots) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateSpellSlotsRequest(characterId, spellSlots)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to update spell slots:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить ячейки заклинаний', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Обновляет spellcasting ability через backend.
-  updateSpellcastingAbility: async (characterId, ability) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateSpellcastingAbilityRequest(characterId, ability)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to update spellcasting ability:', error)
-
-      set({
-        error: getErrorMessage(
-          'Не удалось обновить характеристику заклинаний',
-          error
-        ),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // Spell slots actions
-  // =========================================================
-  // Backend сам считает used/total.
-  // Store только вызывает API.
-  // CharacterSheet после этого сам делает refreshCurrentSheet().
-  // =========================================================
-
-  setSpellSlotTotal: async (characterId, level, total) => {
-    set({
-      isLoading: true,
-      error: null,
-    })
-
-    try {
-      await setSpellSlotTotalApi(characterId, level, total)
-
-      set({
-        isLoading: false,
-      })
-    } catch (error) {
-      set({
-        isLoading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Не удалось изменить количество ячеек заклинаний',
-      })
-
-      throw error
-    }
-  },
-
-  useSpellSlot: async (characterId, level) => {
-    set({
-      isLoading: true,
-      error: null,
-    })
-
-    try {
-      await useSpellSlotApi(characterId, level)
-
-      set({
-        isLoading: false,
-      })
-    } catch (error) {
-      set({
-        isLoading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Не удалось использовать ячейку заклинания',
-      })
-
-      throw error
-    }
-  },
-
-  restoreSpellSlot: async (characterId, level) => {
-    set({
-      isLoading: true,
-      error: null,
-    })
-
-    try {
-      await restoreSpellSlotApi(characterId, level)
-
-      set({
-        isLoading: false,
-      })
-    } catch (error) {
-      set({
-        isLoading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Не удалось восстановить ячейку заклинания',
-      })
-
-      throw error
-    }
-  },
-
-  // =========================================================
-  // Inventory / equipment
-  // =========================================================
-
-  // Добавляет предмет персонажу через backend.
-  addItem: async (characterId, item) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await addItemRequest(characterId, item)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to add item:', error)
-
-      set({
-        error: getErrorMessage('Не удалось добавить предмет', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Обновляет предмет персонажа через backend.
-  updateItem: async (characterId, itemId, item) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await updateItemRequest(characterId, itemId, item)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to update item:', error)
-
-      set({
-        error: getErrorMessage('Не удалось обновить предмет', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Удаляет предмет персонажа через backend.
-  deleteItem: async (characterId, itemId) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await deleteItemRequest(characterId, itemId)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to delete item:', error)
-
-      set({
-        error: getErrorMessage('Не удалось удалить предмет', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Экипирует предмет.
-  // Store НЕ проверяет слот и НЕ применяет эффекты предмета.
-  // Всё это делает backend.
-  equipItem: async (characterId, itemId) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await equipItemRequest(characterId, itemId)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to equip item:', error)
-
-      set({
-        error: getErrorMessage('Не удалось экипировать предмет', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // Снимает предмет.
-  unequipItem: async (characterId, itemId) => {
-    set({ isLoading: true, error: null })
-
-    try {
-      await unequipItemRequest(characterId, itemId)
-      await get().fetchCharacterSheet(characterId)
-    } catch (error) {
-      console.error('Failed to unequip item:', error)
-
-      set({
-        error: getErrorMessage('Не удалось снять предмет', error),
-        isLoading: false,
-      })
-    }
-  },
-
-  // =========================================================
-  // UI helpers
-  // =========================================================
-
-  // Локально выставляет текущего персонажа.
-  // Это не backend-действие.
-  setCurrentCharacter: (character) => {
-    set({ currentCharacter: character })
-  },
-
-  // Очищает текущего персонажа.
-  clearCurrentCharacter: () => {
-    set({ currentCharacter: null })
-  },
-
-  // Очищает текущий sheet.
-  clearCurrentSheet: () => {
-    set({ currentSheet: null })
-  },
-}))
+    },
+
+    fetchCharacterSheet: async (id) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to fetch character sheet:', error)
+
+        set({
+          error: getErrorMessage('Не удалось загрузить лист персонажа', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    // =========================================================
+    // Character CRUD
+    // =========================================================
+
+    addCharacter: async (character) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        const createdCharacter = await createCharacterRequest(character)
+
+        const characterWithStats = character as CreateCharacterInput & {
+          baseStats?: Stats
+        }
+
+        if (characterWithStats.baseStats) {
+          await updateCharacterStatsRequest(
+            createdCharacter.id,
+            characterWithStats.baseStats
+          )
+        }
+
+        await refreshCharacterSheet(createdCharacter.id)
+      } catch (error) {
+        console.error('Failed to create character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось создать персонажа', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    updateCharacter: async (id, updated) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateCharacterRequest(id, updated)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to update character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось обновить персонажа', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    deleteCharacter: async (id) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await deleteCharacterRequest(id)
+
+        set((state) => ({
+          characters: state.characters.filter(
+            (character) => character.id !== id
+          ),
+          currentCharacter:
+            state.currentCharacter?.id === id ? null : state.currentCharacter,
+          currentSheet:
+            state.currentSheet?.character.id === id ? null : state.currentSheet,
+          isLoading: false,
+        }))
+      } catch (error) {
+        console.error('Failed to delete character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось удалить персонажа', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    // =========================================================
+    // Stats
+    // =========================================================
+
+    updateCharacterStats: async (id, stats) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateCharacterStatsRequest(id, stats)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to update character stats:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось обновить характеристики персонажа',
+            error
+          ),
+          isLoading: false,
+        })
+      }
+    },
+
+    rollCharacterStats: async (id) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        const result = await rollCharacterStatsRequest(id)
+
+        await refreshCharacterSheet(id)
+
+        return result
+      } catch (error) {
+        console.error('Failed to roll character stats:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось сгенерировать характеристики персонажа',
+            error
+          ),
+          isLoading: false,
+        })
+
+        return null
+      }
+    },
+
+    // =========================================================
+    // HP
+    // =========================================================
+
+    damageCharacter: async (id, amount) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await damageCharacterRequest(id, amount)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to damage character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось нанести урон персонажу', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    healCharacter: async (id, amount) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await healCharacterRequest(id, amount)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to heal character:', error)
+
+        set({
+          error: getErrorMessage('Не удалось исцелить персонажа', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    setTemporaryHp: async (id, amount) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await setTemporaryHpRequest(id, amount)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to set temporary HP:', error)
+
+        set({
+          error: getErrorMessage('Не удалось обновить временные HP', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    levelUpCharacter: async (id, hpMode) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await levelUpCharacterRequest(id, hpMode)
+        await refreshCharacterSheet(id)
+      } catch (error) {
+        console.error('Failed to level up character:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось повысить уровень персонажа',
+            error
+          ),
+          isLoading: false,
+        })
+      }
+    },
+
+    useHitDie: async (characterId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await useHitDieRequest(characterId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to use hit die:', error)
+
+        set({
+          error: getErrorMessage('Не удалось использовать кость хитов', error),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    restoreHitDie: async (characterId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await restoreHitDieRequest(characterId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to restore hit die:', error)
+
+        set({
+          error: getErrorMessage('Не удалось восстановить кость хитов', error),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    setCharacterInspiration: async (characterId, inspiration) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await setCharacterInspirationRequest(characterId, inspiration)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to update inspiration:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось обновить вдохновение персонажа',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    addDeathSaveSuccess: async (characterId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await addDeathSaveSuccessRequest(characterId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to add death save success:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось добавить успешный спасбросок от смерти',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    addDeathSaveFailure: async (characterId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await addDeathSaveFailureRequest(characterId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to add death save failure:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось добавить проваленный спасбросок от смерти',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    resetDeathSaves: async (characterId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await resetDeathSavesRequest(characterId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to reset death saves:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось сбросить спасброски от смерти',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    // =========================================================
+    // Attacks
+    // =========================================================
+
+    addAttack: async (characterId, attack) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await addAttackRequest(characterId, attack)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to add attack:', error)
+
+        set({
+          error: getErrorMessage('Не удалось добавить атаку', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    updateAttack: async (characterId, attackId, attack) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateAttackRequest(characterId, attackId, attack)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to update attack:', error)
+
+        set({
+          error: getErrorMessage('Не удалось обновить атаку', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    deleteAttack: async (characterId, attackId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await deleteAttackRequest(characterId, attackId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to delete attack:', error)
+
+        set({
+          error: getErrorMessage('Не удалось удалить атаку', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    // =========================================================
+    // Spells
+    // =========================================================
+
+    addSpell: async (characterId, spell) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await addSpellRequest(characterId, spell)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to add spell:', error)
+
+        set({
+          error: getErrorMessage('Не удалось добавить заклинание', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    updateSpell: async (characterId, spellId, spell) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateSpellRequest(characterId, spellId, spell)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to update spell:', error)
+
+        set({
+          error: getErrorMessage('Не удалось обновить заклинание', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    deleteSpell: async (characterId, spellId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await deleteSpellRequest(characterId, spellId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to delete spell:', error)
+
+        set({
+          error: getErrorMessage('Не удалось удалить заклинание', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    updateSpellcastingAbility: async (characterId, ability) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateSpellcastingAbilityRequest(characterId, ability)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to update spellcasting ability:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось обновить характеристику заклинаний',
+            error
+          ),
+          isLoading: false,
+        })
+      }
+    },
+
+    // =========================================================
+    // Spell slots actions
+    // =========================================================
+
+    setSpellSlotTotal: async (characterId, level, total) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await setSpellSlotTotalRequest(characterId, level, total)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to set spell slot total:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось изменить количество ячеек заклинаний',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    useSpellSlot: async (characterId, level) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await useSpellSlotRequest(characterId, level)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to use spell slot:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось использовать ячейку заклинания',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    restoreSpellSlot: async (characterId, level) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await restoreSpellSlotRequest(characterId, level)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to restore spell slot:', error)
+
+        set({
+          error: getErrorMessage(
+            'Не удалось восстановить ячейку заклинания',
+            error
+          ),
+          isLoading: false,
+        })
+
+        throw error
+      }
+    },
+
+    // =========================================================
+    // Inventory / equipment
+    // =========================================================
+
+    addItem: async (characterId, item) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await addItemRequest(characterId, item)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to add item:', error)
+
+        set({
+          error: getErrorMessage('Не удалось добавить предмет', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    updateItem: async (characterId, itemId, item) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await updateItemRequest(characterId, itemId, item)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to update item:', error)
+
+        set({
+          error: getErrorMessage('Не удалось обновить предмет', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    deleteItem: async (characterId, itemId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await deleteItemRequest(characterId, itemId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to delete item:', error)
+
+        set({
+          error: getErrorMessage('Не удалось удалить предмет', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    equipItem: async (characterId, itemId, equippedSlot) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await equipItemRequest(characterId, itemId, equippedSlot)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to equip item:', error)
+
+        set({
+          error: getErrorMessage('Не удалось экипировать предмет', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    unequipItem: async (characterId, itemId) => {
+      set({ isLoading: true, error: null })
+
+      try {
+        await unequipItemRequest(characterId, itemId)
+        await refreshCharacterSheet(characterId)
+      } catch (error) {
+        console.error('Failed to unequip item:', error)
+
+        set({
+          error: getErrorMessage('Не удалось снять предмет', error),
+          isLoading: false,
+        })
+      }
+    },
+
+    // =========================================================
+    // UI helpers
+    // =========================================================
+
+    setCurrentCharacter: (character) => {
+      set({ currentCharacter: character })
+    },
+
+    clearCurrentCharacter: () => {
+      set({ currentCharacter: null })
+    },
+
+    clearCurrentSheet: () => {
+      set({ currentSheet: null })
+    },
+  }
+})

@@ -9,10 +9,9 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   // Content-Type добавляем только тогда, когда реально есть body.
-  // Это важно для DELETE-запросов:
-  // если отправить DELETE без body, но с Content-Type: application/json,
-  // Fastify может вернуть ошибку:
-  // "Body cannot be empty when content-type is set to 'application/json'"
+  // Это важно для Fastify:
+  // если отправить запрос без body, но с Content-Type: application/json,
+  // backend может вернуть ошибку empty JSON body.
   const headers: HeadersInit = {
     ...(options.body !== undefined
       ? { 'Content-Type': 'application/json' }
@@ -29,27 +28,33 @@ async function request<T>(
         : undefined,
   })
 
+  const text = await response.text()
+
   if (!response.ok) {
     let message = 'Request failed'
 
-    try {
-      const data = await response.json()
-      message = data.message ?? message
-    } catch {
-      // Сервер мог вернуть не JSON.
-      // В таком случае оставляем стандартное сообщение.
+    if (text) {
+      try {
+        const data = JSON.parse(text) as {
+          message?: string
+          error?: string
+        }
+
+        message = data.message ?? data.error ?? message
+      } catch {
+        message = text
+      }
     }
 
     throw new Error(message)
   }
 
-  // DELETE часто возвращает 204 No Content.
-  // В таком ответе нет JSON, поэтому response.json() вызвал бы ошибку.
-  if (response.status === 204) {
+  // 204 No Content или 200/201 без body.
+  if (!text) {
     return undefined as T
   }
 
-  return response.json()
+  return JSON.parse(text) as T
 }
 
 export const httpClient = {

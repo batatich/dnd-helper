@@ -5,21 +5,27 @@ import {
   updateCharacterSchema,
 } from './character.schemas'
 import { characterService } from './character.service'
-import {
-  CharacterNotFoundError,
-} from './errors'
+import { CharacterNotFoundError } from './errors'
 
 export async function characterRoutes(app: FastifyInstance) {
   // =========================================================
   // Characters
   // =========================================================
 
-  // Получить список всех персонажей
+  // Получить список базовых профилей персонажей.
+  //
+  // Важно:
+  // GET /characters не возвращает полный character sheet.
+  // Полный лист должен идти через GET /characters/:id/sheet.
   app.get('/characters', async () => {
     return characterService.getCharacters()
   })
 
-  // Получить персонажа по ID
+  // Получить базовый профиль персонажа по ID.
+  //
+  // Важно:
+  // GET /characters/:id не возвращает stats / attacks / spells / items.
+  // Для полного листа использовать GET /characters/:id/sheet.
   app.get('/characters/:id', async (request, reply) => {
     const paramsParsed = characterParamsSchema.safeParse(request.params)
 
@@ -41,7 +47,10 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-  // Создать персонажа
+  // Создать персонажа.
+  //
+  // Создание персонажа возвращает базовый профиль.
+  // Stats создаются отдельно внутри repository дефолтными значениями.
   app.post('/characters', async (request, reply) => {
     const bodyParsed = createCharacterSchema.safeParse(request.body)
 
@@ -52,12 +61,20 @@ export async function characterRoutes(app: FastifyInstance) {
       })
     }
 
-    const character = await characterService.createCharacter(bodyParsed.data)
+    try {
+      const character = await characterService.createCharacter(bodyParsed.data)
 
-    return reply.status(201).send(character)
+      return reply.status(201).send(character)
+    } catch (error) {
+      throw error
+    }
   })
 
-  // Обновить базовые поля персонажа
+  // Обновить только базовые поля персонажа.
+  //
+  // Важно:
+  // HP / death saves / hit dice / inspiration / stats / attacks / spells /
+  // inventory здесь не меняются.
   app.patch('/characters/:id', async (request, reply) => {
     const paramsParsed = characterParamsSchema.safeParse(request.params)
     const bodyParsed = updateCharacterSchema.safeParse(request.body)
@@ -90,7 +107,7 @@ export async function characterRoutes(app: FastifyInstance) {
     }
   })
 
-  // Удалить персонажа
+  // Удалить персонажа.
   app.delete('/characters/:id', async (request, reply) => {
     const paramsParsed = characterParamsSchema.safeParse(request.params)
 

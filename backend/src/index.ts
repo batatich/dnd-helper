@@ -31,8 +31,8 @@ const app = Fastify({
 // и передаём их в CharacterSheetService в нужном формате.
 
 const characterForSheetRepository = {
-  findById: (id: string) =>
-    characterRepository.findByIdForSheet(id) as Promise<any>,
+  findByIdForSheet: (id: string) => 
+    characterRepository.findByIdForSheet(id),
 }
 
 const characterStatsRepository = {

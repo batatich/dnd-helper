@@ -4,7 +4,6 @@ import { z } from 'zod'
 // Общие enum/списки
 // =========================================================
 
-// Допустимые spellcasting ability для персонажа
 export const spellcastingAbilitySchema = z.enum([
   'strength',
   'dexterity',
@@ -15,54 +14,97 @@ export const spellcastingAbilitySchema = z.enum([
 ])
 
 // =========================================================
+// Shared field schemas
+// =========================================================
+
+const optionalNullableStringSchema = z.string().nullable().optional()
+
+const avatarUrlSchema = z
+  .string()
+  .url()
+  .or(z.literal(''))
+  .nullable()
+  .optional()
+
+// =========================================================
 // Character
 // =========================================================
 
-// Параметры маршрута для операций над персонажем
-export const characterParamsSchema = z.object({
-  id: z.string().uuid(),
-})
-.strict()
+// Параметры маршрута для операций над персонажем.
+export const characterParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict()
 
-// Схема создания персонажа
-// Здесь валидируются только поля самой модели Character.
-// stats, attacks, spells и items — отдельные сущности и отдельные схемы ниже.
-export const createCharacterSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  race: z.string().min(1, 'Race is required'),
-  className: z.string().min(1, 'Class is required'),
+// Схема создания персонажа.
+//
+// Важно:
+// - create character создаёт только базового персонажа;
+// - stats создаются отдельно в repository дефолтными значениями;
+// - HP / death saves / hit dice задаются в characterService;
+// - attacks / spells / inventory создаются отдельными endpoints;
+// - null разрешён для nullable profile-полей, чтобы frontend мог явно
+//   отправлять пустое значение.
+export const createCharacterSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    race: z.string().min(1, 'Race is required'),
+    className: z.string().min(1, 'Class is required'),
 
-  level: z.number().int().min(1).max(20).default(1),
+    level: z.number().int().min(1).max(20).default(1),
 
-  description: z.string().optional(),
-  alignment: z.string().optional(),
-  background: z.string().optional(),
+    description: optionalNullableStringSchema,
+    alignment: optionalNullableStringSchema,
+    background: optionalNullableStringSchema,
+    avatarUrl: avatarUrlSchema,
 
-  // Разрешаем либо валидный URL, либо пустую строку, либо отсутствие поля
-  avatarUrl: z.string().url().optional().or(z.literal('')).optional(),
+    speed: z.number().int().min(0).default(30),
 
-  speed: z.number().int().min(0).default(30),
-  spellcastingAbility: spellcastingAbilitySchema.optional(),
-}) 
-.strict()
+    spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
+  })
+  .strict()
 
-// Частичное обновление персонажа
-export const updateCharacterSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
-  race: z.string().min(1, 'Race is required').optional(),
-  className: z.string().min(1, 'Class is required').optional(),
+// Частичное обновление базового профиля персонажа.
+//
+// Важно:
+// Через PATCH /characters/:id НЕ меняем:
+// - currentHp
+// - temporaryHp
+// - deathSaveSuccesses
+// - deathSaveFailures
+// - hitDiceTotal
+// - hitDiceUsed
+// - hitDiceDice
+// - inspiration
+// - spellSlots
+// - stats
+// - attacks
+// - spells
+// - inventory
+//
+// Для них есть отдельные modules/actions.
+export const updateCharacterSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required').optional(),
+    race: z.string().min(1, 'Race is required').optional(),
+    className: z.string().min(1, 'Class is required').optional(),
 
-  description: z.string().nullable().optional(),
-  alignment: z.string().nullable().optional(),
-  background: z.string().nullable().optional(),
-  avatarUrl: z.string().url().or(z.literal('')).nullable().optional(),
+    description: optionalNullableStringSchema,
+    alignment: optionalNullableStringSchema,
+    background: optionalNullableStringSchema,
+    avatarUrl: avatarUrlSchema,
 
-  speed: z.number().int().min(0).optional(),
-  spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
-}) 
-.strict()
+    speed: z.number().int().min(0).optional(),
 
-// Типы для персонажа
+    spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
+  })
+  .strict()
+
+// =========================================================
+// Types
+// =========================================================
+
 export type CharacterParamsInput = z.infer<typeof characterParamsSchema>
 export type CreateCharacterInput = z.infer<typeof createCharacterSchema>
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>

@@ -166,11 +166,7 @@ export class CharacterSheetService {
   private getCharacterForSheet(
     characterId: string,
   ): Promise<CharacterEntity | null> {
-    if (this.characterRepository.findByIdForSheet) {
-      return this.characterRepository.findByIdForSheet(characterId)
-    }
-
-    return this.characterRepository.findById(characterId)
+    return this.characterRepository.findByIdForSheet(characterId)
   }
 
   // =======================================================

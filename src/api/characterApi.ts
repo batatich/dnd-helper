@@ -1,4 +1,10 @@
 import type { Character, NewSpell, NewAttack, Stats } from '../types/characters'
+import type {
+  EquipmentSlot,
+  ItemEffect,
+  ItemType,
+  WeaponConfig,
+} from '../types/items'
 import { httpClient } from './httpClient'
 
 // =========================================================
@@ -14,6 +20,12 @@ export type HitDice = {
   total: number
   used: number
   dice: string
+}
+
+export type HpState = {
+  id: string
+  currentHp: number
+  temporaryHp: number
 }
 
 export type CreateCharacterInput = {
@@ -42,22 +54,36 @@ export type UpdateCharacterInput = {
   spellcastingAbility?: keyof Stats | null
 }
 
+/**
+ * Создание предмета в инвентаре персонажа.
+ *
+ * Важно:
+ * - create item НЕ экипирует предмет;
+ * - isEquipped сюда не отправляем;
+ * - slot сюда не отправляем;
+ * - equippedSlot используется только в equipItem().
+ */
 export type CreateItemInput = {
-  itemTemplateId?: string
+  itemTemplateId?: string | null
   nameSnapshot?: string
   quantity?: number
-  isEquipped?: boolean
-  slot?: string
-  notes?: string
+  notes?: string | null
+
+  type?: ItemType | string | null
+  allowedSlots?: EquipmentSlot[]
+  effects?: ItemEffect[]
+  weaponConfig?: WeaponConfig | null
 }
 
-export type UpdateItemInput = {
-  nameSnapshot?: string
-  quantity?: number
-  isEquipped?: boolean
-  slot?: string | null
-  notes?: string
-}
+/**
+ * Обновление предмета.
+ *
+ * Важно:
+ * - update item НЕ экипирует предмет;
+ * - isEquipped сюда не отправляем;
+ * - slot/equippedSlot сюда не отправляем.
+ */
+export type UpdateItemInput = Partial<CreateItemInput>
 
 type BackendCharacter = Character & {
   stats?: Stats | null
@@ -71,11 +97,11 @@ type BackendCharacter = Character & {
 
 export type UpdateSpellInput = Partial<NewSpell>
 
-export type SpellSlotInput = {
-  level: number
-  total: number
-  used: number
-}
+/**
+ * Старый тип для legacy updateSpellSlots().
+ * Пока оставляем, чтобы не сломать characterStore до следующего шага.
+ * После правки characterStore этот тип и updateSpellSlots можно удалить.
+ */
 
 export type AbilityRollResult = {
   dice: number[]
@@ -90,7 +116,7 @@ export type RollCharacterStatsResult = {
 }
 
 // =========================================================
-// Mappers
+// Mappers / helpers
 // =========================================================
 
 function mapCharacterPayloadToBackend(
@@ -98,7 +124,7 @@ function mapCharacterPayloadToBackend(
 ) {
   // Обычный create/update персонажа больше не прокидывает HP, death saves,
   // hit dice, inspiration и spell slots. Эти поля меняются отдельными backend actions.
-  return removeEmptyValues({
+  return removeUndefinedValues({
     name: data.name,
     race: data.race,
     className: data.className,
@@ -159,10 +185,42 @@ function mapBackendCharacterToFrontend(data: BackendCharacter): Character {
   } as Character
 }
 
-function removeEmptyValues<T extends Record<string, unknown>>(data: T) {
+/**
+ * Убирает только undefined.
+ *
+ * null оставляем, потому что backend может использовать null
+ * как осознанную очистку nullable-поля:
+ * description: null
+ * avatarUrl: null
+ * spellcastingAbility: null
+ */
+function removeUndefinedValues<T extends Record<string, unknown>>(data: T) {
   return Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined && value !== null)
+    Object.entries(data).filter(([, value]) => value !== undefined)
   )
+}
+
+/**
+ * Backend attack schemas strict и не должны принимать calculated/item поля
+ * с frontend.
+ */
+function mapAttackPayloadToBackend(data: Partial<NewAttack>) {
+  const {
+    id: _id,
+    source: _source,
+    itemId: _itemId,
+    attackBonus: _attackBonus,
+    damageBonusFinal: _damageBonusFinal,
+    ...payload
+  } = data as Partial<NewAttack> & {
+    id?: string
+    source?: 'manual' | 'item'
+    itemId?: string | null
+    attackBonus?: number
+    damageBonusFinal?: number
+  }
+
+  return removeUndefinedValues(payload)
 }
 
 // =========================================================
@@ -238,83 +296,60 @@ export function deleteCharacter(id: string): Promise<void> {
 // HP
 // =========================================================
 
-export async function damageCharacter(
-  id: string,
-  amount: number
-): Promise<Character> {
-  const updated = await httpClient.post<BackendCharacter>(
-    `/characters/${id}/hp/damage`,
-    { amount }
-  )
-
-  return mapBackendCharacterToFrontend(updated)
+export function damageCharacter(id: string, amount: number): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${id}/hp/damage`, { amount })
 }
 
-export async function healCharacter(
-  id: string,
-  amount: number
-): Promise<Character> {
-  const updated = await httpClient.post<BackendCharacter>(
-    `/characters/${id}/hp/heal`,
-    { amount }
-  )
-
-  return mapBackendCharacterToFrontend(updated)
+export function healCharacter(id: string, amount: number): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${id}/hp/heal`, { amount })
 }
 
-export async function setTemporaryHp(
-  id: string,
-  amount: number
-): Promise<Character> {
-  const updated = await httpClient.post<BackendCharacter>(
-    `/characters/${id}/hp/temp`,
-    { amount }
-  )
-
-  return mapBackendCharacterToFrontend(updated)
+export function setTemporaryHp(id: string, amount: number): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${id}/hp/temp`, { amount })
 }
 
 // Повышение уровня персонажа.
 // hpMode:
 // fixed — фиксированная прибавка HP
-// roll — сервер бросает кость хитов (1d8)
-export async function levelUpCharacter(
+// roll — сервер бросает кость хитов.
+export function levelUpCharacter(
   characterId: string,
-  hpMode: 'fixed' | 'roll',
-) {
+  hpMode: 'fixed' | 'roll'
+): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/level-up`, {
     hpMode,
   })
 }
 
-export async function useHitDie(characterId: string) {
+export function useHitDie(characterId: string): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/hit-dice/use`)
 }
 
-export async function restoreHitDie(characterId: string) {
+export function restoreHitDie(characterId: string): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/hit-dice/restore`)
 }
 
-export async function setCharacterInspiration(
+export function setCharacterInspiration(
   characterId: string,
   inspiration: boolean
-) {
+): Promise<unknown> {
   return httpClient.patch(`/characters/${characterId}/inspiration`, {
     inspiration,
   })
 }
 
-export async function addDeathSaveSuccess(characterId: string) {
+export function addDeathSaveSuccess(characterId: string): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/death-saves/success`)
 }
 
-export async function addDeathSaveFailure(characterId: string) {
+export function addDeathSaveFailure(characterId: string): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/death-saves/failure`)
 }
 
-export async function resetDeathSaves(characterId: string) {
+export function resetDeathSaves(characterId: string): Promise<unknown> {
   return httpClient.post(`/characters/${characterId}/death-saves/reset`)
 }
+
 // =========================================================
 // Inventory
 // =========================================================
@@ -323,7 +358,10 @@ export function addItem(
   characterId: string,
   data: CreateItemInput
 ): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/items`, data)
+  return httpClient.post(
+    `/characters/${characterId}/items`,
+    removeUndefinedValues(data)
+  )
 }
 
 export function updateItem(
@@ -331,7 +369,10 @@ export function updateItem(
   itemId: string,
   data: UpdateItemInput
 ): Promise<unknown> {
-  return httpClient.patch(`/characters/${characterId}/items/${itemId}`, data)
+  return httpClient.patch(
+    `/characters/${characterId}/items/${itemId}`,
+    removeUndefinedValues(data)
+  )
 }
 
 export function deleteItem(
@@ -341,11 +382,26 @@ export function deleteItem(
   return httpClient.delete<void>(`/characters/${characterId}/items/${itemId}`)
 }
 
+/**
+ * Экипирует предмет.
+ *
+ * Backend теперь ждёт:
+ * {
+ *   equippedSlot: "mainHand"
+ * }
+ *
+ * equippedSlot optional, потому что backend может сам выбрать слот,
+ * если допустимый слот только один.
+ */
 export function equipItem(
   characterId: string,
-  itemId: string
+  itemId: string,
+  equippedSlot?: EquipmentSlot
 ): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/items/${itemId}/equip`)
+  return httpClient.post(
+    `/characters/${characterId}/items/${itemId}/equip`,
+    equippedSlot ? { equippedSlot } : {}
+  )
 }
 
 export function unequipItem(
@@ -363,7 +419,10 @@ export async function addSpell(
   characterId: string,
   data: NewSpell
 ): Promise<void> {
-  await httpClient.post(`/characters/${characterId}/spells`, data)
+  await httpClient.post(
+    `/characters/${characterId}/spells`,
+    removeUndefinedValues(data)
+  )
 }
 
 export async function updateSpell(
@@ -373,7 +432,7 @@ export async function updateSpell(
 ): Promise<void> {
   await httpClient.patch(
     `/characters/${characterId}/spells/${spellId}`,
-    removeEmptyValues(data)
+    removeUndefinedValues(data)
   )
 }
 
@@ -384,28 +443,15 @@ export async function deleteSpell(
   await httpClient.delete(`/characters/${characterId}/spells/${spellId}`)
 }
 
-/**
- * Устаревший метод.
- * Лучше больше не использовать: вместо него есть действия
- * setSpellSlotTotal / useSpellSlot / restoreSpellSlot.
- */
-export async function updateSpellSlots(
-  characterId: string,
-  spellSlots: SpellSlotInput[]
-): Promise<void> {
-  await httpClient.patch(`/characters/${characterId}/spell-slots`, {
-    spellSlots,
-  })
-}
-
 export async function updateSpellcastingAbility(
   characterId: string,
-  ability: keyof Stats
+  ability: keyof Stats | null
 ): Promise<Character> {
   return updateCharacter(characterId, {
     spellcastingAbility: ability,
   })
 }
+
 // =========================================================
 // Spell slots actions
 // =========================================================
@@ -413,11 +459,11 @@ export async function updateSpellcastingAbility(
 // Они отправляют на backend конкретное действие.
 // =========================================================
 
-export async function setSpellSlotTotal(
+export function setSpellSlotTotal(
   characterId: string,
   level: number,
   total: number
-) {
+): Promise<unknown> {
   return httpClient.patch(
     `/characters/${characterId}/spell-slots/${level}/total`,
     {
@@ -426,13 +472,17 @@ export async function setSpellSlotTotal(
   )
 }
 
-export async function useSpellSlot(characterId: string, level: number) {
-  return httpClient.post(
-    `/characters/${characterId}/spell-slots/${level}/use`
-  )
+export function useSpellSlot(
+  characterId: string,
+  level: number
+): Promise<unknown> {
+  return httpClient.post(`/characters/${characterId}/spell-slots/${level}/use`)
 }
 
-export async function restoreSpellSlot(characterId: string, level: number) {
+export function restoreSpellSlot(
+  characterId: string,
+  level: number
+): Promise<unknown> {
   return httpClient.post(
     `/characters/${characterId}/spell-slots/${level}/restore`
   )
@@ -448,7 +498,7 @@ export async function addAttack(
 ): Promise<void> {
   await httpClient.post(
     `/characters/${characterId}/attacks`,
-    removeEmptyValues(data)
+    mapAttackPayloadToBackend(data)
   )
 }
 
@@ -459,7 +509,7 @@ export async function updateAttack(
 ): Promise<void> {
   await httpClient.patch(
     `/characters/${characterId}/attacks/${attackId}`,
-    removeEmptyValues(data)
+    mapAttackPayloadToBackend(data)
   )
 }
 

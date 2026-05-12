@@ -3,10 +3,8 @@ import type {
   UpdateCharacterInput,
 } from './character.schemas'
 import { characterRepository } from './character.repository'
-import {
-  CharacterNotFoundError,
-} from './errors'
-
+import { CharacterNotFoundError } from './errors'
+import { toCharacterProfileDto } from './character.mappers'
 
 export const characterService = {
   // =========================================================
@@ -14,7 +12,9 @@ export const characterService = {
   // =========================================================
 
   async getCharacters() {
-    return characterRepository.findAll()
+    const characters = await characterRepository.findAll()
+
+    return characters.map(toCharacterProfileDto)
   },
 
   async getCharacterById(id: string) {
@@ -24,7 +24,7 @@ export const characterService = {
       throw new CharacterNotFoundError(id)
     }
 
-    return character
+    return toCharacterProfileDto(character)
   },
 
   async createCharacter(data: CreateCharacterInput) {
@@ -36,12 +36,12 @@ export const characterService = {
     const conModifier = Math.floor((constitution - 10) / 2)
     const maxHp = 8 + conModifier
 
-    // Новый персонаж должен создаваться полностью здоровым:
+    // Новый персонаж создаётся полностью здоровым:
     // currentHp = maxHp.
     //
     // Также сразу задаём hit dice:
     // 1 уровень = 1 кость хитов 1d8.
-    return characterRepository.create({
+    const character = await characterRepository.create({
       ...data,
 
       currentHp: maxHp,
@@ -55,6 +55,8 @@ export const characterService = {
       hitDiceUsed: 0,
       hitDiceDice: '1d8',
     })
+
+    return toCharacterProfileDto(character)
   },
 
   async updateCharacter(id: string, data: UpdateCharacterInput) {
@@ -64,7 +66,9 @@ export const characterService = {
       throw new CharacterNotFoundError(id)
     }
 
-    return characterRepository.update(id, data)
+    const updatedCharacter = await characterRepository.update(id, data)
+
+    return toCharacterProfileDto(updatedCharacter)
   },
 
   async deleteCharacter(id: string) {
@@ -75,5 +79,5 @@ export const characterService = {
     }
 
     await characterRepository.delete(id)
-  }
+  },
 }

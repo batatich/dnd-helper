@@ -73,7 +73,7 @@ export type CharacterSheet = {
   stats: {
     base: Stats
     final: Stats
-    modifiers: Stats
+    modifiers: Record<AbilityName, number>
   }
 
   derived: {

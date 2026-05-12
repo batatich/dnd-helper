@@ -130,8 +130,7 @@ export type CharacterItemEntity = {
 // =========================================================
 
 export type CharacterRepository = {
-  findById: (id: string) => Promise<CharacterEntity | null>
-  findByIdForSheet?: (id: string) => Promise<CharacterEntity | null>
+  findByIdForSheet: (id: string) => Promise<CharacterEntity | null>
 }
 
 export type CharacterStatsRepository = {

@@ -5,17 +5,44 @@ import type {
 } from './character.schemas'
 
 // =========================================================
-// Include-конфиги
+// Select / include-конфиги
 // =========================================================
 
-// Базовый include для большинства операций над персонажем.
-// Здесь подтягиваем только stats, чтобы не раздувать ответ без необходимости.
-const characterBaseInclude = {
-  stats: true,
+// Базовый профиль персонажа.
+// Используется для:
+// GET /characters
+// GET /characters/:id
+// POST /characters
+// PATCH /characters/:id
+//
+// Важно:
+// здесь НЕ подтягиваем stats / attacks / spells / items / hpIncreases.
+// Полный лист должен идти только через GET /characters/:id/sheet.
+const characterProfileSelect = {
+  id: true,
+
+  name: true,
+  race: true,
+  className: true,
+  level: true,
+
+  description: true,
+  alignment: true,
+  background: true,
+  avatarUrl: true,
+
+  currentHp: true,
+  temporaryHp: true,
+  speed: true,
+  inspiration: true,
+  spellcastingAbility: true,
+
+  createdAt: true,
+  updatedAt: true,
 } as const
 
-// Расширенный include для "собранного" персонажа.
-// Используется там, где нужен более полный character sheet.
+// Расширенный include для сборки CharacterSheet.
+// Используется только там, где нужен полный sheet.
 const characterSheetInclude = {
   stats: true,
   attacks: true,
@@ -54,26 +81,26 @@ export const characterRepository = {
   // Characters
   // =========================================================
 
-  // Получить список всех персонажей.
+  // Получить список базовых профилей персонажей.
   findAll() {
     return prisma.character.findMany({
       orderBy: {
         createdAt: 'desc',
       },
-      include: characterBaseInclude,
+      select: characterProfileSelect,
     })
   },
 
-  // Получить персонажа по ID.
+  // Получить базовый профиль персонажа по ID.
   findById(id: string) {
     return prisma.character.findUnique({
       where: { id },
-      include: characterBaseInclude,
+      select: characterProfileSelect,
     })
   },
 
   // Получить персонажа с полным набором связанных сущностей.
-  // Это ближе к character sheet, чем обычный findById.
+  // Это НЕ готовый sheet. Это только данные для CharacterSheetService.
   findByIdForSheet(id: string) {
     return prisma.character.findUnique({
       where: { id },
@@ -82,10 +109,12 @@ export const characterRepository = {
   },
 
   // Создать нового персонажа.
+  //
   // Важно:
   // - поля spellcastingAbility / death saves / hit dice / spellSlots
-  //   записываются в Character, а не в CharacterStats
-  // - stats создаются отдельно как relation create
+  //   записываются в Character, а не в CharacterStats;
+  // - stats создаются отдельно как relation create;
+  // - наружу возвращаем только базовый профиль.
   create(data: CreateCharacterRepositoryInput) {
     return prisma.character.create({
       data: {
@@ -93,6 +122,7 @@ export const characterRepository = {
         race: data.race,
         className: data.className,
         level: data.level ?? 1,
+
         description: data.description ?? null,
         alignment: data.alignment ?? null,
         background: data.background ?? null,
@@ -129,11 +159,14 @@ export const characterRepository = {
           },
         },
       },
-      include: characterBaseInclude,
+      select: characterProfileSelect,
     })
   },
 
-  // Обновить базовые поля персонажа.
+  // Обновить только базовые поля персонажа.
+  //
+  // HP / death saves / hit dice / inspiration / stats / attacks / spells /
+  // inventory здесь не меняются. Для них есть отдельные modules/actions.
   update(id: string, data: UpdateCharacterInput) {
     return prisma.character.update({
       where: { id },
@@ -141,9 +174,16 @@ export const characterRepository = {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.race !== undefined && { race: data.race }),
         ...(data.className !== undefined && { className: data.className }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.alignment !== undefined && { alignment: data.alignment }),
-        ...(data.background !== undefined && { background: data.background }),
+
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.alignment !== undefined && {
+          alignment: data.alignment,
+        }),
+        ...(data.background !== undefined && {
+          background: data.background,
+        }),
 
         ...(data.avatarUrl !== undefined && {
           avatarUrl:
@@ -151,11 +191,14 @@ export const characterRepository = {
               ? data.avatarUrl
               : null,
         }),
+
         ...(data.speed !== undefined && { speed: data.speed }),
 
-        ...(data.spellcastingAbility !== undefined && { spellcastingAbility: data.spellcastingAbility}),
+        ...(data.spellcastingAbility !== undefined && {
+          spellcastingAbility: data.spellcastingAbility,
+        }),
       },
-      include: characterBaseInclude,
+      select: characterProfileSelect,
     })
   },
 
