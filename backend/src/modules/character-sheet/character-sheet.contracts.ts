@@ -100,7 +100,9 @@ export type ItemTemplateEntity = {
   type: string | null
   slot: string | null
   description: string | null
+  allowedSlots: unknown
   effects: unknown
+  weaponConfig: unknown
   createdAt?: Date
   updatedAt?: Date
 }
@@ -114,6 +116,12 @@ export type CharacterItemEntity = {
   slot: string | null
   notes: string | null
   itemTemplateId: string | null
+
+  type: string | null
+  allowedSlots: unknown
+  effects: unknown
+  weaponConfig: unknown
+
   itemTemplate?: ItemTemplateEntity | null
 }
 

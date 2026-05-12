@@ -103,32 +103,46 @@ export function toCharacterItemDto(
   item: CharacterItemEntity,
 ): CharacterItemDto {
   const template = item.itemTemplate ?? null
-  const parsedNotes = parseItemNotes(item.notes)
 
-  const type = template?.type ?? parsedNotes.type ?? 'misc'
+  const hasItemType = item.type !== null && item.type !== undefined
+  const hasItemEffects = item.effects !== null && item.effects !== undefined
+  const hasItemAllowedSlots =
+    item.allowedSlots !== null && item.allowedSlots !== undefined
+  const hasTemplateAllowedSlots =
+    template?.allowedSlots !== null && template?.allowedSlots !== undefined
+  const hasItemWeaponConfig =
+    item.weaponConfig !== null && item.weaponConfig !== undefined
 
-  const effectsFromTemplate = normalizeItemEffects(template?.effects)
-  const effectsFromNotes = normalizeItemEffects(parsedNotes.effects)
+  const type = hasItemType ? item.type : template?.type ?? 'misc'
 
-  const allowedSlotsFromTemplate = normalizeAllowedSlots(template?.slot)
-  const allowedSlotsFromNotes = normalizeAllowedSlots(parsedNotes.allowedSlots)
+  const itemEffects = normalizeItemEffects(item.effects)
+  const templateEffects = normalizeItemEffects(template?.effects)
+
+  const itemAllowedSlots = normalizeAllowedSlots(item.allowedSlots)
+  const templateAllowedSlots = normalizeAllowedSlots(template?.allowedSlots)
+  const templateSlot = normalizeAllowedSlots(template?.slot)
+
+  const itemWeaponConfig = normalizeWeaponConfig(item.weaponConfig)
+  const templateWeaponConfig = normalizeWeaponConfig(template?.weaponConfig)
 
   return {
     id: item.id,
     itemId: item.id,
     name: item.nameSnapshot || template?.name || 'Предмет',
     type,
-    effects:
-      effectsFromTemplate.length > 0 ? effectsFromTemplate : effectsFromNotes,
-    allowedSlots:
-      allowedSlotsFromTemplate.length > 0
-        ? allowedSlotsFromTemplate
-        : allowedSlotsFromNotes,
+    effects: hasItemEffects ? itemEffects : templateEffects,
+    allowedSlots: hasItemAllowedSlots
+      ? itemAllowedSlots
+      : hasTemplateAllowedSlots
+        ? templateAllowedSlots
+        : templateSlot,
     isEquipped: item.isEquipped,
     equippedSlot: normalizeEquipmentSlot(item.slot),
     quantity: item.quantity,
     notes: item.notes,
-    weaponConfig: normalizeWeaponConfig(parsedNotes.weaponConfig),
+    weaponConfig: hasItemWeaponConfig
+      ? itemWeaponConfig ?? undefined
+      : templateWeaponConfig ?? undefined,
   }
 }
 
@@ -173,34 +187,6 @@ export function normalizeSpellSlots(spellSlots: unknown): unknown[] {
 // =========================================================
 // Internal item helpers
 // =========================================================
-
-function parseItemNotes(notes: string | null): {
-  type?: string
-  allowedSlots?: unknown
-  effects?: unknown
-  weaponConfig?: unknown
-} {
-  if (!notes) {
-    return {}
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(notes)
-
-    if (!parsed || typeof parsed !== 'object') {
-      return {}
-    }
-
-    return parsed as {
-      type?: string
-      allowedSlots?: unknown
-      effects?: unknown
-      weaponConfig?: unknown
-    }
-  } catch {
-    return {}
-  }
-}
 
 function normalizeEquipmentSlot(slot: unknown): EquipmentSlot | null {
   if (

@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 import { CharacterNotFoundError } from '../characters/errors'
 import { characterParamsSchema } from '../characters/character.schemas'

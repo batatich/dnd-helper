@@ -47,7 +47,7 @@ function isEquipmentSlot(value: unknown): value is EquipmentSlot {
 }
 
 function normalizeAllowedSlotsFromValue(value: unknown): EquipmentSlot[] {
-  if (!value) {
+  if (value === null || value === undefined) {
     return []
   }
 
@@ -63,8 +63,30 @@ function normalizeAllowedSlotsFromValue(value: unknown): EquipmentSlot[] {
 }
 
 function resolveAllowedSlots(input: {
+  itemAllowedSlots?: unknown | null
+  templateAllowedSlots?: unknown | null
   templateSlot?: string | null
 }): EquipmentSlot[] {
+  /**
+   * Приоритет:
+   * 1. CharacterItem.allowedSlots
+   * 2. ItemTemplate.allowedSlots
+   * 3. ItemTemplate.slot
+   *
+   * Важно:
+   * [] считается осознанным значением: предмет не имеет доступных слотов.
+   */
+  if (input.itemAllowedSlots !== null && input.itemAllowedSlots !== undefined) {
+    return normalizeAllowedSlotsFromValue(input.itemAllowedSlots)
+  }
+
+  if (
+    input.templateAllowedSlots !== null &&
+    input.templateAllowedSlots !== undefined
+  ) {
+    return normalizeAllowedSlotsFromValue(input.templateAllowedSlots)
+  }
+
   return normalizeAllowedSlotsFromValue(input.templateSlot)
 }
 
@@ -75,7 +97,9 @@ function resolveEquipSlot(input: {
   const { requestedSlot, allowedSlots } = input
 
   if (allowedSlots.length === 0) {
-    throw new ValidationError('Item cannot be equipped because it has no equipment slot')
+    throw new ValidationError(
+      'Item cannot be equipped because it has no equipment slot',
+    )
   }
 
   if (requestedSlot) {
@@ -164,6 +188,24 @@ export const characterInventoryService = {
       )
     }
 
+    /**
+     * Если предмет уже экипирован и мы меняем allowedSlots,
+     * нельзя оставить его в слоте, который больше не разрешён.
+     */
+    if (item.isEquipped && item.slot && data.allowedSlots !== undefined) {
+      const nextAllowedSlots = resolveAllowedSlots({
+        itemAllowedSlots: data.allowedSlots,
+        templateAllowedSlots: item.itemTemplate?.allowedSlots ?? null,
+        templateSlot: item.itemTemplate?.slot ?? null,
+      })
+
+      if (!nextAllowedSlots.includes(item.slot as EquipmentSlot)) {
+        throw new ValidationError(
+          `Equipped item cannot stay in slot "${item.slot}" with provided allowedSlots`,
+        )
+      }
+    }
+
     return characterInventoryRepository.updateItem(itemId, data)
   },
 
@@ -207,6 +249,8 @@ export const characterInventoryService = {
     }
 
     const allowedSlots = resolveAllowedSlots({
+      itemAllowedSlots: item.allowedSlots,
+      templateAllowedSlots: item.itemTemplate?.allowedSlots ?? null,
       templateSlot: item.itemTemplate?.slot ?? null,
     })
 

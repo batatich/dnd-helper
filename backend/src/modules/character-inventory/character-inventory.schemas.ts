@@ -17,6 +17,37 @@ export const equipmentSlotSchema = z.enum([
   'boots',
 ])
 
+// Типы предметов пока оставляем строкой, а не enum,
+// чтобы не заблокировать кастомные предметы и будущие типы.
+// Примеры: weapon, armor, shield, ring, amulet, consumable, misc.
+const itemTypeSchema = z.string().min(1)
+
+// Временная гибкая схема для effects.
+// Более строгую типизацию эффектов можно сделать отдельно,
+// когда окончательно зафиксируем все виды item effects.
+const itemEffectsSchema = z.array(z.unknown())
+
+// Weapon config нужен для generated attacks от экипированного оружия.
+const weaponConfigSchema = z
+  .object({
+    attackType: z.enum(['melee', 'ranged', 'spell']).optional(),
+    ability: z
+      .enum([
+        'strength',
+        'dexterity',
+        'constitution',
+        'intelligence',
+        'wisdom',
+        'charisma',
+      ])
+      .optional(),
+    damageDice: z.string().optional(),
+    damageBonus: z.number().int().optional(),
+    damageType: z.string().optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .strict()
+
 // Параметры маршрута для операций над предметом персонажа.
 export const itemParamsSchema = z
   .object({
@@ -36,6 +67,8 @@ export const itemParamsSchema = z
 // Важно:
 // - create item НЕ экипирует предмет
 // - isEquipped/slot не принимаем
+// - notes = обычная текстовая заметка игрока
+// - игровые свойства кастомного предмета живут в type/allowedSlots/effects/weaponConfig
 export const createItemSchema = z
   .object({
     itemTemplateId: z.string().uuid().nullable().optional(),
@@ -45,6 +78,16 @@ export const createItemSchema = z
     quantity: z.number().int().min(1).default(1),
 
     notes: z.string().nullable().optional(),
+
+    // Кастомные игровые поля конкретного CharacterItem.
+    // Если они не переданы, позже service/sheet сможет взять fallback из ItemTemplate.
+    type: itemTypeSchema.nullable().optional(),
+
+    allowedSlots: z.array(equipmentSlotSchema).nullable().optional(),
+
+    effects: itemEffectsSchema.nullable().optional(),
+
+    weaponConfig: weaponConfigSchema.nullable().optional(),
   })
   .strict()
   .refine((data) => Boolean(data.itemTemplateId || data.nameSnapshot), {
@@ -58,6 +101,11 @@ export const createItemSchema = z
 //
 // Это частичное обновление данных предмета.
 // Экипировку меняем только через equip/unequip actions.
+//
+// Важно:
+// - update item НЕ принимает isEquipped
+// - update item НЕ принимает slot
+// - slot меняется только через equip/unequip
 export const updateItemSchema = z
   .object({
     nameSnapshot: z.string().min(1).optional(),
@@ -65,6 +113,14 @@ export const updateItemSchema = z
     quantity: z.number().int().min(1).optional(),
 
     notes: z.string().nullable().optional(),
+
+    type: itemTypeSchema.nullable().optional(),
+
+    allowedSlots: z.array(equipmentSlotSchema).nullable().optional(),
+
+    effects: itemEffectsSchema.nullable().optional(),
+
+    weaponConfig: weaponConfigSchema.nullable().optional(),
   })
   .strict()
 
