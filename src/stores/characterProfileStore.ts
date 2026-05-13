@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Character, Stats } from '../types/characters'
+import type { CharacterSheet } from '../types/characterSheet'
 
 import {
   getCharacters as getCharactersRequest,
@@ -55,6 +56,11 @@ const mergeCharacterIntoList = (
   )
 }
 
+const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
+  ...sheet.character,
+  spellcastingAbility: sheet.magic.spellcastingAbility,
+})
+
 export const useCharacterProfileStore = create<CharacterProfileStore>((set, get) => ({
   characters: [],
   currentCharacter: null,
@@ -78,6 +84,8 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         error: getErrorMessage('Не удалось загрузить персонажей', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -99,6 +107,8 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         error: getErrorMessage('Не удалось загрузить персонажа', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -142,6 +152,8 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         error: getErrorMessage('Не удалось создать персонажа', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -169,6 +181,8 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         error: getErrorMessage('Не удалось обновить персонажа', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -199,6 +213,8 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         error: getErrorMessage('Не удалось удалить персонажа', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -215,8 +231,23 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
   },
 
   refreshCharacterSheetAndProfile: async (characterId) => {
-    await useCharacterSheetStore.getState().fetchCharacterSheet(characterId)
-    await get().refreshCharacterProfile(characterId)
+    const sheet = await useCharacterSheetStore
+      .getState()
+      .fetchCharacterSheet(characterId)
+
+    if (!sheet) {
+      return
+    }
+
+    const refreshedCharacter = mapSheetToCharacter(sheet)
+
+    set((state) => ({
+      currentCharacter:
+        state.currentCharacter?.id === characterId
+          ? refreshedCharacter
+          : state.currentCharacter,
+      characters: mergeCharacterIntoList(state.characters, refreshedCharacter),
+    }))
   },
 
   setCurrentCharacter: (character) => {

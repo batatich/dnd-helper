@@ -15,7 +15,7 @@ interface CharacterStatsStore {
   error: string | null
 
   updateCharacterStats: (id: string, stats: Stats) => Promise<void>
-  rollCharacterStats: (id: string) => Promise<RollCharacterStatsResult | null>
+  rollCharacterStats: (id: string) => Promise<RollCharacterStatsResult>
 }
 
 export const useCharacterStatsStore = create<CharacterStatsStore>((set) => ({
@@ -40,6 +40,8 @@ export const useCharacterStatsStore = create<CharacterStatsStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -65,7 +67,7 @@ export const useCharacterStatsStore = create<CharacterStatsStore>((set) => ({
         isLoading: false,
       })
 
-      return null
+      throw error
     }
   },
 }))

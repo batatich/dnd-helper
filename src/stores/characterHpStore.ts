@@ -57,6 +57,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         error: getErrorMessage('Не удалось нанести урон персонажу', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -75,6 +77,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         error: getErrorMessage('Не удалось исцелить персонажа', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -93,6 +97,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         error: getErrorMessage('Не удалось обновить временные HP', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -114,6 +120,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -134,6 +142,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         error: getErrorMessage('Не удалось использовать кость хитов', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -154,6 +164,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         error: getErrorMessage('Не удалось восстановить кость хитов', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -177,6 +189,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -200,6 +214,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -223,6 +239,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -246,6 +264,8 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 }))

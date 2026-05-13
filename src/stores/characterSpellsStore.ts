@@ -63,6 +63,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         error: getErrorMessage('Не удалось добавить заклинание', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -83,6 +85,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         error: getErrorMessage('Не удалось обновить заклинание', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -103,6 +107,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         error: getErrorMessage('Не удалось удалить заклинание', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -126,6 +132,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -149,6 +157,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -172,6 +182,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -195,6 +207,8 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
         ),
         isLoading: false,
       })
+
+      throw error
     }
   },
 }))

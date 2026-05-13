@@ -82,7 +82,7 @@ function getErrorMessage(error: unknown): string {
 // Здесь нет calculateCharacter, useItemsStore и локальных правил.
 // Store только вызывает API и кладёт ответ backend в state.
 // =========================================================
-
+let latestSheetRequestId = 0
 export const useCharacterSheetStore = create<CharacterSheetStore>(
   (set, get) => ({
     // =====================================================
@@ -107,6 +107,8 @@ export const useCharacterSheetStore = create<CharacterSheetStore>(
     // =====================================================
 
     fetchCharacterSheet: async (characterId: string) => {
+      const requestId = ++latestSheetRequestId
+
       set({
         isLoading: true,
         error: null,
@@ -114,6 +116,10 @@ export const useCharacterSheetStore = create<CharacterSheetStore>(
 
       try {
         const sheet = await getCharacterSheet(characterId)
+
+        if (requestId !== latestSheetRequestId) {
+          return sheet
+        }
 
         set({
           currentSheet: sheet,
@@ -123,6 +129,10 @@ export const useCharacterSheetStore = create<CharacterSheetStore>(
 
         return sheet
       } catch (error) {
+        if (requestId !== latestSheetRequestId) {
+          throw error
+        }
+
         const message = getErrorMessage(error)
 
         set({
@@ -131,7 +141,7 @@ export const useCharacterSheetStore = create<CharacterSheetStore>(
           error: message,
         })
 
-        return null
+        throw error
       }
     },
 

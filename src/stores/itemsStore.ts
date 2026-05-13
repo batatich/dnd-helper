@@ -42,6 +42,8 @@ export const useItemsStore = create<ItemsStore>((set) => ({
         error: getErrorMessage('Не удалось загрузить справочник предметов', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 

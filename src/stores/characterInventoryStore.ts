@@ -55,6 +55,8 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
           error: getErrorMessage('Не удалось добавить предмет', error),
           isLoading: false,
         })
+
+        throw error
       }
     },
 
@@ -75,6 +77,8 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
           error: getErrorMessage('Не удалось обновить предмет', error),
           isLoading: false,
         })
+
+        throw error
       }
     },
 
@@ -95,6 +99,8 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
           error: getErrorMessage('Не удалось удалить предмет', error),
           isLoading: false,
         })
+
+        throw error
       }
     },
 
@@ -115,6 +121,8 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
           error: getErrorMessage('Не удалось экипировать предмет', error),
           isLoading: false,
         })
+
+        throw error
       }
     },
 
@@ -135,6 +143,8 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
           error: getErrorMessage('Не удалось снять предмет', error),
           isLoading: false,
         })
+
+        throw error
       }
     },
   })

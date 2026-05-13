@@ -44,6 +44,8 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
         error: getErrorMessage('Не удалось добавить атаку', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -64,6 +66,8 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
         error: getErrorMessage('Не удалось обновить атаку', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 
@@ -84,6 +88,8 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
         error: getErrorMessage('Не удалось удалить атаку', error),
         isLoading: false,
       })
+
+      throw error
     }
   },
 }))
