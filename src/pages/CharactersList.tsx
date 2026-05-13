@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { CharacterForm } from '../components/CharacterForm'
-import { useCharacterStore } from '../stores/characterStore'
+import { useCharacterStore } from '../stores/characterProfileStore'
 import type { Character, Stats } from '../types/characters'
 
 const defaultBaseStats: Stats = {

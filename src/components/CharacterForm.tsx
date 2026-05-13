@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useCharacterStore } from '../stores/characterStore'
+import { useCharacterStore } from '../stores/characterProfileStore'
 import type { Character, Stats } from '../types/characters'
 import { calculateStartingDerivedStats } from '../utils/createCharacter'
 

@@ -5,7 +5,7 @@ import { AttackSection } from '../components/AttackSection'
 import { ProfileSection } from '../components/ProfileSection'
 import { SpellSection } from '../components/SpellSection'
 
-import { useCharacterStore } from '../stores/characterStore'
+import { useCharacterStore } from '../stores/characterProfileStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
 
 import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'

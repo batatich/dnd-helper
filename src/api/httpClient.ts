@@ -4,6 +4,50 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
 }
 
+type ApiErrorPayload = {
+  message?: string
+  error?: string
+  errors?: unknown
+  details?: unknown
+}
+
+export class ApiError extends Error {
+  status: number
+  details: unknown
+
+  constructor(message: string, status: number, details?: unknown) {
+    super(message)
+
+    this.name = 'ApiError'
+    this.status = status
+    this.details = details
+  }
+}
+
+function parseErrorPayload(text: string): {
+  message: string
+  details?: unknown
+} {
+  if (!text) {
+    return {
+      message: 'Request failed',
+    }
+  }
+
+  try {
+    const data = JSON.parse(text) as ApiErrorPayload
+
+    return {
+      message: data.message ?? data.error ?? 'Request failed',
+      details: data.errors ?? data.details ?? data,
+    }
+  } catch {
+    return {
+      message: text,
+    }
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestOptions = {}
@@ -31,22 +75,9 @@ async function request<T>(
   const text = await response.text()
 
   if (!response.ok) {
-    let message = 'Request failed'
+    const { message, details } = parseErrorPayload(text)
 
-    if (text) {
-      try {
-        const data = JSON.parse(text) as {
-          message?: string
-          error?: string
-        }
-
-        message = data.message ?? data.error ?? message
-      } catch {
-        message = text
-      }
-    }
-
-    throw new Error(message)
+    throw new ApiError(message, response.status, details)
   }
 
   // 204 No Content или 200/201 без body.

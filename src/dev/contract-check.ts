@@ -2,12 +2,18 @@ import type { CharacterSheet } from '../types/characterSheet'
 import type { Character } from '../types/characters'
 import type { ItemTemplate } from '../types/items'
 import type {
-  HpState,
-  CreateItemInput,
-  UpdateItemInput,
   CreateCharacterInput,
   UpdateCharacterInput,
-} from '../api/characterApi'
+} from '../api/characterProfileApi'
+
+import type {
+  HpState,
+} from '../api/characterHpApi'
+
+import type {
+  CreateItemInput,
+  UpdateItemInput,
+} from '../api/characterInventoryApi'
 
 // =========================================================
 // 1. GET /characters/:id/sheet
