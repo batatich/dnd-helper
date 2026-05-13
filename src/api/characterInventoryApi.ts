@@ -1,4 +1,5 @@
 import type {
+  CharacterItemResponse,
   EquipmentSlot,
   ItemEffect,
   ItemType,
@@ -37,52 +38,6 @@ export type CreateItemInput = {
  * - slot/equippedSlot сюда не отправляем.
  */
 export type UpdateItemInput = Partial<CreateItemInput>
-
-export type ItemWeaponConfigResponse = {
-  attackType?: 'melee' | 'ranged' | 'spell'
-  ability?:
-    | 'strength'
-    | 'dexterity'
-    | 'constitution'
-    | 'intelligence'
-    | 'wisdom'
-    | 'charisma'
-  damageDice?: string
-  damageBonus?: number
-  damageType?: string
-  notes?: string | null
-}
-
-export type ItemTemplateResponse = {
-  id: string
-  name: string
-  type: ItemType | string | null
-  slot: EquipmentSlot | string | null
-  description: string | null
-  allowedSlots: EquipmentSlot[] | null
-  effects: ItemEffect[] | null
-  weaponConfig: ItemWeaponConfigResponse | null
-  createdAt: string
-  updatedAt: string
-}
-
-export type CharacterItemResponse = {
-  id: string
-  characterId: string
-  itemTemplateId: string | null
-  nameSnapshot: string
-  quantity: number
-  isEquipped: boolean
-  equippedSlot: EquipmentSlot | string | null
-  notes: string | null
-  type: ItemType | string | null
-  allowedSlots: EquipmentSlot[] | null
-  effects: ItemEffect[] | null
-  weaponConfig: ItemWeaponConfigResponse | null
-  createdAt: string
-  updatedAt: string
-  itemTemplate: ItemTemplateResponse | null
-}
 
 export function addItem(
   characterId: string,

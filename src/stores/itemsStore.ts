@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import { getItemTemplates } from '../api/itemApi'
-import type { ItemTemplate } from '../types/items'
+import type { ItemTemplateResponse } from '../types/items'
 
 interface ItemsStore {
-  items: ItemTemplate[]
+  items: ItemTemplateResponse[]
   isLoading: boolean
   error: string | null
 
   fetchItems: () => Promise<void>
-  setItems: (items: ItemTemplate[]) => void
+  setItems: (items: ItemTemplateResponse[]) => void
   clearItems: () => void
 }
 

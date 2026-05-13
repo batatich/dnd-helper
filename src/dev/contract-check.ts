@@ -1,6 +1,6 @@
 import type { CharacterSheet } from '../types/characterSheet'
 import type { Character } from '../types/characters'
-import type { ItemTemplate } from '../types/items'
+import type { ItemTemplateResponse } from '../types/items'
 import type {
   CreateCharacterInput,
   UpdateCharacterInput,
@@ -392,7 +392,7 @@ const characterResponse = {
 // 3. GET /items
 // =========================================================
 
-const itemTemplateResponse = [] satisfies ItemTemplate[]
+const itemTemplateResponse = [] satisfies ItemTemplateResponse[]
 
 // =========================================================
 // 4. HP action responses

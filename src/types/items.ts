@@ -64,6 +64,46 @@ export type WeaponConfig = {
   notes: string
 }
 
+export type ItemWeaponConfigResponse = {
+  attackType?: 'melee' | 'ranged' | 'spell'
+  ability?: keyof Stats
+  damageDice?: string
+  damageBonus?: number
+  damageType?: string
+  notes?: string | null
+}
+
+export type ItemTemplateResponse = {
+  id: string
+  name: string
+  type: ItemType | string | null
+  slot: EquipmentSlot | string | null
+  description: string | null
+  allowedSlots: EquipmentSlot[] | null
+  effects: ItemEffect[] | null
+  weaponConfig: ItemWeaponConfigResponse | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CharacterItemResponse = {
+  id: string
+  characterId: string
+  itemTemplateId: string | null
+  nameSnapshot: string
+  quantity: number
+  isEquipped: boolean
+  equippedSlot: EquipmentSlot | string | null
+  notes: string | null
+  type: ItemType | string | null
+  allowedSlots: EquipmentSlot[] | null
+  effects: ItemEffect[] | null
+  weaponConfig: ItemWeaponConfigResponse | null
+  createdAt: string
+  updatedAt: string
+  itemTemplate: ItemTemplateResponse | null
+}
+
 /**
  * Старый frontend-тип предмета.
  *

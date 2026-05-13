@@ -12,7 +12,7 @@ export type HpState = {
   inspiration: boolean
   deathSaveSuccesses: number
   deathSaveFailures: number
-  spellSlots: SpellSlot[]
+  spellSlots: SpellSlot[] | null
   createdAt: string
   updatedAt: string
 }
