@@ -5,8 +5,8 @@ import type { NewSpell } from '../types/spells'
 import type { EquipmentSlot } from '../types/items'
 
 import {
-  getCharacters,
-  getCharacterById,
+  getCharacters as getCharactersRequest,
+  getCharacterById as getCharacterByIdRequest,
 
   createCharacter as createCharacterRequest,
   updateCharacter as updateCharacterRequest,
@@ -57,6 +57,10 @@ import {
 
 import { useCharacterSheetStore } from './characterSheetStore'
 
+type AddCharacterInput = CreateCharacterInput & {
+  baseStats?: Stats
+}
+
 // =========================================================
 // Types
 // =========================================================
@@ -73,7 +77,7 @@ interface CharacterStore {
   fetchCharacterById: (id: string) => Promise<void>
 
   // CRUD персонажа
-  addCharacter: (character: CreateCharacterInput) => Promise<void>
+  addCharacter: (character: AddCharacterInput) => Promise<void>
   updateCharacter: (id: string, updated: UpdateCharacterInput) => Promise<void>
   deleteCharacter: (id: string) => Promise<void>
 
@@ -193,10 +197,22 @@ export const useCharacterStore = create<CharacterStore>((set) => {
   * - backend возвращает итоговое состояние листа.
   */
   const refreshCharacterSheet = async (characterId: string) => {
-    await useCharacterSheetStore.getState().fetchCharacterSheet(characterId)
+    const sheetStore = useCharacterSheetStore.getState()
 
-    set({ isLoading: false })
+    await sheetStore.fetchCharacterSheet(characterId)
+
+    const refreshedCharacter = await getCharacterByIdRequest(characterId)
+
+    set((state) => ({
+      currentCharacter:
+        state.currentCharacter?.id === characterId
+          ? refreshedCharacter
+          : state.currentCharacter,
+      characters: mergeCharacterIntoList(state.characters, refreshedCharacter),
+      isLoading: false,
+    }))
   }
+
 
   return {
     // =========================================================
@@ -216,7 +232,7 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       set({ isLoading: true, error: null })
 
       try {
-        const characters = await getCharacters()
+        const characters = await getCharactersRequest()
 
         set({
           characters,
@@ -236,7 +252,7 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       set({ isLoading: true, error: null })
 
       try {
-        const character = await getCharacterById(id)
+        const character = await getCharacterByIdRequest(id)
 
         set((state) => ({
           currentCharacter: character,
@@ -261,22 +277,17 @@ export const useCharacterStore = create<CharacterStore>((set) => {
       set({ isLoading: true, error: null })
 
       try {
-        const createdCharacter = await createCharacterRequest(character)
+        const { baseStats, ...characterPayload } = character
+
+        const createdCharacter = await createCharacterRequest(characterPayload)
 
         set((state) => ({
           currentCharacter: createdCharacter,
           characters: mergeCharacterIntoList(state.characters, createdCharacter),
         }))
 
-        const characterWithStats = character as CreateCharacterInput & {
-          baseStats?: Stats
-        }
-
-        if (characterWithStats.baseStats) {
-          await updateCharacterStatsRequest(
-            createdCharacter.id,
-            characterWithStats.baseStats
-          )
+        if (baseStats) {
+          await updateCharacterStatsRequest(createdCharacter.id, baseStats)
         }
 
         await refreshCharacterSheet(createdCharacter.id)
@@ -476,8 +487,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           error: getErrorMessage('Не удалось использовать кость хитов', error),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -494,8 +503,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           error: getErrorMessage('Не удалось восстановить кость хитов', error),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -515,8 +522,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -536,8 +541,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -557,8 +560,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -578,8 +579,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -726,8 +725,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -747,8 +744,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 
@@ -768,8 +763,6 @@ export const useCharacterStore = create<CharacterStore>((set) => {
           ),
           isLoading: false,
         })
-
-        throw error
       }
     },
 

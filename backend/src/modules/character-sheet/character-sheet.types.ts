@@ -125,6 +125,12 @@ export type SpellDto = {
   description: string
 }
 
+export type SpellSlotDto = {
+  level: number
+  total: number
+  used: number
+}
+
 export type CharacterItemDto = {
   id: string
   itemId: string
@@ -168,7 +174,7 @@ export type CharacterProgressionDto = {
 
 export type CharacterMagicDto = {
   spells: SpellDto[]
-  spellSlots: unknown[]
+  spellSlots: SpellSlotDto[]
   spellcastingAbility: AbilityName | null
 }
 

@@ -23,8 +23,8 @@ export type CharacterProfile = {
   speed: number
   inspiration: boolean
 
-  createdAt: string | Date
-  updatedAt: string | Date
+  createdAt: string
+  updatedAt: string
 }
 
 export type SkillBonus = {
@@ -61,7 +61,7 @@ export type HpIncrease = {
   value: number
   dice: string
   rolledValue: number | null
-  createdAt: string | Date
+  createdAt: string
 }
 
 export type CharacterSheet = {

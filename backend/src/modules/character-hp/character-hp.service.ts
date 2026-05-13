@@ -2,6 +2,11 @@ import { ValidationError } from '../../shared/errors'
 import { characterHpRepository } from './character-hp.repository'
 import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
+import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
 
 import {
   addDeathSaveFailure,
@@ -15,6 +20,25 @@ import {
   restoreHitDie,
   useHitDie,
 } from '../calculation/hp.rules'
+
+async function calculateCharacterEffectiveMaxHp(
+  characterId: string,
+  character: Parameters<typeof calculateMaxHp>[0],
+): Promise<number> {
+  const baseMaxHp = calculateMaxHp(character)
+
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+}
 
 export const characterHpService = {
   // =========================================================
@@ -67,7 +91,7 @@ export const characterHpService = {
       },
     ]
 
-    const maxHp = calculateMaxHp({
+    const maxHp = await calculateCharacterEffectiveMaxHp(id, {
       ...character,
       level: nextLevel,
       hpIncreases: nextHpIncreases,
@@ -144,7 +168,7 @@ export const characterHpService = {
       throw new ValidationError('Heal amount must be positive')
     }
 
-    const maxHp = calculateMaxHp(character)
+    const maxHp = await calculateCharacterEffectiveMaxHp(id, character)
 
     return characterHpRepository.updateHpState(id, {
       currentHp: Math.min(character.currentHp + amount, maxHp),

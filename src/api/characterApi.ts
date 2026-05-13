@@ -13,17 +13,6 @@ import { httpClient } from './httpClient'
 // Types
 // =========================================================
 
-export type DeathSaves = {
-  successes: number
-  failures: number
-}
-
-export type HitDice = {
-  total: number
-  used: number
-  dice: string
-}
-
 export type HpState = {
   id: string
   currentHp: number

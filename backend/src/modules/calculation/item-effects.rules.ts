@@ -132,3 +132,12 @@ function normalizeAbilityName(
 
   return null
 }
+
+export function calculateEffectiveMaxHp(
+  baseMaxHp: number,
+  equippedItems: ItemWithEffects[],
+): number {
+  const itemBonuses = calculateItemDerivedBonuses(equippedItems)
+
+  return baseMaxHp + itemBonuses.hpBonus
+}

@@ -1,6 +1,9 @@
 import { calculateItemDerivedBonuses } from '../calculation/item-effects.rules'
 
-import type { AbilityName } from '../calculation/stats.rules'
+import {
+  normalizeAbilityName,
+  type AbilityName,
+} from '../calculation/stats.rules'
 
 import type {
   AbilityModifiers,
@@ -67,21 +70,4 @@ export function calculateProficiencyBonus(level: number): number {
   const safeLevel = Math.min(Math.max(level, 1), 20)
 
   return Math.ceil(safeLevel / 4) + 1
-}
-
-function normalizeAbilityName(
-  ability: AbilityName | string | null | undefined,
-): AbilityName | null {
-  if (
-    ability === 'strength' ||
-    ability === 'dexterity' ||
-    ability === 'constitution' ||
-    ability === 'intelligence' ||
-    ability === 'wisdom' ||
-    ability === 'charisma'
-  ) {
-    return ability
-  }
-
-  return null
 }

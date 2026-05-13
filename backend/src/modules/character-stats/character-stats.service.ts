@@ -6,6 +6,28 @@ import {
 import { characterHpRepository } from '../character-hp/character-hp.repository'
 import { characterStatsRepository } from './character-stats.repository'
 import { CharacterNotFoundError } from '../characters/errors'
+import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
+
+async function calculateCharacterEffectiveMaxHp(
+  characterId: string,
+  baseMaxHp: number,
+): Promise<number> {
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+}
 
 export const characterStatsService = {
   // Ручное обновление базовых характеристик персонажа.
@@ -15,9 +37,10 @@ export const characterStatsService = {
   // 2. Сохраняем stats через upsert:
   //    - если stats есть — обновляем
   //    - если stats нет — создаём
-  // 3. Пересчитываем maxHp, потому что constitution влияет на HP 1 уровня.
-  // 4. Если currentHp стал выше нового maxHp — обрезаем currentHp.
-  // 5. Возвращаем обновлённого персонажа вместе с данными листа.
+  // 3. Пересчитываем base maxHp, потому что constitution влияет на HP 1 уровня.
+  // 4. Добавляем hpBonus от экипированных предметов.
+  // 5. Если currentHp стал выше нового effective maxHp — обрезаем currentHp.
+  // 6. Возвращаем обновлённые stats.
   async updateCharacterStats(id: string, stats: AbilityScores) {
     const character = await characterHpRepository.findByIdWithHpData(id)
 
@@ -25,11 +48,13 @@ export const characterStatsService = {
       throw new CharacterNotFoundError(id)
     }
 
-    const maxHp = calculateMaxHp({
+    const baseMaxHp = calculateMaxHp({
       ...character,
       stats,
       hpIncreases: character.hpIncreases ?? [],
     })
+
+    const maxHp = await calculateCharacterEffectiveMaxHp(id, baseMaxHp)
 
     const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
       id,
@@ -64,11 +89,13 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const maxHp = calculateMaxHp({
+    const baseMaxHp = calculateMaxHp({
       ...character,
       stats: result.stats,
       hpIncreases: character.hpIncreases ?? [],
     })
+
+    const maxHp = await calculateCharacterEffectiveMaxHp(id, baseMaxHp)
 
     const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
       id,

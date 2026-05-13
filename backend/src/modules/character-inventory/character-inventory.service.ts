@@ -17,6 +17,43 @@ import type {
   EquipItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
+import { characterHpRepository } from '../character-hp/character-hp.repository'
+import { calculateMaxHp } from '../calculation/hp.rules'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
+
+async function clampCurrentHpToEffectiveMaxHp(characterId: string) {
+  const character = await characterHpRepository.findByIdWithHpData(characterId)
+
+  if (!character) {
+    throw new CharacterNotFoundError(characterId)
+  }
+
+  const baseMaxHp = calculateMaxHp(character)
+
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  const maxHp = calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+
+  if (character.currentHp <= maxHp) {
+    return
+  }
+
+  await characterHpRepository.updateHpState(characterId, {
+    currentHp: maxHp,
+    temporaryHp: character.temporaryHp,
+  })
+}
 
 type EquipmentSlot =
   | 'mainHand'
@@ -206,7 +243,13 @@ export const characterInventoryService = {
       }
     }
 
-    return characterInventoryRepository.updateItem(itemId, data)
+    const updatedItem = await characterInventoryRepository.updateItem(itemId, data)
+
+    if (item.isEquipped) {
+      await clampCurrentHpToEffectiveMaxHp(characterId)
+    }
+
+    return updatedItem
   },
 
   async deleteItem(characterId: string, itemId: string) {
@@ -220,7 +263,13 @@ export const characterInventoryService = {
       throw new ItemOwnershipError(characterId, itemId)
     }
 
-    return characterInventoryRepository.deleteItem(itemId)
+    const deletedItem = await characterInventoryRepository.deleteItem(itemId)
+
+    if (item.isEquipped) {
+      await clampCurrentHpToEffectiveMaxHp(characterId)
+    }
+
+    return deletedItem
   },
 
   async equipItem(
@@ -268,7 +317,14 @@ export const characterInventoryService = {
       throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
     }
 
-    return characterInventoryRepository.equipItem(itemId, equippedSlot)
+    const equippedItem = await characterInventoryRepository.equipItem(
+      itemId,
+      equippedSlot,
+    )
+
+    await clampCurrentHpToEffectiveMaxHp(characterId)
+
+    return equippedItem
   },
 
   async unequipItem(characterId: string, itemId: string) {
@@ -286,6 +342,10 @@ export const characterInventoryService = {
       throw new ItemNotEquippedError(itemId)
     }
 
-    return characterInventoryRepository.unequipItem(itemId)
+    const unequippedItem = await characterInventoryRepository.unequipItem(itemId)
+
+    await clampCurrentHpToEffectiveMaxHp(characterId)
+
+    return unequippedItem
   },
 }
