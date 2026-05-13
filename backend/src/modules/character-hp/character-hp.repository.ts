@@ -29,6 +29,10 @@ type LevelUpHpStateInput = {
   hitDiceDice: string
 }
 
+type CharacterHpDbClient = {
+  character: typeof prisma.character
+}
+
 // =========================================================
 // Select configs
 // =========================================================
@@ -56,10 +60,30 @@ const characterHpStateSelect = {
 } as const
 
 export const characterHpRepository = {
+  withLockedCharacter<T>(
+    id: string,
+    action: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM "Character"
+        WHERE id = ${id}
+        FOR UPDATE
+      `
+
+      return action(tx)
+    })
+  },
+
   // Обновить HP-состояние персонажа.
   // Используется для damage / heal / set temp HP.
-  updateHpState(id: string, data: UpdateHpStateInput) {
-    return prisma.character.update({
+  updateHpState(
+    id: string,
+    data: UpdateHpStateInput,
+    db: CharacterHpDbClient = prisma,
+  ) {
+    return db.character.update({
       where: { id },
       data: {
         currentHp: data.currentHp,
@@ -71,8 +95,8 @@ export const characterHpRepository = {
 
   // Получить персонажа со всем, что нужно для расчёта HP.
   // Используется для heal / level-up / пересчёта maxHp.
-  findByIdWithHpData(id: string) {
-    return prisma.character.findUnique({
+  findByIdWithHpData(id: string, db: CharacterHpDbClient = prisma) {
+    return db.character.findUnique({
       where: { id },
       include: {
         stats: true,
@@ -133,8 +157,8 @@ export const characterHpRepository = {
   // Hit dice
   // =========================================================
 
-  findHitDiceByCharacterId(id: string) {
-    return prisma.character.findUnique({
+  findHitDiceByCharacterId(id: string, db: CharacterHpDbClient = prisma) {
+    return db.character.findUnique({
       where: { id },
       select: {
         id: true,
@@ -145,8 +169,12 @@ export const characterHpRepository = {
     })
   },
 
-  updateHitDiceUsed(id: string, used: number) {
-    return prisma.character.update({
+  updateHitDiceUsed(
+    id: string,
+    used: number,
+    db: CharacterHpDbClient = prisma,
+  ) {
+    return db.character.update({
       where: { id },
       data: {
         hitDiceUsed: used,
@@ -173,8 +201,8 @@ export const characterHpRepository = {
   // Death saves
   // =========================================================
 
-  findDeathSavesByCharacterId(id: string) {
-    return prisma.character.findUnique({
+  findDeathSavesByCharacterId(id: string, db: CharacterHpDbClient = prisma) {
+    return db.character.findUnique({
       where: { id },
       select: {
         id: true,
@@ -190,8 +218,9 @@ export const characterHpRepository = {
       successes: number
       failures: number
     },
+    db: CharacterHpDbClient = prisma,
   ) {
-    return prisma.character.update({
+    return db.character.update({
       where: { id },
       data: {
         deathSaveSuccesses: data.successes,

@@ -29,6 +29,22 @@ async function calculateCharacterEffectiveMaxHp(
   return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
 }
 
+function getNextCurrentHp(input: {
+  currentHp: number
+  previousMaxHp: number
+  nextMaxHp: number
+}): number | undefined {
+  if (input.currentHp >= input.previousMaxHp) {
+    return input.nextMaxHp
+  }
+
+  if (input.currentHp > input.nextMaxHp) {
+    return input.nextMaxHp
+  }
+
+  return undefined
+}
+
 export const characterStatsService = {
   // Ручное обновление базовых характеристик персонажа.
   //
@@ -48,20 +64,35 @@ export const characterStatsService = {
       throw new CharacterNotFoundError(id)
     }
 
-    const baseMaxHp = calculateMaxHp({
+    const previousBaseMaxHp = calculateMaxHp({
+      ...character,
+      hpIncreases: character.hpIncreases ?? [],
+    })
+
+    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
+      id,
+      previousBaseMaxHp,
+    )
+
+    const nextBaseMaxHp = calculateMaxHp({
       ...character,
       stats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    const maxHp = await calculateCharacterEffectiveMaxHp(id, baseMaxHp)
+    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
+    const nextCurrentHp = getNextCurrentHp({
+      currentHp: character.currentHp,
+      previousMaxHp,
+      nextMaxHp,
+    })
 
     const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
       id,
       stats,
-      character.currentHp > maxHp
+      nextCurrentHp !== undefined
         ? {
-            currentHp: maxHp,
+            currentHp: nextCurrentHp,
             temporaryHp: character.temporaryHp,
           }
         : undefined,
@@ -89,20 +120,35 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const baseMaxHp = calculateMaxHp({
+    const previousBaseMaxHp = calculateMaxHp({
+      ...character,
+      hpIncreases: character.hpIncreases ?? [],
+    })
+
+    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
+      id,
+      previousBaseMaxHp,
+    )
+
+    const nextBaseMaxHp = calculateMaxHp({
       ...character,
       stats: result.stats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    const maxHp = await calculateCharacterEffectiveMaxHp(id, baseMaxHp)
+    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
+    const nextCurrentHp = getNextCurrentHp({
+      currentHp: character.currentHp,
+      previousMaxHp,
+      nextMaxHp,
+    })
 
     const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
       id,
       result.stats,
-      character.currentHp > maxHp
+      nextCurrentHp !== undefined
         ? {
-            currentHp: maxHp,
+            currentHp: nextCurrentHp,
             temporaryHp: character.temporaryHp,
           }
         : undefined,
