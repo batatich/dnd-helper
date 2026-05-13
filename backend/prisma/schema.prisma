@@ -231,6 +231,7 @@ model CharacterItem {
 
   @@index([characterId])
   @@index([itemTemplateId])
+  @@unique([characterId, equippedSlot])
 }
 
 // =========================
@@ -259,4 +260,5 @@ model CharacterHpIncrease {
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId])
+  @@unique([characterId, level])
 }

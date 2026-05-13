@@ -6,6 +6,7 @@ import type {
   CreateItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
+import { ItemSlotAlreadyOccupiedError } from '../characters/errors'
 
 type CreateCharacterItemRepositoryInput = Omit<
   CreateItemInput,
@@ -166,17 +167,32 @@ export const characterInventoryRepository = {
     })
   },
 
-  equipItem(itemId: string, equippedSlot: string) {
-    return prisma.characterItem.update({
-      where: {
-        id: itemId,
-      },
-      data: {
-        isEquipped: true,
-        equippedSlot,
-      },
-      include: characterItemInclude,
-    })
+  async equipItem(
+    characterId: string,
+    itemId: string,
+    equippedSlot: string,
+  ) {
+    try {
+      return await prisma.characterItem.update({
+        where: {
+          id: itemId,
+        },
+        data: {
+          isEquipped: true,
+          equippedSlot,
+        },
+        include: characterItemInclude,
+      })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
+      }
+
+      throw error
+    }
   },
 
   unequipItem(itemId: string) {

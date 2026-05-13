@@ -65,18 +65,6 @@ export const characterHpService = {
     }
 
     const nextLevel = character.level + 1
-
-    const existingHpIncrease = await characterHpRepository.findHpIncreaseByLevel(
-      id,
-      nextLevel,
-    )
-
-    if (existingHpIncrease) {
-      throw new ValidationError(
-        `HP increase for level ${nextLevel} already exists`,
-      )
-    }
-
     const hpRule = getHpRuleForCharacter(character)
     const hpIncrease = getHpIncrease(character, hpMode)
     const hitDice = calculateHitDice({

@@ -318,6 +318,7 @@ export const characterInventoryService = {
     }
 
     const equippedItem = await characterInventoryRepository.equipItem(
+      characterId,
       itemId,
       equippedSlot,
     )

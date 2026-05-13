@@ -11,6 +11,7 @@ import type {
   CharacterProfileDto,
   EquipmentSlot,
   SpellDto,
+  SpellSlotDto,
 } from './character-sheet.types'
 import type {
   CharacterAttackEntity,
@@ -176,12 +177,38 @@ export function normalizeAbilityName(
   return null
 }
 
-export function normalizeSpellSlots(spellSlots: unknown): unknown[] {
-  if (Array.isArray(spellSlots)) {
-    return spellSlots
+export function normalizeSpellSlots(spellSlots: unknown): SpellSlotDto[] {
+  if (!Array.isArray(spellSlots)) {
+    return []
   }
 
-  return []
+  return spellSlots
+    .map((slot): SpellSlotDto | null => {
+      if (!slot || typeof slot !== 'object') {
+        return null
+      }
+
+      const rawSlot = slot as Record<string, unknown>
+
+      const level = rawSlot.level
+      const total = rawSlot.total
+      const used = rawSlot.used
+
+      if (
+        typeof level !== 'number' ||
+        typeof total !== 'number' ||
+        typeof used !== 'number'
+      ) {
+        return null
+      }
+
+      return {
+        level,
+        total,
+        used,
+      }
+    })
+    .filter((slot): slot is SpellSlotDto => slot !== null)
 }
 
 // =========================================================

@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma'
+import { Prisma } from '@prisma/client'
+import { ValidationError } from '../../shared/errors'
 
 // =========================================================
 // Types
@@ -83,45 +85,48 @@ export const characterHpRepository = {
     })
   },
 
-  // Найти HP-прибавку конкретного персонажа на конкретном уровне.
-  findHpIncreaseByLevel(characterId: string, level: number) {
-    return prisma.characterHpIncrease.findFirst({
-      where: {
-        characterId,
-        level,
-      },
-    })
-  },
-
-  levelUpWithHpIncrease(
+  async levelUpWithHpIncrease(
     id: string,
     hpIncrease: CreateHpIncreaseInput,
     hpState: LevelUpHpStateInput,
   ) {
-    return prisma.$transaction(async (tx) => {
-      await tx.characterHpIncrease.create({
-        data: {
-          characterId: id,
-          level: hpIncrease.level,
-          mode: hpIncrease.mode,
-          value: hpIncrease.value,
-          dice: hpIncrease.dice,
-          rolledValue: hpIncrease.rolledValue ?? null,
-        },
-      })
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.characterHpIncrease.create({
+          data: {
+            characterId: id,
+            level: hpIncrease.level,
+            mode: hpIncrease.mode,
+            value: hpIncrease.value,
+            dice: hpIncrease.dice,
+            rolledValue: hpIncrease.rolledValue ?? null,
+          },
+        })
 
-      return tx.character.update({
-        where: { id },
-        data: {
-          level: hpState.level,
-          currentHp: hpState.currentHp,
-          temporaryHp: hpState.temporaryHp,
-          hitDiceTotal: hpState.hitDiceTotal,
-          hitDiceDice: hpState.hitDiceDice,
-        },
-        select: characterHpStateSelect,
+        return tx.character.update({
+          where: { id },
+          data: {
+            level: hpState.level,
+            currentHp: hpState.currentHp,
+            temporaryHp: hpState.temporaryHp,
+            hitDiceTotal: hpState.hitDiceTotal,
+            hitDiceDice: hpState.hitDiceDice,
+          },
+          select: characterHpStateSelect,
+        })
       })
-    })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ValidationError(
+          `HP increase for level ${hpIncrease.level} already exists`,
+        )
+      }
+
+      throw error
+    }
   },
 
   // =========================================================
