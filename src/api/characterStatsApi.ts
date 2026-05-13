@@ -8,15 +8,23 @@ export type AbilityRollResult = {
 }
 
 export type RollCharacterStatsResult = {
-  stats: Stats
+  stats: CharacterStatsResponse
   rolls: Record<keyof Stats, AbilityRollResult>
+}
+
+export type CharacterStatsResponse = Stats & {
+  id: string
+  characterId: string
 }
 
 export function updateCharacterStats(
   characterId: string,
   baseStats: Stats
-): Promise<Stats> {
-  return httpClient.patch<Stats>(`/characters/${characterId}/stats`, baseStats)
+): Promise<CharacterStatsResponse> {
+  return httpClient.patch<CharacterStatsResponse>(
+    `/characters/${characterId}/stats`,
+    baseStats
+  )
 }
 
 export function rollCharacterStats(

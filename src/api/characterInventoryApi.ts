@@ -38,11 +38,57 @@ export type CreateItemInput = {
  */
 export type UpdateItemInput = Partial<CreateItemInput>
 
+export type ItemWeaponConfigResponse = {
+  attackType?: 'melee' | 'ranged' | 'spell'
+  ability?:
+    | 'strength'
+    | 'dexterity'
+    | 'constitution'
+    | 'intelligence'
+    | 'wisdom'
+    | 'charisma'
+  damageDice?: string
+  damageBonus?: number
+  damageType?: string
+  notes?: string | null
+}
+
+export type ItemTemplateResponse = {
+  id: string
+  name: string
+  type: ItemType | string | null
+  slot: EquipmentSlot | string | null
+  description: string | null
+  allowedSlots: EquipmentSlot[] | null
+  effects: ItemEffect[] | null
+  weaponConfig: ItemWeaponConfigResponse | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CharacterItemResponse = {
+  id: string
+  characterId: string
+  itemTemplateId: string | null
+  nameSnapshot: string
+  quantity: number
+  isEquipped: boolean
+  equippedSlot: EquipmentSlot | string | null
+  notes: string | null
+  type: ItemType | string | null
+  allowedSlots: EquipmentSlot[] | null
+  effects: ItemEffect[] | null
+  weaponConfig: ItemWeaponConfigResponse | null
+  createdAt: string
+  updatedAt: string
+  itemTemplate: ItemTemplateResponse | null
+}
+
 export function addItem(
   characterId: string,
   data: CreateItemInput
-): Promise<unknown> {
-  return httpClient.post(
+): Promise<CharacterItemResponse> {
+  return httpClient.post<CharacterItemResponse>(
     `/characters/${characterId}/items`,
     removeUndefinedValues(data)
   )
@@ -52,8 +98,8 @@ export function updateItem(
   characterId: string,
   itemId: string,
   data: UpdateItemInput
-): Promise<unknown> {
-  return httpClient.patch(
+): Promise<CharacterItemResponse> {
+  return httpClient.patch<CharacterItemResponse>(
     `/characters/${characterId}/items/${itemId}`,
     removeUndefinedValues(data)
   )
@@ -81,8 +127,8 @@ export function equipItem(
   characterId: string,
   itemId: string,
   equippedSlot?: EquipmentSlot
-): Promise<unknown> {
-  return httpClient.post(
+): Promise<CharacterItemResponse> {
+  return httpClient.post<CharacterItemResponse>(
     `/characters/${characterId}/items/${itemId}/equip`,
     equippedSlot ? { equippedSlot } : {}
   )
@@ -91,6 +137,8 @@ export function equipItem(
 export function unequipItem(
   characterId: string,
   itemId: string
-): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/items/${itemId}/unequip`)
+): Promise<CharacterItemResponse> {
+  return httpClient.post<CharacterItemResponse>(
+    `/characters/${characterId}/items/${itemId}/unequip`
+  )
 }

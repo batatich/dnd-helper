@@ -1,9 +1,20 @@
 import { httpClient } from './httpClient'
+import type { SpellSlot } from '../types/spells'
 
 export type HpState = {
   id: string
+  level: number
   currentHp: number
   temporaryHp: number
+  hitDiceTotal: number | null
+  hitDiceUsed: number
+  hitDiceDice: string | null
+  inspiration: boolean
+  deathSaveSuccesses: number
+  deathSaveFailures: number
+  spellSlots: SpellSlot[]
+  createdAt: string
+  updatedAt: string
 }
 
 export function damageCharacter(id: string, amount: number): Promise<HpState> {
@@ -25,37 +36,43 @@ export function setTemporaryHp(id: string, amount: number): Promise<HpState> {
 export function levelUpCharacter(
   characterId: string,
   hpMode: 'fixed' | 'roll'
-): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/level-up`, {
+): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${characterId}/level-up`, {
     hpMode,
   })
 }
 
-export function useHitDie(characterId: string): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/hit-dice/use`)
+export function useHitDie(characterId: string): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${characterId}/hit-dice/use`)
 }
 
-export function restoreHitDie(characterId: string): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/hit-dice/restore`)
+export function restoreHitDie(characterId: string): Promise<HpState> {
+  return httpClient.post<HpState>(`/characters/${characterId}/hit-dice/restore`)
 }
 
 export function setCharacterInspiration(
   characterId: string,
   inspiration: boolean
-): Promise<unknown> {
-  return httpClient.patch(`/characters/${characterId}/inspiration`, {
+): Promise<HpState> {
+  return httpClient.patch<HpState>(`/characters/${characterId}/inspiration`, {
     inspiration,
   })
 }
 
-export function addDeathSaveSuccess(characterId: string): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/death-saves/success`)
+export function addDeathSaveSuccess(characterId: string): Promise<HpState> {
+  return httpClient.post<HpState>(
+    `/characters/${characterId}/death-saves/success`
+  )
 }
 
-export function addDeathSaveFailure(characterId: string): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/death-saves/failure`)
+export function addDeathSaveFailure(characterId: string): Promise<HpState> {
+  return httpClient.post<HpState>(
+    `/characters/${characterId}/death-saves/failure`
+  )
 }
 
-export function resetDeathSaves(characterId: string): Promise<unknown> {
-  return httpClient.post(`/characters/${characterId}/death-saves/reset`)
+export function resetDeathSaves(characterId: string): Promise<HpState> {
+  return httpClient.post<HpState>(
+    `/characters/${characterId}/death-saves/reset`
+  )
 }
