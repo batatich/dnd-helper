@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 
 import { prisma } from './lib/prisma'
+import { AppError } from './shared/errors'
 
 import { characterRoutes } from './modules/characters/character.routes'
 import { characterHpRoutes } from './modules/character-hp/character-hp.routes'
@@ -21,6 +22,39 @@ import { CharacterSheetService } from './modules/character-sheet/character-sheet
 
 const app = Fastify({
   logger: true,
+})
+
+app.setErrorHandler((error, _request, reply) => {
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    })
+  }
+
+  const normalizedError = error as {
+    statusCode?: number
+    message?: string
+    code?: string
+  }
+
+  const statusCode =
+    typeof normalizedError.statusCode === 'number'
+      ? normalizedError.statusCode
+      : 500
+
+  if (statusCode >= 500) {
+    app.log.error(error)
+  }
+
+  return reply.status(statusCode).send({
+    message:
+      statusCode >= 500
+        ? 'Internal server error'
+        : normalizedError.message || 'Request failed',
+    code: normalizedError.code ?? 'UNHANDLED_ERROR',
+  })
 })
 
 // =========================================================
@@ -74,7 +108,7 @@ const start = async () => {
     // CORS
     // =========================================================
     await app.register(cors, {
-      origin: 'http://localhost:5173',
+      origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     })
