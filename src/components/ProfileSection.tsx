@@ -44,7 +44,7 @@ function getCharacterStats(character: Character): Stats {
     stats?: Stats | null
   }
 
-  const stats = character.baseStats ?? characterWithMaybeStats.stats
+  const stats = characterWithMaybeStats.stats
 
   return {
     strength: Number(stats?.strength ?? 10),

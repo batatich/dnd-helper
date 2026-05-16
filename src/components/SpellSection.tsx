@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { NewSpell, Spell, SpellSlot, Stats } from '../types/characters'
+import type { Stats } from '../types/characters'
+import type { NewSpell, Spell, SpellSlot } from '../types/spells'
 import { Input } from './ui/Input'
 import { Textarea } from './ui/Textarea'
 import { Button } from './ui/Button'

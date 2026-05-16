@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Attack, NewAttack, Stats } from '../types/characters'
+import type { Stats } from '../types/characters'
+import type { Attack, NewAttack } from '../types/attacks'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
 import { Textarea} from './ui/Textarea'
@@ -23,7 +24,6 @@ const createEmptyAttack = (): NewAttack => ({
   damageBonus: 0,
   damageType: 'slashing',
   notes: '',
-  source: 'manual',
 })
 
 
@@ -264,8 +264,6 @@ export function AttackSection({
       damageBonus: attack.damageBonus,
       damageType: attack.damageType,
       notes: attack.notes,
-      source: attack.source,
-      itemId: attack.itemId,
     })
   }
 
