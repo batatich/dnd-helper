@@ -1,6 +1,8 @@
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
-import type { Attack, Spell, Stats, SpellSlot } from '../../types/characters'
+import type { Stats } from '../../types/characters'
+import type { Attack } from '../../types/attacks'
+import type { Spell, SpellSlot } from '../../types/spells'
 
 type SkillPreview = {
   name: string

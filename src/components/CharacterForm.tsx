@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { useCharacterStore } from '../stores/characterProfileStore'
+import { useCharacterProfileStore } from '../stores/characterProfileStore'
+import { useCharacterStatsStore } from '../stores/characterStatsStore'
 import type { Character, Stats } from '../types/characters'
-import { calculateStartingDerivedStats } from '../utils/createCharacter'
 
 interface CharacterFormProps {
   character?: Character | null
@@ -48,12 +48,23 @@ const statLabels: Record<keyof Stats, string> = {
 
 const statKeys = Object.keys(defaultBaseStats) as (keyof Stats)[]
 
+function calculatePreviewDerivedStats(stats: Stats) {
+  const dexModifier = getModifier(stats.dexterity)
+  const conModifier = getModifier(stats.constitution)
+
+  return {
+    maxHp: Math.max(1, 8 + conModifier),
+    armorClass: 10 + dexModifier,
+    initiative: dexModifier,
+  }
+}
+
 function getCharacterStats(character?: Character | null): Stats {
   const characterWithMaybeStats = character as Character & {
     stats?: Stats | null
   }
 
-  const stats = character?.baseStats ?? characterWithMaybeStats?.stats
+  const stats = characterWithMaybeStats?.stats
 
   return {
     strength: Number(stats?.strength ?? 10),
@@ -122,10 +133,16 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
   const {
     addCharacter,
     updateCharacter,
+    isLoading: isProfileLoading,
+  } = useCharacterProfileStore()
+
+  const {
     updateCharacterStats,
     rollCharacterStats,
-    isLoading,
-  } = useCharacterStore()
+    isLoading: isStatsLoading,
+  } = useCharacterStatsStore()
+
+  const isLoading = isProfileLoading || isStatsLoading
 
   const [rolls, setRolls] = useState<AbilityRolls | null>(null)
 
@@ -141,7 +158,7 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     avatarUrl: character?.avatarUrl || '',
   })
 
-  const previewDerivedStats = calculateStartingDerivedStats(formData.baseStats)
+  const previewDerivedStats = calculatePreviewDerivedStats(formData.baseStats)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -161,7 +178,6 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
     if (character) {
       await updateCharacter(character.id, {
         name: normalizedData.name,
-        level: normalizedData.level,
         className: normalizedData.className,
         race: normalizedData.race,
         description: normalizedData.description,
@@ -177,12 +193,11 @@ export function CharacterForm({ character, onClose }: CharacterFormProps) {
         level: normalizedData.level,
         className: normalizedData.className,
         race: normalizedData.race,
-        baseStats: normalizedData.baseStats,
         description: normalizedData.description,
         alignment: normalizedData.alignment,
         background: normalizedData.background,
         avatarUrl: normalizedData.avatarUrl,
-      } as Character)
+      })
     }
 
     onClose()

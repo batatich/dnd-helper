@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { CharacterForm } from '../components/CharacterForm'
-import { useCharacterStore } from '../stores/characterProfileStore'
+import { useCharacterProfileStore } from '../stores/characterProfileStore'
 import type { Character, Stats } from '../types/characters'
 
 const defaultBaseStats: Stats = {
@@ -22,7 +22,7 @@ export function CharactersList() {
     fetchCharacters,
     isLoading,
     error,
-  } = useCharacterStore()
+  } = useCharacterProfileStore()
 
   const [showForm, setShowForm] = useState(false)
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(
@@ -57,7 +57,7 @@ export function CharactersList() {
     setCurrentCharacter(null)
   }
 
-  const validCharacters = characters.filter((character) => character.id)
+  const validCharacters = characters.filter((character: Character) => character.id)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -99,8 +99,8 @@ export function CharactersList() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {validCharacters.map((character) => {
-            const stats = character.baseStats ?? defaultBaseStats
+          {validCharacters.map((character: Character) => {
+            const stats = defaultBaseStats
 
             return (
               <div

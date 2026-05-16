@@ -14,16 +14,18 @@ import {
 import { OverviewTab } from '../components/character_sheet/OverviewTab'
 import { StatsTab } from '../components/character_sheet/StatsTab'
 
-import { useCharacterStore } from '../stores/characterStore'
+import { useCharacterProfileStore } from '../stores/characterProfileStore'
+import { useCharacterHpStore } from '../stores/characterHpStore'
+import { useCharacterAttacksStore } from '../stores/characterAttacksStore'
+import { useCharacterSpellsStore } from '../stores/characterSpellsStore'
+import { useCharacterInventoryStore } from '../stores/characterInventoryStore'
+import { useCharacterStatsStore } from '../stores/characterStatsStore'
 import { useCharacterSheetStore } from '../stores/characterSheetStore'
 
-import type { Character, NewAttack, NewSpell, Stats } from '../types/characters'
-import type {
-  CharacterItem,
-  CharacterItemForSheet,
-  EquipmentSlot,
-  ItemEffect,
-} from '../types/items'
+import type { Character, Stats } from '../types/characters'
+import type { NewAttack } from '../types/attacks'
+import type { NewSpell } from '../types/spells'
+import type { EquipmentSlot } from '../types/items'
 import type { SavingThrowBonus, SkillBonus } from '../types/characterSheet'
 
 import { formatItemEffect } from '../utils/itemEffects'
@@ -84,106 +86,6 @@ function isEquipmentSlot(value: unknown): value is EquipmentSlot {
   )
 }
 
-function parseItemNotes(notes: string | null): {
-  type?: string
-  allowedSlots?: EquipmentSlot[]
-  effects?: ItemEffect[]
-  weaponConfig?: CharacterItemForSheet['weaponConfig']
-} {
-  if (!notes) {
-    return {}
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(notes)
-
-    if (!parsed || typeof parsed !== 'object') {
-      return {}
-    }
-
-    const parsedObject = parsed as {
-      type?: unknown
-      allowedSlots?: unknown
-      effects?: unknown
-      weaponConfig?: unknown
-    }
-
-    const allowedSlots = Array.isArray(parsedObject.allowedSlots)
-      ? parsedObject.allowedSlots.filter(isEquipmentSlot)
-      : undefined
-
-    const effects = Array.isArray(parsedObject.effects)
-      ? (parsedObject.effects as ItemEffect[])
-      : undefined
-
-    return {
-      type:
-        typeof parsedObject.type === 'string'
-          ? parsedObject.type
-          : undefined,
-      allowedSlots,
-      effects,
-      weaponConfig:
-        parsedObject.weaponConfig &&
-        typeof parsedObject.weaponConfig === 'object'
-          ? (parsedObject.weaponConfig as CharacterItemForSheet['weaponConfig'])
-          : undefined,
-    }
-  } catch {
-    return {}
-  }
-}
-
-function getTemplateEffects(item: CharacterItem): ItemEffect[] {
-  const template = item.template ?? item.itemTemplate
-
-  if (!template || !Array.isArray(template.effects)) {
-    return []
-  }
-
-  return template.effects
-}
-
-function getTemplateAllowedSlots(item: CharacterItem): EquipmentSlot[] {
-  const template = item.template ?? item.itemTemplate
-
-  if (!template?.slot) {
-    return []
-  }
-
-  return isEquipmentSlot(template.slot) ? [template.slot] : []
-}
-
-function mapCharacterItemToSheetItem(
-  item: CharacterItem
-): CharacterItemForSheet {
-  const template = item.template ?? item.itemTemplate
-  const parsedNotes = parseItemNotes(item.notes)
-
-  const effectsFromTemplate = getTemplateEffects(item)
-  const effectsFromNotes = parsedNotes.effects ?? []
-
-  const allowedSlotsFromTemplate = getTemplateAllowedSlots(item)
-  const allowedSlotsFromNotes = parsedNotes.allowedSlots ?? []
-
-  return {
-    id: item.id,
-    itemId: item.id,
-    name: item.nameSnapshot || template?.name || 'Предмет',
-    type: template?.type ?? parsedNotes.type ?? 'misc',
-    effects:
-      effectsFromTemplate.length > 0 ? effectsFromTemplate : effectsFromNotes,
-    allowedSlots:
-      allowedSlotsFromTemplate.length > 0
-        ? allowedSlotsFromTemplate
-        : allowedSlotsFromNotes,
-    isEquipped: item.isEquipped,
-    equippedSlot: item.slot,
-    quantity: item.quantity,
-    notes: item.notes,
-    weaponConfig: parsedNotes.weaponConfig,
-  }
-}
 
 export function CharacterSheet() {
   const { id } = useParams()
@@ -198,32 +100,50 @@ export function CharacterSheet() {
   } = useCharacterSheetStore()
 
   const {
-    isLoading: isActionLoading,
-    updateCharacter,
-    updateCharacterStats,
-    damageCharacter,
-    healCharacter,
-    setTemporaryHp,
-    useHitDie: UseHitDieAction,
-    restoreHitDie,
-    setCharacterInspiration,
-    addDeathSaveSuccess,
-    addDeathSaveFailure,
-    resetDeathSaves,
-    addAttack,
-    updateAttack,
-    deleteAttack,
-    addSpell,
-    updateSpell,
-    deleteSpell,
-    updateSpellcastingAbility,
-    setSpellSlotTotal,
-    useSpellSlot: UseSpellSlotAction,
-    restoreSpellSlot,
-    equipItem,
-    unequipItem,
-    levelUpCharacter,
-  } = useCharacterStore()
+  updateCharacter,
+} = useCharacterProfileStore()
+
+const {
+  updateCharacterStats,
+} = useCharacterStatsStore()
+
+const {
+  isLoading: isHpLoading,
+  damageCharacter,
+  healCharacter,
+  setTemporaryHp,
+  useHitDie: hitDieUseAction,
+  restoreHitDie,
+  setCharacterInspiration,
+  addDeathSaveSuccess,
+  addDeathSaveFailure,
+  resetDeathSaves,
+  levelUpCharacter,
+} = useCharacterHpStore()
+
+const {
+  isLoading: isAttacksLoading,
+  addAttack,
+  updateAttack,
+  deleteAttack,
+} = useCharacterAttacksStore()
+
+const {
+  isLoading: isSpellsLoading,
+  addSpell,
+  updateSpell,
+  deleteSpell,
+  updateSpellcastingAbility,
+  setSpellSlotTotal,
+  useSpellSlot: spellSlotUseAction,
+  restoreSpellSlot,
+} = useCharacterSpellsStore()
+
+const {
+  isLoading: isInventoryLoading,
+  equipItem,
+  unequipItem,
+} = useCharacterInventoryStore()
 
   const [tempHpInput, setTempHpInput] = useState(0)
   const [hpChangeInput, setHpChangeInput] = useState('')
@@ -250,8 +170,6 @@ export function CharacterSheet() {
       name: updates.name?.trim() || character.name,
       race: updates.race?.trim() || character.race,
       className: updates.className?.trim() || character.className,
-
-      level: updates.level,
 
       description: updates.description ?? character.description ?? '',
       alignment: updates.alignment ?? character.alignment ?? '',
@@ -314,7 +232,7 @@ export function CharacterSheet() {
   const handleUseHitDie = async () => {
     if (!sheet) return
 
-    await UseHitDieAction(sheet.character.id)
+    await hitDieUseAction(sheet.character.id)
     await refreshCurrentSheet()
   }
 
@@ -430,7 +348,7 @@ export function CharacterSheet() {
     if (!sheet) return
 
     if (delta > 0) {
-      await UseSpellSlotAction(sheet.character.id, level)
+      await spellSlotUseAction(sheet.character.id, level)
     }
 
     if (delta < 0) {
@@ -480,7 +398,12 @@ export function CharacterSheet() {
     )
   }
 
-  const isLoading = isSheetLoading || isActionLoading
+  const isLoading =
+    isSheetLoading ||
+    isHpLoading ||
+    isAttacksLoading ||
+    isSpellsLoading ||
+    isInventoryLoading
 
   const character = sheet.character
   const derived = sheet.derived
@@ -582,9 +505,7 @@ export function CharacterSheet() {
     updatedAt: character.updatedAt,
   } as unknown as Character
 
-  const inventoryItems: CharacterItemForSheet[] = sheet.inventory.items.map(
-    mapCharacterItemToSheetItem
-  )
+  const inventoryItems = sheet.inventory.items
 
   const equippedEntries = equipmentSlots.map((slot) => {
     const item =
