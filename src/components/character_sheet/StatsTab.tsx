@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { Stats } from '../../types/characters'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 
 type HitDice = {
   total: number
@@ -378,12 +379,12 @@ export function StatsTab({
                     )}
       
                     <div className="mt-4 flex items-center gap-2 justify-center">
-                        <input
-                            type="text"
-                            value={hpChangeInput}
-                            onChange={(e) => setHpChangeInput(e.target.value)}
-                            placeholder="+5 лечение / 5 урон"
-                            className="w-32 bg-gray-700 text-white rounded-lg p-2 text-center"
+                        <Input
+                          type="text"
+                          value={hpChangeInput}
+                          onChange={(e) => setHpChangeInput(e.target.value)}
+                          placeholder="+5 лечение / 5 урон"
+                          className="w-32 text-center"
                         />
             
                         <Button
@@ -397,12 +398,12 @@ export function StatsTab({
                     </div>
       
                     <div className="mt-3 flex items-center gap-2 justify-center">
-                        <input
-                            type="number"
-                            value={tempHpInput}
-                            onChange={(e) => setTempHpInput(Number(e.target.value))}
-                            className="w-24 bg-gray-700 text-white rounded-lg p-2 text-center"
-                            min="0"
+                        <Input
+                          type="number"
+                          value={tempHpInput}
+                          onChange={(e) => setTempHpInput(Number(e.target.value))}
+                          className="w-24 text-center"
+                          min="0"
                         />
             
                         <Button
