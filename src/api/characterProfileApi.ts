@@ -7,6 +7,7 @@ export type CreateCharacterInput = {
   race: string
   className: string
   level?: number
+  baseStats?: Stats
   description?: string | null
   alignment?: string | null
   background?: string | null
@@ -19,6 +20,7 @@ export type UpdateCharacterInput = {
   name?: string
   race?: string
   className?: string
+  level?: number
   description?: string | null
   alignment?: string | null
   background?: string | null
@@ -33,6 +35,7 @@ function mapCreateCharacterPayloadToBackend(data: CreateCharacterInput) {
     race: data.race,
     className: data.className,
     level: data.level,
+    baseStats: data.baseStats,
     description: data.description,
     alignment: data.alignment,
     background: data.background,

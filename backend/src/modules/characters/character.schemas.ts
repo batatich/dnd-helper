@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { characterStatsSchema } from '../character-stats/character-stats.schemas'
 
 // =========================================================
 // Общие enum/списки
@@ -40,8 +41,8 @@ export const characterParamsSchema = z
 // Схема создания персонажа.
 //
 // Важно:
-// - create character создаёт только базового персонажа;
-// - stats создаются отдельно в repository дефолтными значениями;
+// - create character создаёт базового персонажа;
+// - stats создаются в repository из baseStats или дефолтными значениями;
 // - HP / death saves / hit dice задаются в characterService;
 // - attacks / spells / inventory создаются отдельными endpoints;
 // - null разрешён для nullable profile-полей, чтобы frontend мог явно
@@ -62,6 +63,8 @@ export const createCharacterSchema = z
     speed: z.number().int().min(0).default(30),
 
     spellcastingAbility: spellcastingAbilitySchema.nullable().optional(),
+
+    baseStats: characterStatsSchema.optional(),
   })
   .strict()
 

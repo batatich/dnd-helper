@@ -23,8 +23,6 @@ export type NewAttack = Omit<
   Attack,
   | 'id'
   | 'characterId'
-  | 'source'
-  | 'itemId'
   | 'attackBonus'
   | 'damageBonusFinal'
 >

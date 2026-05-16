@@ -20,6 +20,17 @@ export type CharacterProfileEntity = Prisma.CharacterGetPayload<{
     inspiration: true
     spellcastingAbility: true
 
+    stats: {
+      select: {
+        strength: true
+        dexterity: true
+        constitution: true
+        intelligence: true
+        wisdom: true
+        charisma: true
+      }
+    }
+
     createdAt: true
     updatedAt: true
   }
@@ -52,6 +63,15 @@ export type CharacterProfileDto = {
   inspiration: boolean
   spellcastingAbility: AbilityName | null
 
+  baseStats: {
+    strength: number
+    dexterity: number
+    constitution: number
+    intelligence: number
+    wisdom: number
+    charisma: number
+  } | null
+
   createdAt: Date
   updatedAt: Date
 }
@@ -78,6 +98,17 @@ export function toCharacterProfileDto(
     inspiration: character.inspiration,
 
     spellcastingAbility: character.spellcastingAbility as AbilityName | null,
+
+    baseStats: character.stats
+      ? {
+          strength: character.stats.strength,
+          dexterity: character.stats.dexterity,
+          constitution: character.stats.constitution,
+          intelligence: character.stats.intelligence,
+          wisdom: character.stats.wisdom,
+          charisma: character.stats.charisma,
+        }
+      : null,
 
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,

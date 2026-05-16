@@ -168,14 +168,15 @@ export type ItemTemplate = {
  */
 export type CharacterItem = {
   id: string
-  characterId: string
-  itemTemplateId: string | null
+  characterId?: string
+  itemTemplateId?: string | null
 
-  nameSnapshot: string | null
+  nameSnapshot?: string | null
   quantity: number
 
   isEquipped: boolean
   equippedSlot: EquipmentSlot | string | null
+  slot?: any
 
   notes: string | null
 
@@ -221,6 +222,9 @@ export type CharacterItem = {
 export type CharacterItemForSheet = {
   id: string
   itemId: string
+  characterId?: string
+  itemTemplateId?: string | null
+  nameSnapshot?: string | null
   name: string
 
   type: ItemType | string | null

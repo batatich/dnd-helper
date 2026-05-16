@@ -28,11 +28,9 @@ export const characterService = {
   },
 
   async createCharacter(data: CreateCharacterInput) {
-    // Пока при создании персонажа stats создаются в repository по дефолту:
-    // constitution = 10.
-    // Поэтому HP 1 уровня считаем как 8 + CON modifier.
-    // Для CON 10 модификатор = 0, значит стартовое maxHp = 8.
-    const constitution = 10
+    // Если форма передала baseStats, стартовые HP считаются от их CON.
+    // Без baseStats остаётся дефолтный CON 10.
+    const constitution = data.baseStats?.constitution ?? 10
     const conModifier = Math.floor((constitution - 10) / 2)
     const maxHp = 8 + conModifier
 

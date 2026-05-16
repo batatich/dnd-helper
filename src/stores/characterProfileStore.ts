@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Character, Stats } from '../types/characters'
+import type { Character } from '../types/characters'
 import type { CharacterSheet } from '../types/characterSheet'
 
 import {
@@ -12,14 +12,8 @@ import {
   type UpdateCharacterInput,
 } from '../api/characterProfileApi'
 
-import { updateCharacterStats as updateCharacterStatsRequest } from '../api/characterStatsApi'
-
 import { useCharacterSheetStore } from './characterSheetStore'
 import { getErrorMessage } from './characterStore.helpers'
-
-type AddCharacterInput = CreateCharacterInput & {
-  baseStats?: Stats
-}
 
 interface CharacterProfileStore {
   characters: Character[]
@@ -30,7 +24,7 @@ interface CharacterProfileStore {
   fetchCharacters: () => Promise<void>
   fetchCharacterById: (id: string) => Promise<void>
 
-  addCharacter: (character: AddCharacterInput) => Promise<void>
+  addCharacter: (character: CreateCharacterInput) => Promise<void>
   updateCharacter: (id: string, updated: UpdateCharacterInput) => Promise<void>
   deleteCharacter: (id: string) => Promise<void>
 
@@ -59,7 +53,8 @@ const mergeCharacterIntoList = (
 const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
   ...sheet.character,
   spellcastingAbility: sheet.magic.spellcastingAbility,
-})
+  baseStats: sheet.stats.base,
+} as Character)
 
 export const useCharacterProfileStore = create<CharacterProfileStore>((set, get) => ({
   characters: [],
@@ -116,32 +111,12 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
     set({ isLoading: true, error: null })
 
     try {
-      const { baseStats, ...characterPayload } = character
-
-      const createdCharacter = await createCharacterRequest(characterPayload)
+      const createdCharacter = await createCharacterRequest(character)
 
       set((state) => ({
         currentCharacter: createdCharacter,
         characters: mergeCharacterIntoList(state.characters, createdCharacter),
       }))
-
-      /**
-       * Переходный create-flow:
-       * форма создания может передать baseStats,
-       * но backend create-character пока принимает только профиль.
-       *
-       * Поэтому:
-       * 1. создаём персонажа;
-       * 2. если были baseStats — обновляем их отдельным stats action;
-       * 3. обновляем готовый sheet.
-       *
-       * Создание персонажа сразу высокого уровня не трогаем:
-       * это будущая фича.
-       */
-      if (baseStats) {
-        await updateCharacterStatsRequest(createdCharacter.id, baseStats)
-      }
-
       await get().refreshCharacterSheetAndProfile(createdCharacter.id)
 
       set({ isLoading: false })

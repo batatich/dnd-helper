@@ -16,8 +16,8 @@ import type {
 // PATCH /characters/:id
 //
 // Важно:
-// здесь НЕ подтягиваем stats / attacks / spells / items / hpIncreases.
-// Полный лист должен идти только через GET /characters/:id/sheet.
+// здесь подтягиваем только base stats для карточек/форм.
+// Полный лист должен идти через GET /characters/:id/sheet.
 const characterProfileSelect = {
   id: true,
 
@@ -36,6 +36,17 @@ const characterProfileSelect = {
   speed: true,
   inspiration: true,
   spellcastingAbility: true,
+
+  stats: {
+    select: {
+      strength: true,
+      dexterity: true,
+      constitution: true,
+      intelligence: true,
+      wisdom: true,
+      charisma: true,
+    },
+  },
 
   createdAt: true,
   updatedAt: true,
@@ -150,12 +161,12 @@ export const characterRepository = {
 
         stats: {
           create: {
-            strength: 10,
-            dexterity: 10,
-            constitution: 10,
-            intelligence: 10,
-            wisdom: 10,
-            charisma: 10,
+            strength: data.baseStats?.strength ?? 10,
+            dexterity: data.baseStats?.dexterity ?? 10,
+            constitution: data.baseStats?.constitution ?? 10,
+            intelligence: data.baseStats?.intelligence ?? 10,
+            wisdom: data.baseStats?.wisdom ?? 10,
+            charisma: data.baseStats?.charisma ?? 10,
           },
         },
       },
