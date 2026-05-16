@@ -693,42 +693,42 @@ export function CharacterSheet() {
         />
       )}
       {activeTab === 'stats' && (
-  <StatsTab
-    level={character.level}
-    isLoading={isLoading}
-    proficiencyBonus={proficiencyBonus}
-    inspiration={inspiration}
-    speed={speed}
-    hitDice={hitDice}
-    baseStats={baseStats}
-    finalStats={finalStats}
-    statModifiers={statModifiers}
-    currentHp={currentHp}
-    temporaryHp={temporaryHp}
-    finalDerivedStats={finalDerivedStats}
-    deathSaves={deathSaves}
-    hpChangeInput={hpChangeInput}
-    tempHpInput={tempHpInput}
-    savingThrowsToDisplay={savingThrowsToDisplay}
-    skillsToDisplay={skillsToDisplay}
-    passivePerception={passivePerception}
-    statLabels={statLabels}
-    statLabelsUppercase={statLabelsUppercase}
-    setHpChangeInput={setHpChangeInput}
-    setTempHpInput={setTempHpInput}
-    handleLevelUpFixed={handleLevelUpFixed}
-    handleLevelUpRoll={handleLevelUpRoll}
-    handleSetInspiration={handleSetInspiration}
-    handleUseHitDie={handleUseHitDie}
-    handleRestoreHitDie={handleRestoreHitDie}
-    handleHpChange={handleHpChange}
-    handleSetTempHp={handleSetTempHp}
-    handleAddDeathSaveSuccess={handleAddDeathSaveSuccess}
-    handleAddDeathSaveFailure={handleAddDeathSaveFailure}
-    handleResetDeathSaves={handleResetDeathSaves}
-    renderDeathSaveDots={renderDeathSaveDots}
-  />
-)}
+        <StatsTab
+          level={character.level}
+          isLoading={isLoading}
+          proficiencyBonus={proficiencyBonus}
+          inspiration={inspiration}
+          speed={speed}
+          hitDice={hitDice}
+          baseStats={baseStats}
+          finalStats={finalStats}
+          statModifiers={statModifiers}
+          currentHp={currentHp}
+          temporaryHp={temporaryHp}
+          finalDerivedStats={finalDerivedStats}
+          deathSaves={deathSaves}
+          hpChangeInput={hpChangeInput}
+          tempHpInput={tempHpInput}
+          savingThrowsToDisplay={savingThrowsToDisplay}
+          skillsToDisplay={skillsToDisplay}
+          passivePerception={passivePerception}
+          statLabels={statLabels}
+          statLabelsUppercase={statLabelsUppercase}
+          setHpChangeInput={setHpChangeInput}
+          setTempHpInput={setTempHpInput}
+          handleLevelUpFixed={handleLevelUpFixed}
+          handleLevelUpRoll={handleLevelUpRoll}
+          handleSetInspiration={handleSetInspiration}
+          handleUseHitDie={handleUseHitDie}
+          handleRestoreHitDie={handleRestoreHitDie}
+          handleHpChange={handleHpChange}
+          handleSetTempHp={handleSetTempHp}
+          handleAddDeathSaveSuccess={handleAddDeathSaveSuccess}
+          handleAddDeathSaveFailure={handleAddDeathSaveFailure}
+          handleResetDeathSaves={handleResetDeathSaves}
+          renderDeathSaveDots={renderDeathSaveDots}
+        />
+      )}
 
       {activeTab === 'attacks' && (
         <AttackSection
