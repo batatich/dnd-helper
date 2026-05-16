@@ -5,27 +5,6 @@ import type {
   UpdateSpellInput,
 } from './character-spells.schemas'
 
-// =========================================================
-// Include-конфиги
-// =========================================================
-
-// Нужен только для updateSpellSlots, чтобы вернуть персонажа
-// с тем же набором связей, что раньше возвращал character.repository.
-const characterSheetInclude = {
-  stats: true,
-  attacks: true,
-  spells: true,
-  items: {
-    include: {
-      itemTemplate: true,
-    },
-  },
-  hpIncreases: {
-    orderBy: {
-      level: 'asc',
-    },
-  },
-} as const
 
 export const characterSpellsRepository = {
   // =========================================================

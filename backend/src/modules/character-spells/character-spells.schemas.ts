@@ -8,6 +8,7 @@ export const spellParamsSchema = z.object({
   id: z.string().uuid(),
   spellId: z.string().uuid(),
 })
+.strict()
 
 export const createSpellSchema = z.object({
   name: z.string().min(1),
@@ -24,8 +25,9 @@ export const createSpellSchema = z.object({
   concentration: z.boolean().default(false),
   ritual: z.boolean().default(false),
 })
+.strict()
 
-export const updateSpellSchema = createSpellSchema.partial()
+export const updateSpellSchema = createSpellSchema.partial().strict()
 
 // =========================================================
 // Spell slots
@@ -35,24 +37,14 @@ export const spellSlotParamsSchema = z.object({
   id: z.string().uuid(),
   level: z.coerce.number().int().min(1).max(9),
 })
+.strict()
 
 export const setSpellSlotTotalBodySchema = z.object({
   total: z.number().int().min(0).max(99),
 })
-
-export const spellSlotItemSchema = z.object({
-  level: z.number().int().min(1).max(9),
-  total: z.number().int().min(0),
-  used: z.number().int().min(0),
-})
-
-export const updateSpellSlotsSchema = z.object({
-  spellSlots: z.array(spellSlotItemSchema),
-})
+.strict()
 
 export type CreateSpellInput = z.infer<typeof createSpellSchema>
 export type UpdateSpellInput = z.infer<typeof updateSpellSchema>
-export type SpellSlotItemInput = z.infer<typeof spellSlotItemSchema>
-export type UpdateSpellSlotsInput = z.infer<typeof updateSpellSlotsSchema>
 export type SpellSlotParamsInput = z.infer<typeof spellSlotParamsSchema>
 export type SetSpellSlotTotalInput = z.infer<typeof setSpellSlotTotalBodySchema>

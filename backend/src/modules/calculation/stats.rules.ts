@@ -178,3 +178,20 @@ export function isValidAbilityScore(score: number): boolean {
 export function validateAbilityScores(scores: AbilityScores): boolean {
   return abilityNames.every((ability) => isValidAbilityScore(scores[ability]))
 }
+
+export function normalizeAbilityName(
+  ability: AbilityName | string | null | undefined,
+): AbilityName | null {
+  if (
+    ability === 'strength' ||
+    ability === 'dexterity' ||
+    ability === 'constitution' ||
+    ability === 'intelligence' ||
+    ability === 'wisdom' ||
+    ability === 'charisma'
+  ) {
+    return ability
+  }
+
+  return null
+}

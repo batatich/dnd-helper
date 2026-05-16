@@ -2,6 +2,11 @@ import { ValidationError } from '../../shared/errors'
 import { characterHpRepository } from './character-hp.repository'
 import { characterRepository } from '../characters/character.repository'
 import { CharacterNotFoundError } from '../characters/errors'
+import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
 
 import {
   addDeathSaveFailure,
@@ -10,10 +15,30 @@ import {
   calculateMaxHp,
   getHpIncrease,
   getHpRuleForCharacter,
+  HitDiceConflictError,
   resetDeathSaves,
   restoreHitDie,
   useHitDie,
 } from '../calculation/hp.rules'
+
+async function calculateCharacterEffectiveMaxHp(
+  characterId: string,
+  character: Parameters<typeof calculateMaxHp>[0],
+): Promise<number> {
+  const baseMaxHp = calculateMaxHp(character)
+
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+}
 
 export const characterHpService = {
   // =========================================================
@@ -40,18 +65,6 @@ export const characterHpService = {
     }
 
     const nextLevel = character.level + 1
-
-    const existingHpIncrease = await characterHpRepository.findHpIncreaseByLevel(
-      id,
-      nextLevel,
-    )
-
-    if (existingHpIncrease) {
-      throw new ValidationError(
-        `HP increase for level ${nextLevel} already exists`,
-      )
-    }
-
     const hpRule = getHpRuleForCharacter(character)
     const hpIncrease = getHpIncrease(character, hpMode)
     const hitDice = calculateHitDice({
@@ -59,33 +72,36 @@ export const characterHpService = {
       level: nextLevel,
     })
 
-    await characterHpRepository.createHpIncrease(id, {
+    const nextHpIncreases = [
+      ...(character.hpIncreases ?? []),
+      {
+        value: hpIncrease.value,
+      },
+    ]
+
+    const maxHp = await calculateCharacterEffectiveMaxHp(id, {
+      ...character,
       level: nextLevel,
-      mode: hpMode,
-      value: hpIncrease.value,
-      dice: `1d${hpRule.hitDie}`,
-      rolledValue: hpIncrease.rolledValue ?? null,
+      hpIncreases: nextHpIncreases,
     })
 
-    const updatedCharacterForCalculation =
-      await characterHpRepository.findByIdWithHpData(id)
-
-    if (!updatedCharacterForCalculation) {
-      throw new CharacterNotFoundError(id)
-    }
-
-    const maxHp = calculateMaxHp({
-      ...updatedCharacterForCalculation,
-      level: nextLevel,
-    })
-
-    return characterHpRepository.updateLevelAndHpState(id, {
-      level: nextLevel,
-      currentHp: maxHp,
-      temporaryHp: character.temporaryHp,
-      hitDiceTotal: hitDice.total,
-      hitDiceDice: hitDice.dice,
-    })
+    return characterHpRepository.levelUpWithHpIncrease(
+      id,
+      {
+        level: nextLevel,
+        mode: hpMode,
+        value: hpIncrease.value,
+        dice: `1d${hpRule.hitDie}`,
+        rolledValue: hpIncrease.rolledValue ?? null,
+      },
+      {
+        level: nextLevel,
+        currentHp: maxHp,
+        temporaryHp: character.temporaryHp,
+        hitDiceTotal: hitDice.total,
+        hitDiceDice: hitDice.dice,
+      },
+    )
   },
 
   // Наносит урон персонажу.
@@ -95,31 +111,37 @@ export const characterHpService = {
   // 2. Остаток урона снимается с current HP.
   // 3. currentHp не может стать ниже 0.
   async damageCharacter(id: string, amount: number) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
-
-    if (!character) {
-      throw new CharacterNotFoundError(id)
+    if (amount <= 0) {
+      throw new ValidationError('Damage amount must be positive')
     }
 
-    if (amount < 0) {
-      throw new ValidationError('Damage amount cannot be negative')
-    }
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character = await characterHpRepository.findByIdWithHpData(id, tx)
 
-    let remainingDamage = amount
-    let tempHp = character.temporaryHp
-    let currentHp = character.currentHp
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
 
-    if (tempHp > 0) {
-      const absorbed = Math.min(tempHp, remainingDamage)
-      tempHp -= absorbed
-      remainingDamage -= absorbed
-    }
+      let remainingDamage = amount
+      let tempHp = character.temporaryHp
+      let currentHp = character.currentHp
 
-    currentHp = Math.max(0, currentHp - remainingDamage)
+      if (tempHp > 0) {
+        const absorbed = Math.min(tempHp, remainingDamage)
+        tempHp -= absorbed
+        remainingDamage -= absorbed
+      }
 
-    return characterHpRepository.updateHpState(id, {
-      currentHp,
-      temporaryHp: tempHp,
+      currentHp = Math.max(0, currentHp - remainingDamage)
+
+      return characterHpRepository.updateHpState(
+        id,
+        {
+          currentHp,
+          temporaryHp: tempHp,
+        },
+        tx,
+      )
     })
   },
 
@@ -130,21 +152,27 @@ export const characterHpService = {
   // - currentHp не может стать выше maxHp
   // - maxHp считается на сервере
   async healCharacter(id: string, amount: number) {
-    const character = await characterHpRepository.findByIdWithHpData(id)
-
-    if (!character) {
-      throw new CharacterNotFoundError(id)
+    if (amount <= 0) {
+      throw new ValidationError('Heal amount must be positive')
     }
 
-    if (amount < 0) {
-      throw new ValidationError('Heal amount cannot be negative')
-    }
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character = await characterHpRepository.findByIdWithHpData(id, tx)
 
-    const maxHp = calculateMaxHp(character)
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
 
-    return characterHpRepository.updateHpState(id, {
-      currentHp: Math.min(character.currentHp + amount, maxHp),
-      temporaryHp: character.temporaryHp,
+      const maxHp = await calculateCharacterEffectiveMaxHp(id, character)
+
+      return characterHpRepository.updateHpState(
+        id,
+        {
+          currentHp: Math.min(character.currentHp + amount, maxHp),
+          temporaryHp: character.temporaryHp,
+        },
+        tx,
+      )
     })
   },
 
@@ -154,19 +182,25 @@ export const characterHpService = {
   // temporary HP не лечит персонажа.
   // Это отдельный буфер здоровья.
   async setTempHp(id: string, amount: number) {
-    const character = await characterRepository.findById(id)
-
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
-
     if (amount < 0) {
       throw new ValidationError('Temporary HP cannot be negative')
     }
 
-    return characterHpRepository.updateHpState(id, {
-      currentHp: character.currentHp,
-      temporaryHp: amount,
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character = await characterHpRepository.findByIdWithHpData(id, tx)
+
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
+
+      return characterHpRepository.updateHpState(
+        id,
+        {
+          currentHp: character.currentHp,
+          temporaryHp: amount,
+        },
+        tx,
+      )
     })
   },
 
@@ -176,50 +210,64 @@ export const characterHpService = {
 
   // Использует 1 кость хитов.
   async useHitDie(id: string) {
-    const character = await characterHpRepository.findHitDiceByCharacterId(id)
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character = await characterHpRepository.findHitDiceByCharacterId(
+        id,
+        tx,
+      )
 
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
-
-    try {
-      const nextHitDice = useHitDie({
-        level: character.level,
-        hitDiceUsed: character.hitDiceUsed,
-      })
-
-      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new ValidationError(error.message)
+      if (!character) {
+        throw new CharacterNotFoundError(id)
       }
 
-      throw error
-    }
+      let nextHitDice
+
+      try {
+        nextHitDice = useHitDie({
+          level: character.level,
+          hitDiceUsed: character.hitDiceUsed,
+        })
+      } catch (error) {
+        if (error instanceof HitDiceConflictError) {
+          throw new ValidationError(error.message)
+        }
+
+        throw error
+      }
+
+      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used, tx)
+    })
   },
 
   // Восстанавливает 1 использованную кость хитов.
   async restoreHitDie(id: string) {
-    const character = await characterHpRepository.findHitDiceByCharacterId(id)
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character = await characterHpRepository.findHitDiceByCharacterId(
+        id,
+        tx,
+      )
 
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
-
-    try {
-      const nextHitDice = restoreHitDie({
-        level: character.level,
-        hitDiceUsed: character.hitDiceUsed,
-      })
-
-      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used)
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new ValidationError(error.message)
+      if (!character) {
+        throw new CharacterNotFoundError(id)
       }
 
-      throw error
-    }
+      let nextHitDice
+
+      try {
+        nextHitDice = restoreHitDie({
+          level: character.level,
+          hitDiceUsed: character.hitDiceUsed,
+        })
+      } catch (error) {
+        if (error instanceof HitDiceConflictError) {
+          throw new ValidationError(error.message)
+        }
+
+        throw error
+      }
+
+      return characterHpRepository.updateHitDiceUsed(id, nextHitDice.used, tx)
+    })
   },
 
   // =========================================================
@@ -243,44 +291,53 @@ export const characterHpService = {
 
   // Добавляет 1 успешный спасбросок от смерти.
   async addDeathSaveSuccess(id: string) {
-    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character =
+        await characterHpRepository.findDeathSavesByCharacterId(id, tx)
 
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
 
-    const nextDeathSaves = addDeathSaveSuccess({
-      successes: character.deathSaveSuccesses,
-      failures: character.deathSaveFailures,
+      const nextDeathSaves = addDeathSaveSuccess({
+        successes: character.deathSaveSuccesses,
+        failures: character.deathSaveFailures,
+      })
+
+      return characterHpRepository.updateDeathSaves(id, nextDeathSaves, tx)
     })
-
-    return characterHpRepository.updateDeathSaves(id, nextDeathSaves)
   },
 
   // Добавляет 1 проваленный спасбросок от смерти.
   async addDeathSaveFailure(id: string) {
-    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character =
+        await characterHpRepository.findDeathSavesByCharacterId(id, tx)
 
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
 
-    const nextDeathSaves = addDeathSaveFailure({
-      successes: character.deathSaveSuccesses,
-      failures: character.deathSaveFailures,
+      const nextDeathSaves = addDeathSaveFailure({
+        successes: character.deathSaveSuccesses,
+        failures: character.deathSaveFailures,
+      })
+
+      return characterHpRepository.updateDeathSaves(id, nextDeathSaves, tx)
     })
-
-    return characterHpRepository.updateDeathSaves(id, nextDeathSaves)
   },
 
   // Сбрасывает спасброски от смерти.
   async resetDeathSaves(id: string) {
-    const character = await characterHpRepository.findDeathSavesByCharacterId(id)
+    return characterHpRepository.withLockedCharacter(id, async (tx) => {
+      const character =
+        await characterHpRepository.findDeathSavesByCharacterId(id, tx)
 
-    if (!character) {
-      throw new CharacterNotFoundError(id)
-    }
+      if (!character) {
+        throw new CharacterNotFoundError(id)
+      }
 
-    return characterHpRepository.updateDeathSaves(id, resetDeathSaves())
+      return characterHpRepository.updateDeathSaves(id, resetDeathSaves(), tx)
+    })
   },
 }

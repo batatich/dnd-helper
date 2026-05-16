@@ -17,64 +17,63 @@ datasource db {
 // ОСНОВНАЯ СУЩНОСТЬ ПЕРСОНАЖА
 // =========================
 model Character {
-  id                   String   @id @default(uuid()) // Уникальный ID персонажа
+  id String @id @default(uuid()) // Уникальный ID персонажа
 
   // --- БАЗОВАЯ ИНФОРМАЦИЯ ---
-  name                 String
-  race                 String
-  className            String
-  level                Int      @default(1)
+  name      String
+  race      String
+  className String
+  level     Int    @default(1)
 
-  description          String?
-  alignment            String?
-  background           String?
-  avatarUrl            String?
+  description String?
+  alignment   String?
+  background  String?
+  avatarUrl   String?
 
   // --- HP ---
-  currentHp            Int      @default(0) // текущее здоровье
-  temporaryHp          Int      @default(0) // временные хп
+  currentHp   Int @default(0) // текущее здоровье
+  temporaryHp Int @default(0) // временные хп
 
   // --- ОБЩИЕ ПОЛЯ ---
-  speed                Int      @default(30)
-  inspiration          Boolean  @default(false)
+  speed       Int     @default(30)
+  inspiration Boolean @default(false)
 
   // --- МАГИЯ ---
-  spellcastingAbility  String?
+  spellcastingAbility String?
 
   // --- DEATH SAVES ---
-  deathSaveSuccesses   Int      @default(0)
-  deathSaveFailures    Int      @default(0)
+  deathSaveSuccesses Int @default(0)
+  deathSaveFailures  Int @default(0)
 
   // --- HIT DICE ---
-  hitDiceTotal         Int?     // общее количество костей (обычно = level)
-  hitDiceUsed          Int      @default(0) // сколько уже потрачено
-  hitDiceDice          String?  // тип кости (например "1d8")
+  hitDiceTotal Int? // общее количество костей (обычно = level)
+  hitDiceUsed  Int     @default(0) // сколько уже потрачено
+  hitDiceDice  String? // тип кости (например "1d8")
 
   /// Для первой версии удобно хранить spell slots как Json
   /// пример: [{ "level": 1, "total": 2, "used": 1 }]
-  spellSlots           Json?
+  spellSlots Json?
 
   // --- СИСТЕМНЫЕ ПОЛЯ ---
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // --- СВЯЗИ ---
-  stats                CharacterStats?
-  attacks              CharacterAttack[]
-  spells               CharacterSpell[]
-  items                CharacterItem[]
+  stats   CharacterStats?
+  attacks CharacterAttack[]
+  spells  CharacterSpell[]
+  items   CharacterItem[]
 
   // 🔥 НОВОЕ: история прироста HP
-  hpIncreases          CharacterHpIncrease[]
+  hpIncreases CharacterHpIncrease[]
 }
-
 
 // =========================
 // СТАТЫ ПЕРСОНАЖА
 // =========================
 model CharacterStats {
-  id           String   @id @default(uuid())
-  characterId  String   @unique
+  id          String @id @default(uuid())
+  characterId String @unique
 
   // Базовые характеристики
   strength     Int
@@ -85,21 +84,20 @@ model CharacterStats {
   charisma     Int
 
   // Связь с персонажем
-  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
-
 
 // =========================
 // АТАКИ ПЕРСОНАЖА
 // =========================
 model CharacterAttack {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   characterId String
 
-  name        String
-  attackType  String?
-  ability     String?
-  proficient  Boolean  @default(false)
+  name       String
+  attackType String?
+  ability    String?
+  proficient Boolean @default(false)
 
   damageDice  String?
   damageBonus Int?
@@ -107,26 +105,25 @@ model CharacterAttack {
   notes       String?
 
   /// manual | item (откуда появилась атака)
-  source      String?
+  source String?
 
   /// если атака создана предметом
-  itemId      String?
+  itemId String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId])
 }
-
 
 // =========================
 // ЗАКЛИНАНИЯ ПЕРСОНАЖА
 // =========================
 model CharacterSpell {
-  id            String   @id @default(uuid())
-  characterId   String
+  id          String @id @default(uuid())
+  characterId String
 
   name          String
   level         Int
@@ -135,90 +132,133 @@ model CharacterSpell {
   range         String?
   components    String?
   duration      String?
-  concentration Boolean  @default(false)
-  ritual        Boolean  @default(false)
+  concentration Boolean @default(false)
+  ritual        Boolean @default(false)
   description   String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId])
 }
-
 
 // =========================
 // ШАБЛОНЫ ПРЕДМЕТОВ (СПРАВОЧНИК)
 // =========================
 model ItemTemplate {
-  id             String   @id @default(uuid())
-  name           String
-  type           String?
-  slot           String?
-  description    String?
+  id          String  @id @default(uuid())
+  name        String
+  type        String?
+  slot        String?
+  description String?
 
-  /// Эффекты предмета (пока JSON)
-  effects        Json?
+  /// Куда предмет можно экипировать.
+  /// Пример: ["mainHand", "offHand"]
+  allowedSlots Json?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  /// Эффекты предмета.
+  /// Пример: [{ "type": "statBonus", "stat": "strength", "value": 2 }]
+  effects Json?
+
+  /// Конфиг оружия для generated attacks.
+  /// Пример:
+  /// {
+  ///   "attackType": "melee",
+  ///   "ability": "strength",
+  ///   "damageDice": "1d8",
+  ///   "damageBonus": 0,
+  ///   "damageType": "slashing"
+  /// }
+  weaponConfig Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   characterItems CharacterItem[]
 }
-
 
 // =========================
 // ПРЕДМЕТЫ У ПЕРСОНАЖА
 // =========================
 model CharacterItem {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   characterId    String
   itemTemplateId String?
 
-  /// снапшот имени (чтобы не ломался при изменении шаблона)
-  nameSnapshot   String
+  /// Снапшот имени.
+  /// Для шаблонного предмета может копировать ItemTemplate.name.
+  /// Для кастомного предмета является основным названием.
+  nameSnapshot String
 
-  quantity       Int      @default(1)
-  isEquipped     Boolean  @default(false)
-  slot           String?
-  notes          String?
+  quantity Int @default(1)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  /// Факт экипировки.
+  /// Саму экипировку делаем только через отдельный equip endpoint.
+  isEquipped Boolean @default(false)
 
-  character      Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  itemTemplate   ItemTemplate? @relation(fields: [itemTemplateId], references: [id], onDelete: SetNull)
+  /// Текущий слот, куда предмет экипирован.
+  /// Пока НЕ переименовываем в equippedSlot, чтобы не смешивать задачи.
+  equippedSlot   String?
+
+  /// Обычная текстовая заметка игрока.
+  /// Больше не используем как JSON-контейнер игровых правил.
+  notes String?
+
+  /// Кастомный тип конкретного предмета.
+  /// Если null — берём type из ItemTemplate.
+  type String?
+
+  /// Кастомные допустимые слоты конкретного предмета.
+  /// Если null — берём allowedSlots из ItemTemplate.
+  /// Пример: ["mainHand", "offHand"]
+  allowedSlots Json?
+
+  /// Кастомные эффекты конкретного предмета.
+  /// Если null — берём effects из ItemTemplate.
+  effects Json?
+
+  /// Кастомный weaponConfig конкретного предмета.
+  /// Если null — берём weaponConfig из ItemTemplate.
+  weaponConfig Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  character    Character     @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  itemTemplate ItemTemplate? @relation(fields: [itemTemplateId], references: [id], onDelete: SetNull)
 
   @@index([characterId])
   @@index([itemTemplateId])
+  @@unique([characterId, equippedSlot])
 }
-
 
 // =========================
 // 🔥 НОВАЯ ТАБЛИЦА: ИСТОРИЯ HP
 // =========================
 model CharacterHpIncrease {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  characterId  String
-  level        Int      // уровень, на котором был прирост
+  characterId String
+  level       Int // уровень, на котором был прирост
 
   /// fixed | roll
-  mode         String
+  mode String
 
   /// фактическая прибавка HP (например 5 или 7)
-  value        Int
+  value Int
 
   /// тип кости (например "1d8")
-  dice         String
+  dice String
 
   /// если был бросок — сохраняем результат
-  rolledValue  Int?
+  rolledValue Int?
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@index([characterId])
+  @@unique([characterId, level])
 }

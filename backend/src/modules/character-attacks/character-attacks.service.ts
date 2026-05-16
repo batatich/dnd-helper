@@ -1,10 +1,14 @@
 import { characterAttacksRepository } from './character-attacks.repository'
 import { characterRepository } from '../characters/character.repository'
-import { CharacterNotFoundError } from '../characters/errors'
 import type {
   CreateAttackInput,
   UpdateAttackInput,
 } from './character-attacks.schemas'
+import {
+  AttackNotFoundError,
+  AttackOwnershipError,
+  CharacterNotFoundError,
+} from '../characters/errors'
 
 export const characterAttacksService = {
   // Создать атаку персонажа
@@ -30,6 +34,16 @@ export const characterAttacksService = {
       throw new CharacterNotFoundError(characterId)
     }
 
+    const attack = await characterAttacksRepository.findAttackById(attackId)
+
+    if (!attack) {
+      throw new AttackNotFoundError(attackId)
+    }
+
+    if (attack.characterId !== characterId) {
+      throw new AttackOwnershipError(characterId, attackId)
+    }
+
     return characterAttacksRepository.updateAttack(attackId, data)
   },
 
@@ -39,6 +53,16 @@ export const characterAttacksService = {
 
     if (!character) {
       throw new CharacterNotFoundError(characterId)
+    }
+
+    const attack = await characterAttacksRepository.findAttackById(attackId)
+
+    if (!attack) {
+      throw new AttackNotFoundError(attackId)
+    }
+
+    if (attack.characterId !== characterId) {
+      throw new AttackOwnershipError(characterId, attackId)
     }
 
     return characterAttacksRepository.deleteAttack(attackId)

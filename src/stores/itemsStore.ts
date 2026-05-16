@@ -1,80 +1,60 @@
 import { create } from 'zustand'
-import type { Item } from '../types/items'
-import { items as initialItems } from '../data/items'
-
-const STORAGE_KEY = 'dnd-items'
-
-const loadItems = (): Item[] => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-
-    if (!saved) {
-      return initialItems
-    }
-
-    const parsed = JSON.parse(saved)
-
-    if (!Array.isArray(parsed)) {
-      return initialItems
-    }
-
-    return parsed
-  } catch (error) {
-    console.error('Failed to load items from localStorage:', error)
-    return initialItems
-  }
-}
-
-const saveItems = (items: Item[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-  } catch (error) {
-    console.error('Failed to save items to localStorage:', error)
-  }
-}
+import { getItemTemplates } from '../api/itemApi'
+import type { ItemTemplateResponse } from '../types/items'
 
 interface ItemsStore {
-  items: Item[]
-  addItem: (item: Item) => void
-  updateItem: (id: string, updated: Partial<Item>) => void
-  deleteItem: (id: string) => void
-  setItems: (items: Item[]) => void
+  items: ItemTemplateResponse[]
+  isLoading: boolean
+  error: string | null
+
+  fetchItems: () => Promise<void>
+  setItems: (items: ItemTemplateResponse[]) => void
+  clearItems: () => void
+}
+
+const getErrorMessage = (fallback: string, error: unknown): string => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  return fallback
 }
 
 export const useItemsStore = create<ItemsStore>((set) => ({
-  items: loadItems(),
+  items: [],
+  isLoading: false,
+  error: null,
 
-  addItem: (item) =>
-    set((state) => {
-      const newItems = [...state.items, item]
-      saveItems(newItems)
-      return { items: newItems }
-    }),
+  fetchItems: async () => {
+    set({ isLoading: true, error: null })
 
-  updateItem: (id, updated) =>
-    set((state) => {
-      const newItems = state.items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...updated,
-            }
-          : item
-      )
+    try {
+      const items = await getItemTemplates()
 
-      saveItems(newItems)
-      return { items: newItems }
-    }),
+      set({
+        items,
+        isLoading: false,
+      })
+    } catch (error) {
+      console.error('Failed to fetch item templates:', error)
 
-  deleteItem: (id) =>
-    set((state) => {
-      const newItems = state.items.filter((item) => item.id !== id)
-      saveItems(newItems)
-      return { items: newItems }
-    }),
+      set({
+        error: getErrorMessage('Не удалось загрузить справочник предметов', error),
+        isLoading: false,
+      })
+
+      throw error
+    }
+  },
 
   setItems: (items) => {
-    saveItems(items)
     set({ items })
+  },
+
+  clearItems: () => {
+    set({
+      items: [],
+      error: null,
+    })
   },
 }))

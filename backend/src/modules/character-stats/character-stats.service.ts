@@ -1,13 +1,49 @@
-import { ValidationError } from '../../shared/errors'
 import { calculateMaxHp } from '../calculation/hp.rules'
 import {
   rollAbilityScores,
   type AbilityScores,
 } from '../calculation/stats.rules'
-import { characterRepository } from '../characters/character.repository'
 import { characterHpRepository } from '../character-hp/character-hp.repository'
 import { characterStatsRepository } from './character-stats.repository'
 import { CharacterNotFoundError } from '../characters/errors'
+import { characterInventoryRepository } from '../character-inventory/character-inventory.repository'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
+
+async function calculateCharacterEffectiveMaxHp(
+  characterId: string,
+  baseMaxHp: number,
+): Promise<number> {
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  return calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+}
+
+function getNextCurrentHp(input: {
+  currentHp: number
+  previousMaxHp: number
+  nextMaxHp: number
+}): number | undefined {
+  if (input.currentHp >= input.previousMaxHp) {
+    return input.nextMaxHp
+  }
+
+  if (input.currentHp > input.nextMaxHp) {
+    return input.nextMaxHp
+  }
+
+  return undefined
+}
 
 export const characterStatsService = {
   // Ручное обновление базовых характеристик персонажа.
@@ -17,9 +53,10 @@ export const characterStatsService = {
   // 2. Сохраняем stats через upsert:
   //    - если stats есть — обновляем
   //    - если stats нет — создаём
-  // 3. Пересчитываем maxHp, потому что constitution влияет на HP 1 уровня.
-  // 4. Если currentHp стал выше нового maxHp — обрезаем currentHp.
-  // 5. Возвращаем обновлённого персонажа вместе с данными листа.
+  // 3. Пересчитываем base maxHp, потому что constitution влияет на HP 1 уровня.
+  // 4. Добавляем hpBonus от экипированных предметов.
+  // 5. Если currentHp стал выше нового effective maxHp — обрезаем currentHp.
+  // 6. Возвращаем обновлённые stats.
   async updateCharacterStats(id: string, stats: AbilityScores) {
     const character = await characterHpRepository.findByIdWithHpData(id)
 
@@ -27,22 +64,41 @@ export const characterStatsService = {
       throw new CharacterNotFoundError(id)
     }
 
-    const updatedStats = await characterStatsRepository.upsertStats(id, stats)
-
-    const maxHp = calculateMaxHp({
+    const previousBaseMaxHp = calculateMaxHp({
       ...character,
-      stats: updatedStats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    if (character.currentHp > maxHp) {
-      await characterHpRepository.updateHpState(id, {
-        currentHp: maxHp,
-        temporaryHp: character.temporaryHp,
-      })
-    }
+    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
+      id,
+      previousBaseMaxHp,
+    )
 
-    return characterRepository.findByIdWithSheet(id)
+    const nextBaseMaxHp = calculateMaxHp({
+      ...character,
+      stats,
+      hpIncreases: character.hpIncreases ?? [],
+    })
+
+    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
+    const nextCurrentHp = getNextCurrentHp({
+      currentHp: character.currentHp,
+      previousMaxHp,
+      nextMaxHp,
+    })
+
+    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
+      id,
+      stats,
+      nextCurrentHp !== undefined
+        ? {
+            currentHp: nextCurrentHp,
+            temporaryHp: character.temporaryHp,
+          }
+        : undefined,
+    )
+
+    return updatedStats
   },
 
   // Генерация базовых характеристик через 4d6 drop lowest.
@@ -64,28 +120,41 @@ export const characterStatsService = {
 
     const result = rollAbilityScores()
 
-    const updatedStats = await characterStatsRepository.upsertStats(
-      id,
-      result.stats,
-    )
-
-    const maxHp = calculateMaxHp({
+    const previousBaseMaxHp = calculateMaxHp({
       ...character,
-      stats: updatedStats,
       hpIncreases: character.hpIncreases ?? [],
     })
 
-    if (character.currentHp > maxHp) {
-      await characterHpRepository.updateHpState(id, {
-        currentHp: maxHp,
-        temporaryHp: character.temporaryHp,
-      })
-    }
+    const previousMaxHp = await calculateCharacterEffectiveMaxHp(
+      id,
+      previousBaseMaxHp,
+    )
 
-    const updatedCharacter = await characterRepository.findByIdWithSheet(id)
+    const nextBaseMaxHp = calculateMaxHp({
+      ...character,
+      stats: result.stats,
+      hpIncreases: character.hpIncreases ?? [],
+    })
+
+    const nextMaxHp = await calculateCharacterEffectiveMaxHp(id, nextBaseMaxHp)
+    const nextCurrentHp = getNextCurrentHp({
+      currentHp: character.currentHp,
+      previousMaxHp,
+      nextMaxHp,
+    })
+
+    const updatedStats = await characterStatsRepository.upsertStatsAndClampHp(
+      id,
+      result.stats,
+      nextCurrentHp !== undefined
+        ? {
+            currentHp: nextCurrentHp,
+            temporaryHp: character.temporaryHp,
+          }
+        : undefined,
+    )
 
     return {
-      character: updatedCharacter,
       stats: updatedStats,
       rolls: result.rolls,
     }

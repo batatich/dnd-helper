@@ -1,13 +1,31 @@
-import type {
-  Attack,
-  Character,
-  Spell,
-  SpellSlot,
-  Stats,
-} from './characters'
-import type { CharacterItem } from './items'
+import type { Stats } from './characters'
+import type { Attack } from './attacks'
+import type { Spell, SpellSlot } from './spells'
+import type { CharacterItemForSheet } from './items'
 
 export type AbilityName = keyof Stats
+
+export type CharacterProfile = {
+  id: string
+
+  name: string
+  race: string
+  className: string
+  level: number
+
+  description: string | null
+  alignment: string | null
+  background: string | null
+  avatarUrl: string | null
+
+  currentHp: number
+  temporaryHp: number
+  speed: number
+  inspiration: boolean
+
+  createdAt: string
+  updatedAt: string
+}
 
 export type SkillBonus = {
   name: string
@@ -43,16 +61,16 @@ export type HpIncrease = {
   value: number
   dice: string
   rolledValue: number | null
-  createdAt: string | Date
+  createdAt: string
 }
 
 export type CharacterSheet = {
-  character: Character
+  character: CharacterProfile
 
   stats: {
     base: Stats
     final: Stats
-    modifiers: Stats
+    modifiers: Record<AbilityName, number>
   }
 
   derived: {
@@ -79,8 +97,8 @@ export type CharacterSheet = {
   }
 
   inventory: {
-    items: CharacterItem[]
-    equippedItems: CharacterItem[]
+    items: CharacterItemForSheet[]
+    equippedItems: CharacterItemForSheet[]
   }
 
   progression: {

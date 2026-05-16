@@ -4,17 +4,15 @@ import {
   createSpellSchema,
   spellParamsSchema,
   updateSpellSchema,
-  updateSpellSlotsSchema,
   setSpellSlotTotalBodySchema,
   spellSlotParamsSchema,
 } from './character-spells.schemas'
 import { characterSpellsService } from './character-spells.service'
-import { CharacterNotFoundError } from '../characters/errors'
 import {
+  CharacterNotFoundError,
   SpellNotFoundError,
   SpellOwnershipError,
 } from '../characters/errors'
-import { ValidationError } from '../../shared/errors'
 import { SpellSlotConflictError } from '../calculation/spell-slots.rules'
 
 
@@ -43,10 +41,11 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await characterSpellsService.addSpell(
+      const spell = await characterSpellsService.addSpell(
         paramsParsed.data.id,
         bodyParsed.data,
       )
+      return reply.status(201).send(spell)
     } catch (error) {
       if (error instanceof CharacterNotFoundError) {
         return reply.status(404).send({ message: error.message })
@@ -126,47 +125,6 @@ export async function characterSpellsRoutes(app: FastifyInstance) {
   })
 
   // =========================================================
-  // Spell slots
-  // =========================================================
-
-  // Обновить spell slots персонажа
-  app.patch('/characters/:id/spell-slots', async (request, reply) => {
-    const paramsParsed = characterParamsSchema.safeParse(request.params)
-    const bodyParsed = updateSpellSlotsSchema.safeParse(request.body)
-
-    if (!paramsParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: paramsParsed.error.flatten(),
-      })
-    }
-
-    if (!bodyParsed.success) {
-      return reply.status(400).send({
-        message: 'Validation error',
-        errors: bodyParsed.error.flatten(),
-      })
-    }
-
-    try {
-      return await characterSpellsService.updateCharacterSpellSlots(
-        paramsParsed.data.id,
-        bodyParsed.data.spellSlots,
-      )
-    } catch (error) {
-      if (error instanceof CharacterNotFoundError) {
-        return reply.status(404).send({ message: error.message })
-      }
-
-      if (error instanceof ValidationError) {
-        return reply.status(400).send({ message: error.message })
-      }
-
-      throw error
-    }
-  })
-
-    // =========================================================
   // Spell slots: set total
   // =========================================================
   // PATCH /characters/:id/spell-slots/:level/total

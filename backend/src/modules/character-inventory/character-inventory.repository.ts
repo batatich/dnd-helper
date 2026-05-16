@@ -1,15 +1,71 @@
+import { Prisma } from '@prisma/client'
+
 import { prisma } from '../../lib/prisma'
+
 import type {
   CreateItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
+import { ItemSlotAlreadyOccupiedError } from '../characters/errors'
+
+type CreateCharacterItemRepositoryInput = Omit<
+  CreateItemInput,
+  'nameSnapshot'
+> & {
+  nameSnapshot: string
+}
+
+const characterItemInclude = {
+  itemTemplate: true,
+} as const
+
+function toNullableJsonInput(
+  value: unknown | null | undefined,
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (value === null) {
+    return Prisma.DbNull
+  }
+
+  return value as Prisma.InputJsonValue
+}
 
 export const characterInventoryRepository = {
-  // =========================================================
-  // Item templates
-  // =========================================================
+  findByCharacterId(characterId: string) {
+    return prisma.characterItem.findMany({
+      where: {
+        characterId,
+      },
+      include: characterItemInclude,
+      orderBy: {
+        createdAt: 'asc',
+      },
+    })
+  },
 
-  // Получить все шаблоны предметов
+  findItemById(itemId: string) {
+    return prisma.characterItem.findUnique({
+      where: {
+        id: itemId,
+      },
+      include: characterItemInclude,
+    })
+  },
+
+  findEquippedItemBySlot(characterId: string, equippedSlot: string) {
+    return prisma.characterItem.findFirst({
+      where: {
+        characterId,
+        isEquipped: true,
+        equippedSlot,
+      },
+      include: characterItemInclude,
+    })
+  },
+
   findAllItemTemplates() {
     return prisma.itemTemplate.findMany({
       orderBy: {
@@ -18,7 +74,6 @@ export const characterInventoryRepository = {
     })
   },
 
-  // Найти шаблон предмета по ID
   findItemTemplateById(itemTemplateId: string) {
     return prisma.itemTemplate.findUnique({
       where: {
@@ -27,70 +82,44 @@ export const characterInventoryRepository = {
     })
   },
 
-  // =========================================================
-  // Character items
-  // =========================================================
-
-  // Найти предмет персонажа по ID
-  findItemById(itemId: string) {
-    return prisma.characterItem.findUnique({
-      where: {
-        id: itemId,
-      },
-      include: {
-        itemTemplate: true,
-      },
-    })
-  },
-
-  // Получить все предметы конкретного персонажа
-  findItemsByCharacterId(characterId: string) {
-    return prisma.characterItem.findMany({
-      where: {
-        characterId,
-      },
-      include: {
-        itemTemplate: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    })
-  },
-
-  // Найти экипированный предмет в конкретном слоте
-  findEquippedItemBySlot(characterId: string, slot: string) {
-    return prisma.characterItem.findFirst({
-      where: {
-        characterId,
-        slot,
-        isEquipped: true,
-      },
-      include: {
-        itemTemplate: true,
-      },
-    })
-  },
-
-  // Добавить предмет в инвентарь персонажа
-  addItem(characterId: string, data: CreateItemInput & { nameSnapshot: string }) {
+  createItem(characterId: string, data: CreateCharacterItemRepositoryInput) {
     return prisma.characterItem.create({
       data: {
         characterId,
+
         itemTemplateId: data.itemTemplateId ?? null,
+
+        /**
+         * Если nameSnapshot не пришёл, service должен был подставить
+         * имя из ItemTemplate до вызова repository.
+         */
         nameSnapshot: data.nameSnapshot,
+
         quantity: data.quantity ?? 1,
-        isEquipped: data.isEquipped ?? false,
-        slot: data.slot ?? null,
+
         notes: data.notes ?? null,
+
+        /**
+         * Игровые поля конкретного CharacterItem.
+         *
+         * Они нужны для кастомных предметов без ItemTemplate:
+         * - кастомный меч
+         * - кастомное кольцо
+         * - кастомная броня
+         * - предмет с собственными эффектами
+         */
+        type: data.type ?? null,
+
+        allowedSlots: toNullableJsonInput(data.allowedSlots),
+
+        effects: toNullableJsonInput(data.effects),
+
+        weaponConfig: toNullableJsonInput(data.weaponConfig),
       },
-      include: {
-        itemTemplate: true,
-      },
+      include: characterItemInclude,
     })
   },
 
-  // Обновить предмет персонажа
   updateItem(itemId: string, data: UpdateItemInput) {
     return prisma.characterItem.update({
       where: {
@@ -100,50 +129,72 @@ export const characterInventoryRepository = {
         ...(data.nameSnapshot !== undefined && {
           nameSnapshot: data.nameSnapshot,
         }),
+
         ...(data.quantity !== undefined && {
           quantity: data.quantity,
         }),
-        ...(data.isEquipped !== undefined && {
-          isEquipped: data.isEquipped,
-        }),
-        ...(data.slot !== undefined && {
-          slot: data.slot,
-        }),
+
         ...(data.notes !== undefined && {
           notes: data.notes,
         }),
+
+        ...(data.type !== undefined && {
+          type: data.type,
+        }),
+
+        ...(data.allowedSlots !== undefined && {
+          allowedSlots: toNullableJsonInput(data.allowedSlots),
+        }),
+
+        ...(data.effects !== undefined && {
+          effects: toNullableJsonInput(data.effects),
+        }),
+
+        ...(data.weaponConfig !== undefined && {
+          weaponConfig: toNullableJsonInput(data.weaponConfig),
+        }),
       },
-      include: {
-        itemTemplate: true,
-      },
+      include: characterItemInclude,
     })
   },
 
-  // Удалить предмет персонажа
   deleteItem(itemId: string) {
     return prisma.characterItem.delete({
       where: {
         id: itemId,
       },
+      include: characterItemInclude,
     })
   },
 
-  // Экипировать предмет
-  equipItem(itemId: string) {
-    return prisma.characterItem.update({
-      where: {
-        id: itemId,
-      },
-      data: {
-        isEquipped: true,
-      },
-      include: {
-        itemTemplate: true,
-      },
-    })
+  async equipItem(
+    characterId: string,
+    itemId: string,
+    equippedSlot: string,
+  ) {
+    try {
+      return await prisma.characterItem.update({
+        where: {
+          id: itemId,
+        },
+        data: {
+          isEquipped: true,
+          equippedSlot,
+        },
+        include: characterItemInclude,
+      })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
+      }
+
+      throw error
+    }
   },
 
-  // Снять предмет
   unequipItem(itemId: string) {
     return prisma.characterItem.update({
       where: {
@@ -151,10 +202,9 @@ export const characterInventoryRepository = {
       },
       data: {
         isEquipped: false,
+        equippedSlot: null,
       },
-      include: {
-        itemTemplate: true,
-      },
+      include: characterItemInclude,
     })
   },
 }

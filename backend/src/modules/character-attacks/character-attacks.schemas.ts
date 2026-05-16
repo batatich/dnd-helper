@@ -4,34 +4,35 @@ import { z } from 'zod'
 // Character Attacks
 // =========================================================
 
-export const attackSourceSchema = z.enum(['manual', 'item'])
-
 export const attackParamsSchema = z.object({
   id: z.string().uuid(),
   attackId: z.string().uuid(),
 })
 
+export const attackTypeSchema = z.enum(['melee', 'ranged', 'spell'])
+
+export const attackAbilitySchema = z.enum([
+  'strength',
+  'dexterity',
+  'constitution',
+  'intelligence',
+  'wisdom',
+  'charisma',
+])
+
 export const createAttackSchema = z.object({
   name: z.string().min(1),
-  attackType: z.enum(['melee', 'ranged', 'spell']),
-  ability: z.enum([
-    'strength',
-    'dexterity',
-    'constitution',
-    'intelligence',
-    'wisdom',
-    'charisma',
-  ]),
+  attackType: attackTypeSchema,
+  ability: attackAbilitySchema,
   proficient: z.boolean().default(false),
   damageDice: z.string().nullable().optional(),
   damageBonus: z.number().int().default(0),
   damageType: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  source: attackSourceSchema.default('manual'),
-  itemId: z.string().uuid().nullable().optional(),
-})
+}) 
+.strict()
 
-export const updateAttackSchema = createAttackSchema.partial()
+export const updateAttackSchema = createAttackSchema.partial().strict()
 
 export type CreateAttackInput = z.infer<typeof createAttackSchema>
 export type UpdateAttackInput = z.infer<typeof updateAttackSchema>

@@ -1,16 +1,17 @@
-import { httpClient } from './httpClient.ts'
+import type { ItemTemplateResponse } from '../types/items'
+import { httpClient } from './httpClient'
 
-export type ItemTemplate = {
-  id: string
-  name: string
-  type?: string | null
-  slot?: string | null
-  description?: string | null
-  effects?: unknown
-  createdAt: string
-  updatedAt: string
-}
-
-export function getItemTemplates(): Promise<ItemTemplate[]> {
-  return httpClient.get<ItemTemplate[]>('/items')
+/**
+ * Получить справочник шаблонов предметов.
+ *
+ * ItemTemplate — это backend-шаблон предмета:
+ * - name
+ * - type
+ * - slot legacy/fallback
+ * - allowedSlots
+ * - effects
+ * - weaponConfig
+ */
+export function getItemTemplates(): Promise<ItemTemplateResponse[]> {
+  return httpClient.get<ItemTemplateResponse[]>('/items')
 }

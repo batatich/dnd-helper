@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 
 import { prisma } from './lib/prisma'
+import { AppError } from './shared/errors'
 
 import { characterRoutes } from './modules/characters/character.routes'
 import { characterHpRoutes } from './modules/character-hp/character-hp.routes'
@@ -23,6 +24,39 @@ const app = Fastify({
   logger: true,
 })
 
+app.setErrorHandler((error, _request, reply) => {
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    })
+  }
+
+  const normalizedError = error as {
+    statusCode?: number
+    message?: string
+    code?: string
+  }
+
+  const statusCode =
+    typeof normalizedError.statusCode === 'number'
+      ? normalizedError.statusCode
+      : 500
+
+  if (statusCode >= 500) {
+    app.log.error(error)
+  }
+
+  return reply.status(statusCode).send({
+    message:
+      statusCode >= 500
+        ? 'Internal server error'
+        : normalizedError.message || 'Request failed',
+    code: normalizedError.code ?? 'UNHANDLED_ERROR',
+  })
+})
+
 // =========================================================
 // Адаптеры для CharacterSheetService
 // =========================================================
@@ -31,8 +65,8 @@ const app = Fastify({
 // и передаём их в CharacterSheetService в нужном формате.
 
 const characterForSheetRepository = {
-  findById: (id: string) =>
-    characterRepository.findByIdWithSheet(id) as Promise<any>,
+  findByIdForSheet: (id: string) => 
+    characterRepository.findByIdForSheet(id),
 }
 
 const characterStatsRepository = {
@@ -52,7 +86,7 @@ const characterSpellRepository = {
 
 const characterItemRepository = {
   findByCharacterId: (characterId: string) =>
-    characterInventoryDbRepository.findItemsByCharacterId(characterId),
+    characterInventoryDbRepository.findByCharacterId(characterId),
 }
 
 // =========================================================
@@ -74,7 +108,7 @@ const start = async () => {
     // CORS
     // =========================================================
     await app.register(cors, {
-      origin: 'http://localhost:5173',
+      origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     })
@@ -99,16 +133,9 @@ const start = async () => {
     })
 
     // =========================================================
-    // ВАЖНО:
-    // characterSheetRoutes регистрируем ДО characterRoutes.
-    //
-    // Иначе маршрут:
-    // GET /characters/:id
-    //
-    // может перехватить:
-    // GET /characters/:id/sheet
-    //
-    // и ты снова получишь обычного персонажа без derived.
+    // Регистрируем characterSheetRoutes рядом с остальными character routes.
+    // GET /characters/:id/sheet — отдельный endpoint готового sheet.
+    // Основной characterRoutes оставляем ниже для читаемости структуры.
     // =========================================================
     await app.register(characterSheetRoutes, {
       characterSheetService,

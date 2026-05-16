@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 import { CharacterNotFoundError } from '../characters/errors'
 import { characterParamsSchema } from '../characters/character.schemas'
@@ -27,18 +27,28 @@ export async function characterSheetRoutes(
       const parsed = characterParamsSchema.safeParse(request.params)
 
       if (!parsed.success) {
-        return reply.status(400).send({ message: 'Validation error' })
+        return reply.status(400).send({
+          message: 'Validation error',
+          errors: parsed.error.flatten(),
+        })
       }
 
       try {
-        const sheet = await characterSheetService.getCharacterSheet(parsed.data.id)
+        const sheet = await characterSheetService.getCharacterSheet(
+          parsed.data.id,
+        )
+
         return reply.send(sheet)
       } catch (error: unknown) {
         if (error instanceof CharacterNotFoundError) {
           return reply.status(404).send({ message: error.message })
         }
 
-        return reply.status(500).send({ message: 'Internal server error' })
+        app.log.error(error)
+
+        return reply.status(500).send({
+          message: 'Internal server error',
+        })
       }
     },
   )

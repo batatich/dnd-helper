@@ -4,15 +4,58 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
 }
 
+type ApiErrorPayload = {
+  message?: string
+  error?: string
+  errors?: unknown
+  details?: unknown
+}
+
+export class ApiError extends Error {
+  status: number
+  details: unknown
+
+  constructor(message: string, status: number, details?: unknown) {
+    super(message)
+
+    this.name = 'ApiError'
+    this.status = status
+    this.details = details
+  }
+}
+
+function parseErrorPayload(text: string): {
+  message: string
+  details?: unknown
+} {
+  if (!text) {
+    return {
+      message: 'Request failed',
+    }
+  }
+
+  try {
+    const data = JSON.parse(text) as ApiErrorPayload
+
+    return {
+      message: data.message ?? data.error ?? 'Request failed',
+      details: data.errors ?? data.details ?? data,
+    }
+  } catch {
+    return {
+      message: text,
+    }
+  }
+}
+
 async function request<T>(
   path: string,
-  options: RequestOptions = {},
+  options: RequestOptions = {}
 ): Promise<T> {
   // Content-Type добавляем только тогда, когда реально есть body.
-  // Это важно для DELETE-запросов:
-  // если отправить DELETE без body, но с Content-Type: application/json,
-  // Fastify может вернуть ошибку:
-  // "Body cannot be empty when content-type is set to 'application/json'"
+  // Это важно для Fastify:
+  // если отправить запрос без body, но с Content-Type: application/json,
+  // backend может вернуть ошибку empty JSON body.
   const headers: HeadersInit = {
     ...(options.body !== undefined
       ? { 'Content-Type': 'application/json' }
@@ -29,27 +72,20 @@ async function request<T>(
         : undefined,
   })
 
+  const text = await response.text()
+
   if (!response.ok) {
-    let message = 'Request failed'
+    const { message, details } = parseErrorPayload(text)
 
-    try {
-      const data = await response.json()
-      message = data.message ?? message
-    } catch {
-      // Сервер мог вернуть не JSON.
-      // В таком случае оставляем стандартное сообщение.
-    }
-
-    throw new Error(message)
+    throw new ApiError(message, response.status, details)
   }
 
-  // DELETE часто возвращает 204 No Content.
-  // В таком ответе нет JSON, поэтому response.json() вызвал бы ошибку.
-  if (response.status === 204) {
+  // 204 No Content или 200/201 без body.
+  if (!text) {
     return undefined as T
   }
 
-  return response.json()
+  return JSON.parse(text) as T
 }
 
 export const httpClient = {

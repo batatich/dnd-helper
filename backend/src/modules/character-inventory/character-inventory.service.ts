@@ -1,6 +1,5 @@
 import { ValidationError } from '../../shared/errors'
 import { characterRepository } from '../characters/character.repository'
-import { characterInventoryRepository } from './character-inventory.repository'
 import {
   CharacterNotFoundError,
   InvalidItemQuantityError,
@@ -12,10 +11,150 @@ import {
   ItemSlotMissingError,
   ItemTemplateNotFoundError,
 } from '../characters/errors'
+import { characterInventoryRepository } from './character-inventory.repository'
 import type {
   CreateItemInput,
+  EquipItemInput,
   UpdateItemInput,
 } from './character-inventory.schemas'
+import { characterHpRepository } from '../character-hp/character-hp.repository'
+import { calculateMaxHp } from '../calculation/hp.rules'
+import {
+  calculateEffectiveMaxHp,
+  normalizeItemEffects,
+} from '../calculation/item-effects.rules'
+
+async function clampCurrentHpToEffectiveMaxHp(characterId: string) {
+  const character = await characterHpRepository.findByIdWithHpData(characterId)
+
+  if (!character) {
+    throw new CharacterNotFoundError(characterId)
+  }
+
+  const baseMaxHp = calculateMaxHp(character)
+
+  const items = await characterInventoryRepository.findByCharacterId(characterId)
+
+  const equippedItems = items
+    .filter((item) => item.isEquipped)
+    .map((item) => ({
+      effects: normalizeItemEffects(
+        item.effects ?? item.itemTemplate?.effects ?? null,
+      ),
+    }))
+
+  const maxHp = calculateEffectiveMaxHp(baseMaxHp, equippedItems)
+
+  if (character.currentHp <= maxHp) {
+    return
+  }
+
+  await characterHpRepository.updateHpState(characterId, {
+    currentHp: maxHp,
+    temporaryHp: character.temporaryHp,
+  })
+}
+
+type EquipmentSlot =
+  | 'mainHand'
+  | 'offHand'
+  | 'head'
+  | 'body'
+  | 'ring1'
+  | 'ring2'
+  | 'amulet'
+  | 'boots'
+
+const equipmentSlots: EquipmentSlot[] = [
+  'mainHand',
+  'offHand',
+  'head',
+  'body',
+  'ring1',
+  'ring2',
+  'amulet',
+  'boots',
+]
+
+function isEquipmentSlot(value: unknown): value is EquipmentSlot {
+  return (
+    typeof value === 'string' &&
+    equipmentSlots.includes(value as EquipmentSlot)
+  )
+}
+
+function normalizeAllowedSlotsFromValue(value: unknown): EquipmentSlot[] {
+  if (value === null || value === undefined) {
+    return []
+  }
+
+  if (isEquipmentSlot(value)) {
+    return [value]
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(isEquipmentSlot)
+  }
+
+  return []
+}
+
+function resolveAllowedSlots(input: {
+  itemAllowedSlots?: unknown | null
+  templateAllowedSlots?: unknown | null
+  templateSlot?: string | null
+}): EquipmentSlot[] {
+  /**
+   * Приоритет:
+   * 1. CharacterItem.allowedSlots
+   * 2. ItemTemplate.allowedSlots
+   * 3. ItemTemplate.slot
+   *
+   * Важно:
+   * [] считается осознанным значением: предмет не имеет доступных слотов.
+   */
+  if (input.itemAllowedSlots !== null && input.itemAllowedSlots !== undefined) {
+    return normalizeAllowedSlotsFromValue(input.itemAllowedSlots)
+  }
+
+  if (
+    input.templateAllowedSlots !== null &&
+    input.templateAllowedSlots !== undefined
+  ) {
+    return normalizeAllowedSlotsFromValue(input.templateAllowedSlots)
+  }
+
+  return normalizeAllowedSlotsFromValue(input.templateSlot)
+}
+
+function resolveEquipSlot(input: {
+  requestedSlot?: EquipmentSlot
+  allowedSlots: EquipmentSlot[]
+}): EquipmentSlot {
+  const { requestedSlot, allowedSlots } = input
+
+  if (allowedSlots.length === 0) {
+    throw new ValidationError(
+      'Item cannot be equipped because it has no equipment slot',
+    )
+  }
+
+  if (requestedSlot) {
+    if (!allowedSlots.includes(requestedSlot)) {
+      throw new ValidationError(
+        `Item cannot be equipped in slot "${requestedSlot}"`,
+      )
+    }
+
+    return requestedSlot
+  }
+
+  if (allowedSlots.length === 1) {
+    return allowedSlots[0]
+  }
+
+  throw new ItemSlotMissingError()
+}
 
 export const characterInventoryService = {
   async getItemTemplates() {
@@ -55,22 +194,7 @@ export const characterInventoryService = {
       )
     }
 
-    if (data.isEquipped && !data.slot) {
-      throw new ItemSlotMissingError()
-    }
-
-    if (data.isEquipped && data.slot) {
-      const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
-        characterId,
-        data.slot,
-      )
-
-      if (occupiedItem) {
-        throw new ItemSlotAlreadyOccupiedError(data.slot, characterId)
-      }
-    }
-
-    return characterInventoryRepository.addItem(characterId, {
+    return characterInventoryRepository.createItem(characterId, {
       ...data,
       nameSnapshot: resolvedNameSnapshot,
     })
@@ -91,7 +215,41 @@ export const characterInventoryService = {
       throw new InvalidItemQuantityError(data.quantity)
     }
 
-    return characterInventoryRepository.updateItem(itemId, data)
+    if (
+      item.isEquipped &&
+      data.quantity !== undefined &&
+      data.quantity !== 1
+    ) {
+      throw new ValidationError(
+        'Equipped item quantity must be 1. Unequip item before changing quantity.',
+      )
+    }
+
+    /**
+     * Если предмет уже экипирован и мы меняем allowedSlots,
+     * нельзя оставить его в слоте, который больше не разрешён.
+     */
+    if (item.isEquipped && item.equippedSlot && data.allowedSlots !== undefined) {
+      const nextAllowedSlots = resolveAllowedSlots({
+        itemAllowedSlots: data.allowedSlots,
+        templateAllowedSlots: item.itemTemplate?.allowedSlots ?? null,
+        templateSlot: item.itemTemplate?.slot ?? null,
+      })
+
+      if (!nextAllowedSlots.includes(item.equippedSlot as EquipmentSlot)) {
+        throw new ValidationError(
+          `Equipped item cannot stay in slot "${item.equippedSlot}" with provided allowedSlots`,
+        )
+      }
+    }
+
+    const updatedItem = await characterInventoryRepository.updateItem(itemId, data)
+
+    if (item.isEquipped) {
+      await clampCurrentHpToEffectiveMaxHp(characterId)
+    }
+
+    return updatedItem
   },
 
   async deleteItem(characterId: string, itemId: string) {
@@ -105,10 +263,20 @@ export const characterInventoryService = {
       throw new ItemOwnershipError(characterId, itemId)
     }
 
-    await characterInventoryRepository.deleteItem(itemId)
+    const deletedItem = await characterInventoryRepository.deleteItem(itemId)
+
+    if (item.isEquipped) {
+      await clampCurrentHpToEffectiveMaxHp(characterId)
+    }
+
+    return deletedItem
   },
 
-  async equipItem(characterId: string, itemId: string) {
+  async equipItem(
+    characterId: string,
+    itemId: string,
+    data: EquipItemInput = {},
+  ) {
     const item = await characterInventoryRepository.findItemById(itemId)
 
     if (!item) {
@@ -123,20 +291,41 @@ export const characterInventoryService = {
       throw new ItemAlreadyEquippedError(itemId)
     }
 
-    if (!item.slot) {
-      throw new ItemSlotMissingError(itemId)
+    if (item.quantity !== 1) {
+      throw new ValidationError(
+        'Only single items can be equipped. Split stacked equipment first.',
+      )
     }
 
-    const occupiedItem = await characterInventoryRepository.findEquippedItemBySlot(
-      characterId,
-      item.slot,
-    )
+    const allowedSlots = resolveAllowedSlots({
+      itemAllowedSlots: item.allowedSlots,
+      templateAllowedSlots: item.itemTemplate?.allowedSlots ?? null,
+      templateSlot: item.itemTemplate?.slot ?? null,
+    })
+
+    const equippedSlot = resolveEquipSlot({
+      requestedSlot: data.equippedSlot,
+      allowedSlots,
+    })
+    const occupiedItem =
+      await characterInventoryRepository.findEquippedItemBySlot(
+        characterId,
+        equippedSlot,
+      )
 
     if (occupiedItem && occupiedItem.id !== itemId) {
-      throw new ItemSlotAlreadyOccupiedError(item.slot, characterId)
+      throw new ItemSlotAlreadyOccupiedError(equippedSlot, characterId)
     }
 
-    return characterInventoryRepository.equipItem(itemId)
+    const equippedItem = await characterInventoryRepository.equipItem(
+      characterId,
+      itemId,
+      equippedSlot,
+    )
+
+    await clampCurrentHpToEffectiveMaxHp(characterId)
+
+    return equippedItem
   },
 
   async unequipItem(characterId: string, itemId: string) {
@@ -154,6 +343,10 @@ export const characterInventoryService = {
       throw new ItemNotEquippedError(itemId)
     }
 
-    return characterInventoryRepository.unequipItem(itemId)
+    const unequippedItem = await characterInventoryRepository.unequipItem(itemId)
+
+    await clampCurrentHpToEffectiveMaxHp(characterId)
+
+    return unequippedItem
   },
 }

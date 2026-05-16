@@ -109,9 +109,9 @@ export class ItemSlotMissingError extends ForbiddenError {
 
 // Ошибка: слот уже занят другим предметом
 export class ItemSlotAlreadyOccupiedError extends ForbiddenError {
-  constructor(slot: string, characterId?: string) {
-    super(`Item slot "${slot}" is already occupied`, {
-      slot,
+  constructor(equippedSlot: string, characterId?: string) {
+    super(`Item slot "${equippedSlot}" is already occupied`, {
+      equippedSlot,
       characterId,
     })
   }
