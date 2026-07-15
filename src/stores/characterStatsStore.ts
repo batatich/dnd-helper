@@ -7,7 +7,6 @@ import {
   type RollCharacterStatsResult,
 } from '../api/characterStatsApi'
 
-import { useCharacterProfileStore } from './characterProfileStore'
 import { getErrorMessage } from './characterStore.helpers'
 
 interface CharacterStatsStore {
@@ -27,7 +26,6 @@ export const useCharacterStatsStore = create<CharacterStatsStore>((set) => ({
 
     try {
       await updateCharacterStatsRequest(id, stats)
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -51,7 +49,6 @@ export const useCharacterStatsStore = create<CharacterStatsStore>((set) => ({
     try {
       const result = await rollCharacterStatsRequest(id)
 
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
 

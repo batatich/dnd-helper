@@ -1,7 +1,7 @@
 import type { Stats } from './characters'
 import type { Attack } from './attacks'
 import type { Spell, SpellSlot } from './spells'
-import type { CharacterItemForSheet } from './items'
+import type { CharacterItemDto } from './items'
 
 export type AbilityName = keyof Stats
 
@@ -97,8 +97,8 @@ export type CharacterSheet = {
   }
 
   inventory: {
-    items: CharacterItemForSheet[]
-    equippedItems: CharacterItemForSheet[]
+    items: CharacterItemDto[]
+    equippedItems: CharacterItemDto[]
   }
 
   progression: {

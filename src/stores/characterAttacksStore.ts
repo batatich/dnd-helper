@@ -7,7 +7,6 @@ import {
   deleteAttack as deleteAttackRequest,
 } from '../api/characterAttacksApi'
 
-import { useCharacterProfileStore } from './characterProfileStore'
 import { getErrorMessage } from './characterStore.helpers'
 
 interface CharacterAttacksStore {
@@ -32,9 +31,6 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
 
     try {
       await addAttackRequest(characterId, attack)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -54,9 +50,6 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
 
     try {
       await updateAttackRequest(characterId, attackId, attack)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -76,9 +69,6 @@ export const useCharacterAttacksStore = create<CharacterAttacksStore>((set) => (
 
     try {
       await deleteAttackRequest(characterId, attackId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {

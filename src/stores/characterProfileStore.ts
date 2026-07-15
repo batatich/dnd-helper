@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { Character } from '../types/characters'
-import type { CharacterSheet } from '../types/characterSheet'
 
 import {
   getCharacters as getCharactersRequest,
@@ -29,7 +28,6 @@ interface CharacterProfileStore {
   deleteCharacter: (id: string) => Promise<void>
 
   refreshCharacterProfile: (characterId: string) => Promise<void>
-  refreshCharacterSheetAndProfile: (characterId: string) => Promise<void>
 
   setCurrentCharacter: (character: Character | null) => void
   clearCurrentCharacter: () => void
@@ -50,13 +48,7 @@ const mergeCharacterIntoList = (
   )
 }
 
-const mapSheetToCharacter = (sheet: CharacterSheet): Character => ({
-  ...sheet.character,
-  spellcastingAbility: sheet.magic.spellcastingAbility,
-  baseStats: sheet.stats.base,
-} as Character)
-
-export const useCharacterProfileStore = create<CharacterProfileStore>((set, get) => ({
+export const useCharacterProfileStore = create<CharacterProfileStore>((set) => ({
   characters: [],
   currentCharacter: null,
   isLoading: false,
@@ -117,8 +109,6 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
         currentCharacter: createdCharacter,
         characters: mergeCharacterIntoList(state.characters, createdCharacter),
       }))
-      await get().refreshCharacterSheetAndProfile(createdCharacter.id)
-
       set({ isLoading: false })
     } catch (error) {
       console.error('Failed to create character:', error)
@@ -145,8 +135,6 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
             : state.currentCharacter,
         characters: mergeCharacterIntoList(state.characters, updatedCharacter),
       }))
-
-      await get().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -195,26 +183,6 @@ export const useCharacterProfileStore = create<CharacterProfileStore>((set, get)
 
   refreshCharacterProfile: async (characterId) => {
     const refreshedCharacter = await getCharacterByIdRequest(characterId)
-
-    set((state) => ({
-      currentCharacter:
-        state.currentCharacter?.id === characterId
-          ? refreshedCharacter
-          : state.currentCharacter,
-      characters: mergeCharacterIntoList(state.characters, refreshedCharacter),
-    }))
-  },
-
-  refreshCharacterSheetAndProfile: async (characterId) => {
-    const sheet = await useCharacterSheetStore
-      .getState()
-      .fetchCharacterSheet(characterId)
-
-    if (!sheet) {
-      return
-    }
-
-    const refreshedCharacter = mapSheetToCharacter(sheet)
 
     set((state) => ({
       currentCharacter:

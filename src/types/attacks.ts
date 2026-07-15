@@ -25,6 +25,8 @@ export type NewAttack = Omit<
   | 'characterId'
   | 'attackBonus'
   | 'damageBonusFinal'
+  | 'source'
+  | 'itemId'
 >
 
 export type AttackUpdate = Partial<NewAttack>

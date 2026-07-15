@@ -1,5 +1,5 @@
 import type {
-  CharacterItemResponse,
+  CharacterItemMutationResult,
   EquipmentSlot,
   ItemEffect,
   ItemType,
@@ -42,8 +42,8 @@ export type UpdateItemInput = Partial<CreateItemInput>
 export function addItem(
   characterId: string,
   data: CreateItemInput
-): Promise<CharacterItemResponse> {
-  return httpClient.post<CharacterItemResponse>(
+): Promise<CharacterItemMutationResult> {
+  return httpClient.post<CharacterItemMutationResult>(
     `/characters/${characterId}/items`,
     removeUndefinedValues(data)
   )
@@ -53,8 +53,8 @@ export function updateItem(
   characterId: string,
   itemId: string,
   data: UpdateItemInput
-): Promise<CharacterItemResponse> {
-  return httpClient.patch<CharacterItemResponse>(
+): Promise<CharacterItemMutationResult> {
+  return httpClient.patch<CharacterItemMutationResult>(
     `/characters/${characterId}/items/${itemId}`,
     removeUndefinedValues(data)
   )
@@ -82,8 +82,8 @@ export function equipItem(
   characterId: string,
   itemId: string,
   equippedSlot?: EquipmentSlot
-): Promise<CharacterItemResponse> {
-  return httpClient.post<CharacterItemResponse>(
+): Promise<CharacterItemMutationResult> {
+  return httpClient.post<CharacterItemMutationResult>(
     `/characters/${characterId}/items/${itemId}/equip`,
     equippedSlot ? { equippedSlot } : {}
   )
@@ -92,8 +92,8 @@ export function equipItem(
 export function unequipItem(
   characterId: string,
   itemId: string
-): Promise<CharacterItemResponse> {
-  return httpClient.post<CharacterItemResponse>(
+): Promise<CharacterItemMutationResult> {
+  return httpClient.post<CharacterItemMutationResult>(
     `/characters/${characterId}/items/${itemId}/unequip`
   )
 }

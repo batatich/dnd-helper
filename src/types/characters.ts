@@ -1,6 +1,5 @@
 import type { Attack } from './attacks'
 import type { Spell, SpellSlot } from './spells'
-import type { CharacterItem, EquipmentSlot } from './items'
 
 export type Stats = {
   strength: number
@@ -36,7 +35,6 @@ export type HitDice = {
   dice: string
 }
 
-export type EquippedItems = Record<EquipmentSlot, string | null>
 
 export type Character = {
   id: string
@@ -69,9 +67,6 @@ export type Character = {
   savingThrowProficiencies?: (keyof Stats)[]
   deathSaves?: DeathSaves
   hitDice?: HitDice
-
-  inventory?: CharacterItem[]
-  equippedItems?: EquippedItems
 
   createdAt: string
   updatedAt: string

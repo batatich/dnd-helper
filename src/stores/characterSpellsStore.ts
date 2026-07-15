@@ -13,7 +13,6 @@ import {
   restoreSpellSlot as restoreSpellSlotRequest,
 } from '../api/characterSpellsApi'
 
-import { useCharacterProfileStore } from './characterProfileStore'
 import { getErrorMessage } from './characterStore.helpers'
 
 interface CharacterSpellsStore {
@@ -51,9 +50,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await addSpellRequest(characterId, spell)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -73,9 +69,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await updateSpellRequest(characterId, spellId, spell)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -95,9 +88,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await deleteSpellRequest(characterId, spellId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -117,9 +107,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await updateSpellcastingAbilityRequest(characterId, ability)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -142,9 +129,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await setSpellSlotTotalRequest(characterId, level, total)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -167,9 +151,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await useSpellSlotRequest(characterId, level)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -192,9 +173,6 @@ export const useCharacterSpellsStore = create<CharacterSpellsStore>((set) => ({
 
     try {
       await restoreSpellSlotRequest(characterId, level)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {

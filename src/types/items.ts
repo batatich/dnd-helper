@@ -73,7 +73,7 @@ export type ItemWeaponConfigResponse = {
   notes?: string | null
 }
 
-export type ItemTemplateResponse = {
+export type ItemTemplateDto = {
   id: string
   name: string
   type: ItemType | string | null
@@ -86,7 +86,7 @@ export type ItemTemplateResponse = {
   updatedAt: string
 }
 
-export type CharacterItemResponse = {
+export type CharacterItemMutationResult = {
   id: string
   characterId: string
   itemTemplateId: string | null
@@ -101,7 +101,7 @@ export type CharacterItemResponse = {
   weaponConfig: ItemWeaponConfigResponse | null
   createdAt: string
   updatedAt: string
-  itemTemplate: ItemTemplateResponse | null
+  itemTemplate: ItemTemplateDto | null
 }
 
 /**
@@ -130,7 +130,7 @@ export type Item = {
  * - weaponConfig нужен для генерации атак от оружия;
  * - effects должен приходить как игровые эффекты шаблона.
  */
-export type ItemTemplate = {
+type LegacyItemTemplate = {
   id: string
   name: string
 
@@ -166,7 +166,7 @@ export type ItemTemplate = {
  * - type/allowedSlots/effects/weaponConfig могут жить прямо в CharacterItem,
  *   если предмет кастомный и не имеет полноценного ItemTemplate.
  */
-export type CharacterItem = {
+export type LegacyCharacterItem = {
   id: string
   characterId?: string
   itemTemplateId?: string | null
@@ -176,7 +176,6 @@ export type CharacterItem = {
 
   isEquipped: boolean
   equippedSlot: EquipmentSlot | string | null
-  slot?: any
 
   notes: string | null
 
@@ -195,13 +194,11 @@ export type CharacterItem = {
   createdAt?: string | Date
   updatedAt?: string | Date
 
-  itemTemplate?: ItemTemplate | null
 
   /**
    * Временная совместимость со старыми местами фронта,
    * где могло использоваться template вместо itemTemplate.
    */
-  template?: ItemTemplate | null
 }
 
 /**
@@ -219,7 +216,7 @@ export type CharacterItem = {
  * - notes остаётся обычной заметкой;
  * - UI больше не должен парсить notes ради type/effects/allowedSlots.
  */
-export type CharacterItemForSheet = {
+export type CharacterItemDto = {
   id: string
   itemId: string
   characterId?: string

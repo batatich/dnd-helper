@@ -13,7 +13,6 @@ import {
   resetDeathSaves as resetDeathSavesRequest,
 } from '../api/characterHpApi'
 
-import { useCharacterProfileStore } from './characterProfileStore'
 import { getErrorMessage } from './characterStore.helpers'
 
 interface CharacterHpStore {
@@ -47,7 +46,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await damageCharacterRequest(id, amount)
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -67,7 +65,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await healCharacterRequest(id, amount)
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -87,7 +84,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await setTemporaryHpRequest(id, amount)
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -107,7 +103,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await levelUpCharacterRequest(id, hpMode)
-      await useCharacterProfileStore.getState().refreshCharacterSheetAndProfile(id)
 
       set({ isLoading: false })
     } catch (error) {
@@ -130,9 +125,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await useHitDieRequest(characterId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -152,9 +144,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await restoreHitDieRequest(characterId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -174,9 +163,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await setCharacterInspirationRequest(characterId, inspiration)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -199,9 +185,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await addDeathSaveSuccessRequest(characterId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -224,9 +207,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await addDeathSaveFailureRequest(characterId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {
@@ -249,9 +229,6 @@ export const useCharacterHpStore = create<CharacterHpStore>((set) => ({
 
     try {
       await resetDeathSavesRequest(characterId)
-      await useCharacterProfileStore
-        .getState()
-        .refreshCharacterSheetAndProfile(characterId)
 
       set({ isLoading: false })
     } catch (error) {

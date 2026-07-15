@@ -11,7 +11,6 @@ import {
   type UpdateItemInput,
 } from '../api/characterInventoryApi'
 
-import { useCharacterProfileStore } from './characterProfileStore'
 import { getErrorMessage } from './characterStore.helpers'
 
 interface CharacterInventoryStore {
@@ -43,10 +42,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
       try {
         await addItemRequest(characterId, item)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
         set({ isLoading: false })
       } catch (error) {
         console.error('Failed to add item:', error)
@@ -65,10 +60,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
       try {
         await updateItemRequest(characterId, itemId, item)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
         set({ isLoading: false })
       } catch (error) {
         console.error('Failed to update item:', error)
@@ -87,10 +78,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
       try {
         await deleteItemRequest(characterId, itemId)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
         set({ isLoading: false })
       } catch (error) {
         console.error('Failed to delete item:', error)
@@ -109,10 +96,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
       try {
         await equipItemRequest(characterId, itemId, equippedSlot)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
         set({ isLoading: false })
       } catch (error) {
         console.error('Failed to equip item:', error)
@@ -131,10 +114,6 @@ export const useCharacterInventoryStore = create<CharacterInventoryStore>(
 
       try {
         await unequipItemRequest(characterId, itemId)
-        await useCharacterProfileStore
-          .getState()
-          .refreshCharacterSheetAndProfile(characterId)
-
         set({ isLoading: false })
       } catch (error) {
         console.error('Failed to unequip item:', error)

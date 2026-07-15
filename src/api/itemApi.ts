@@ -1,4 +1,4 @@
-import type { ItemTemplateResponse } from '../types/items'
+import type { ItemTemplateDto } from '../types/items'
 import { httpClient } from './httpClient'
 
 /**
@@ -12,6 +12,6 @@ import { httpClient } from './httpClient'
  * - effects
  * - weaponConfig
  */
-export function getItemTemplates(): Promise<ItemTemplateResponse[]> {
-  return httpClient.get<ItemTemplateResponse[]>('/items')
+export function getItemTemplates(): Promise<ItemTemplateDto[]> {
+  return httpClient.get<ItemTemplateDto[]>('/items')
 }
